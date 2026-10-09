@@ -80,13 +80,20 @@ More in [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md).
 
 ## Roadmap
 
+Done:
 - [x] **1. Walker + generated voxel terrain + kettle lakes**
-- [x] **2. Oaks + wildflowers** (flowers pulled forward from phase 3)
-- [x] **2.5 Configurable voxel size** (`--block-size`) + docs
-- [x] **Greedy meshing** (about 5× fewer triangles; 0.25 m blocks are now comfortable)
-- [x] **Disc throwing, step 1**: a block fired from you that bounces off ground and trunks, clatters through branches, gets swallowed by leaves, and floats in lakes
-- [ ] Disc flight physics (lift, drag, spin, fade) in `disc.gd`'s `apply_aero()`
+- [x] **2. Oaks + wildflowers**: branching oaks in 5 forms, habitat-based wildflowers with wind sway
+- [x] **Configurable voxel size** (`--block-size`) + docs
+- [x] **Greedy meshing** (about 5× fewer triangles; 0.25 m blocks are comfortable)
+- [x] **Disc throwing, step 1**: a block fired from you that bounces off ground and trunks, clatters through branches, gets swallowed by leaves, and floats in lakes. Power keys, fetch (ride a flying disc!), beam toggle, collect (discs roll home).
+
+Next (pick any):
+- [ ] **Disc flight physics**: flat disc, lift/drag/spin/fade in `disc.gd`'s `apply_aero()`; discs resting in trees; baskets
+- [ ] **Wind grass**: instanced voxel tufts, reusing the flower sway shader
+- [ ] More tree variety (tuning, species, autumn)
 - [ ] Auto-walk toggle (helps over VNC, where held keys arrive as taps)
-- [ ] 3. Wind grass (instanced voxel tufts, reusing the flower sway shader)
-- [ ] 4. Disc golf 🥏 (rigid-body disc, lift/drag/fade, throw gesture)
-- [ ] 5. Polish: day cycle, ambient sound, chunk streaming for bigger worlds
+
+Explore later:
+- [ ] Background/threaded tree building with a grow-in animation
+- [ ] Bigger worlds; infinite streaming world (region-local lakes/trees, chunks built as you walk)
+- [ ] Polish: day cycle, ambient sound
