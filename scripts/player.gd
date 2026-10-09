@@ -83,6 +83,12 @@ static func _ensure_input_actions() -> void:
 		"jump": [KEY_SPACE],
 		"sprint": [KEY_SHIFT],
 		"new_world": [KEY_N],
+		"fetch": [KEY_F],
+		"throw_1": [KEY_1, KEY_KP_1], "throw_2": [KEY_2, KEY_KP_2],
+		"throw_3": [KEY_3, KEY_KP_3], "throw_4": [KEY_4, KEY_KP_4],
+		"throw_5": [KEY_5, KEY_KP_5], "throw_6": [KEY_6, KEY_KP_6],
+		"throw_7": [KEY_7, KEY_KP_7], "throw_8": [KEY_8, KEY_KP_8],
+		"throw_9": [KEY_9, KEY_KP_9], "throw_10": [KEY_0, KEY_KP_0],
 	}
 	for action in bindings:
 		if InputMap.has_action(action):

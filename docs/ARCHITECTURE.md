@@ -12,11 +12,14 @@ scripts/terrain.gd       Height field, kettle lakes, chunk meshes, water, collis
 scripts/flora.gd         Oaks (voxel trees) and wildflowers (MultiMesh)
 scripts/voxel_mesh.gd    Greedy face merging + quad/mesh helpers (shared)
 scripts/player.gd        First-person walker: input bindings, movement, head bob
+scripts/thrower.gd       Throw input (1-0, click), fetch (F), throw HUD line
+scripts/disc.gd          The thrown "disc" (RigidBody3D): physics + tree/water interaction
 shaders/voxel.gdshader   Terrain + tree shading: base colour + per-block jitter
 shaders/sway.gdshader    Wind sway for flowers (and grass, later)
 tools/smoke_test.gd      Headless PASS/FAIL check
 tools/screenshot.gd      Renders PNG views incl. one portrait per oak form (needs a display/GPU)
 tools/tree_gallery.gd    Flat-ground lineup of every oak form, for tuning trees
+tools/throw_test.gd      Headless throws (open ground, into an oak, into a lake): PASS/FAIL
 docs/                    These docs + screenshots
 ```
 
@@ -36,7 +39,9 @@ Main (main.gd)
 │     ├─ Trunks (StaticBody3D)   one box collider per trunk
 │     └─ Flowers/<species>_x_z   MultiMeshInstance3D per species per 64 m region
 ├─ Player (player.gd)            CharacterBody3D + capsule + Head/Camera3D
-└─ HUD/Help                      Label
+├─ Thrower (thrower.gd)
+├─ Disc …  (disc.gd)             RigidBody3D per thrown disc (up to 12 kept)
+└─ HUD/Help, HUD/Crosshair, HUD/Throw
 ```
 
 ## Units: metres vs blocks
@@ -132,6 +137,19 @@ Caveat: greedy meshes have T-junctions (a big quad's edge meeting several small 
 - Movement is velocity lerp towards the target speed; gravity, hop, and a 50° `floor_max_angle` so 45° steps are walkable.
 - Falls below y = −30 respawn at `spawn_point()`.
 
+## Throwing discs (`thrower.gd`, `disc.gd`)
+
+Step 1 is deliberately simple: the disc is a 22 cm bright-orange block fired out of your face like a cannonball.
+
+- **Launch**: keys 1–9 and 0 throw at power 1–10. The speed is `power × speed_per_level` (4 m/s per level, so 0 = 40 m/s, a strong drive), along the camera's forward direction, plus your walking velocity. Left click repeats the last power. It gets a random tumble spin, and it never collides with you.
+- **Ground and trunks**: plain Godot rigid-body physics. The terrain heightmap and trunk boxes are real collision shapes, so it bounces (0.35), slides and rolls downhill on its own. Continuous collision detection stops it tunnelling through the ground at speed.
+- **Branches and leaves**: tree voxels aren't physics bodies (there are millions), so each physics tick `_integrate_forces()` walks the disc's path through the tree voxel grid (`flora.voxel_at()`) in steps smaller than a block:
+  - **Bark**: reflect the velocity on the axis it crossed (×0.4) and put the disc back just outside the bark. That's how it clatters off limbs.
+  - **Leaves**: keep 72% of speed per metre of leaves, plus a small random knock. A hard throw punches through a crown; a soft one gets swallowed and drops out underneath.
+- **Water**: on entry, speed ×0.35 (splash). After that, heavy drag and buoyancy float it at the surface.
+- **Coming to rest**: when it's barely moving (horizontally, if floating) for 0.6 s, it plants a faint orange beam so you can find it, and the HUD shows distance, peak height and what it hit. **F** teleports you beside it.
+- **Future flight physics** goes in `disc.apply_aero(state, v)`, which runs every physics tick with the current velocity. Lift, drag, spin and fade would be forces added there, with the block swapped for a flat disc mesh + cylinder collider.
+
 ## Determinism
 
 Everything is driven by `world_seed`: `RandomNumberGenerator` seeds and `FastNoiseLite` seeds are offsets of it. Per-block colour and flower jitter use an integer hash of grid coordinates. So a seed plus a block size always gives the same world.
@@ -141,4 +159,5 @@ Everything is driven by `world_seed`: `RandomNumberGenerator` seeds and `FastNoi
 - World build time at small block sizes is dominated by GDScript tree voxel growth and meshing. Since the branching oaks, that's about 35 s + 15 s on the T480 at 0.25, with ~3.6M tree voxels and ~1.7 GB RAM. Options if it ever matters: PackedArray voxel storage instead of a Dictionary, building on a thread with a loading screen, or building chunks lazily.
 - The whole world is built at once (no streaming); 256 m is comfortable.
 - Tree crowns are walk-through; a disc hitting leaves is future work (phase 4).
+- Discs don't land *on* leaves or branches. They pass through leaves (slowing) and bounce off bark, but can't rest in a tree.
 - Over some VNC setups, held keys arrive as instant taps, so WASD won't move you (N still works). An auto-walk toggle is a candidate fix.

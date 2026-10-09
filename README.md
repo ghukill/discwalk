@@ -34,6 +34,9 @@ Or from a terminal:
 | Mouse | look |
 | Shift | stroll faster |
 | Space | hop |
+| 1–9, 0 | **throw a disc** at power 1–10 (0 = 10) where you're looking |
+| Left click | throw again at the last power |
+| F | fetch: jump to your last disc |
 | N | roll a brand-new world |
 | Esc | free the mouse (click to grab it again) |
 
@@ -79,6 +82,8 @@ More in [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md).
 - [x] **2. Oaks + wildflowers** (flowers pulled forward from phase 3)
 - [x] **2.5 Configurable voxel size** (`--block-size`) + docs
 - [x] **Greedy meshing** (about 5× fewer triangles; 0.25 m blocks are now comfortable)
+- [x] **Disc throwing, step 1**: a block fired from you that bounces off ground and trunks, clatters through branches, gets swallowed by leaves, and floats in lakes
+- [ ] Disc flight physics (lift, drag, spin, fade) in `disc.gd`'s `apply_aero()`
 - [ ] Auto-walk toggle (helps over VNC, where held keys arrive as taps)
 - [ ] 3. Wind grass (instanced voxel tufts, reusing the flower sway shader)
 - [ ] 4. Disc golf 🥏 (rigid-body disc, lift/drag/fade, throw gesture)

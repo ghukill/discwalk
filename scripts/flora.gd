@@ -195,6 +195,12 @@ func _can_grow(x: int, z: int, kind: String, crown: float, spawn: Vector3,
 
 
 ## Centre of grid column (ix, iz) in metres.
+## What's in tree voxel cell c (block coords): 0 nothing, BARK or LEAF.
+## Used by thrown discs to hit branches and plough through leaves.
+func voxel_at(c: Vector3i) -> int:
+	return _vox.get(c, 0)
+
+
 func _col_centre(ix: int, iz: int) -> Vector2:
 	return Vector2((ix + 0.5) * _bs, (iz + 0.5) * _bs)
 

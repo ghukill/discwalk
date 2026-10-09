@@ -76,6 +76,17 @@ Notes:
 | `spawn_clear_radius` | 20 | Keep lakes this far from spawn (m). |
 | `moraine_width` / `_height` | 14 / 12 | The ridge around the world's edge (m). |
 
+## Throwing knobs
+
+| Setting | Where | Default | Meaning |
+|---|---|---|---|
+| `speed_per_level` | `thrower.gd` | 4.0 | m/s per power level (power 10 = 40 m/s). |
+| `max_discs` | `thrower.gd` | 12 | Older discs get cleared away. |
+| `leaf_keep_per_metre` | `disc.gd` | 0.72 | Fraction of speed kept per metre of leaves. |
+| `bark_bounce` | `disc.gd` | 0.4 | Speed kept along the hit axis when bouncing off bark. |
+| `SIZE` | `disc.gd` | 0.22 | Disc block edge (m). |
+| bounce / friction | `disc.gd` `_ready()` | 0.35 / 0.7 | Against ground and trunks. |
+
 ## Flora knobs (`scripts/flora.gd`)
 
 | Setting | Default | Meaning |
