@@ -98,6 +98,7 @@ Next (pick any):
 - [ ] Auto-walk toggle (helps over VNC, where held keys arrive as taps)
 
 Explore later:
+- [ ] **Save + reload worlds**: write a world to disk (seed + settings, plus anything hand-edited or placed, e.g. discs, baskets) and load it back. That's the foundation for **pre-made worlds** (hand-built courses, the distance field below) shipped as files you pick at startup
 - [ ] **Distance throwing zone**: a field marked with distance lines in the ground, either near one edge of every world (e.g. the west edge) or, better, its own pre-made world (which opens the door to hand-made/pre-made worlds generally)
 - [ ] Background/threaded tree building with a grow-in animation
 - [ ] Bigger worlds; infinite streaming world (region-local lakes/trees, chunks built as you walk)
