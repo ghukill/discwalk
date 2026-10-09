@@ -12,6 +12,12 @@ extends Node3D
 ## and a wind-sway shader. Species follow habitat: iris + marsh marigold by the
 ## water, trillium in oak shade, and patches of black-eyed Susan, coneflower,
 ## lupine and butterfly weed out in the meadows.
+##
+## Units: sizes and distances are in metres; voxels live on the terrain's block
+## grid (Vector3i keys in blocks) and the tree meshes are scaled by
+## terrain.block_size. So a smaller block size gives the same oak, built from
+## more, smaller blocks. Flower density is per square metre, so the meadow
+## doesn't get 4x busier at half-size blocks.
 
 const SWAY_SHADER := preload("res://shaders/sway.gdshader")
 
@@ -40,7 +46,7 @@ const MEADOW_SPECIES := ["black_eyed_susan", "coneflower", "lupine", "butterfly_
 @export var flower_view_distance: float = 110.0
 
 var terrain: Node3D
-var trees: Array[Dictionary] = []            ## {pos: Vector2i, kind: String, crown: float}
+var trees: Array[Dictionary] = []            ## {pos: Vector2i (column), kind, crown (m), collider}
 var flower_counts := {}                      ## species -> count
 var voxel_count := 0
 
@@ -52,10 +58,12 @@ var _rng := RandomNumberGenerator.new()
 var _leaf_noise := FastNoiseLite.new()
 var _bark_material: StandardMaterial3D
 var _sway_material: ShaderMaterial
+var _bs := 1.0                               ## terrain.block_size, cached.
 
 
 func build(t: Node3D) -> void:
 	terrain = t
+	_bs = terrain.block_size
 	var size: int = terrain.size
 	_rng.seed = terrain.world_seed * 7919 + 17
 	_leaf_noise.seed = terrain.world_seed + 99
@@ -90,12 +98,15 @@ func _place_trees() -> void:
 
 	var spawn: Vector3 = terrain.spawn_point()
 	var placed: Array[Dictionary] = []
-	var cells := int(size / grove_spacing)
+	var cells := int(terrain.world_size / grove_spacing)
 	for gz in cells:
 		for gx in cells:
-			var x := int((gx + _rng.randf_range(0.1, 0.9)) * grove_spacing)
-			var z := int((gz + _rng.randf_range(0.1, 0.9)) * grove_spacing)
-			var g := groves.get_noise_2d(x, z)   # ~[-1, 1]; high = grove
+			# Candidate spot in metres, then snapped to a grid column.
+			var mx := float(int((gx + _rng.randf_range(0.1, 0.9)) * grove_spacing))
+			var mz := float(int((gz + _rng.randf_range(0.1, 0.9)) * grove_spacing))
+			var x: int = terrain.col_of(mx)
+			var z: int = terrain.col_of(mz)
+			var g := groves.get_noise_2d(mx, mz)   # ~[-1, 1]; high = grove
 			var kind := ""
 			if g > 0.12:
 				# Inside a grove: dense-ish, mostly medium/big oaks.
@@ -122,29 +133,43 @@ func _place_trees() -> void:
 	trees = placed
 
 
+## x, z are grid columns; crown and all distances are metres.
 func _can_grow(x: int, z: int, kind: String, crown: float, spawn: Vector3,
 		placed: Array[Dictionary]) -> bool:
 	var size: int = terrain.size
-	var edge := mini(mini(x, z), mini(size - 1 - x, size - 1 - z))
-	if edge < 6:
+	var m := _col_centre(x, z)
+	var edge := minf(minf(m.x, m.y), minf(terrain.world_size - m.x, terrain.world_size - m.y))
+	if edge < 6.0:
 		return false
-	if Vector2(x, z).distance_to(Vector2(spawn.x, spawn.z)) < 7.0 + crown:
+	if m.distance_to(Vector2(spawn.x, spawn.z)) < 7.0 + crown:
 		return false
-	if terrain.lake_edge_distance(x + 0.5, z + 0.5) < 2.5 + crown * 0.4:
+	if terrain.lake_edge_distance(m.x, m.y) < 2.5 + crown * 0.4:
 		return false
-	# Not on steep ground: the trunk footprint and its neighbours stay within 2 blocks.
+	# Not on steep ground: within 2 m around the trunk, ground stays within 2 m.
+	var reach := maxi(1, int(round(2.0 / _bs)))
 	var h0: int = terrain.heights[z * size + x]
-	for dz in range(-2, 3):
-		for dx in range(-2, 3):
+	for dz in range(-reach, reach + 1):
+		for dx in range(-reach, reach + 1):
 			var nx := clampi(x + dx, 0, size - 1)
 			var nz := clampi(z + dz, 0, size - 1)
-			if terrain.is_shore(nx, nz) or absi(terrain.heights[nz * size + nx] - h0) > 2:
+			if terrain.is_shore(nx, nz) \
+					or absi(terrain.heights[nz * size + nx] - h0) * _bs > 2.0:
 				return false
 	for other in placed:
-		var d: float = Vector2(x, z).distance_to(Vector2(other.pos))
+		var d: float = m.distance_to(_col_centre(other.pos.x, other.pos.y))
 		if d < (crown + float(other.crown)) * 0.62:
 			return false
 	return true
+
+
+## Centre of grid column (ix, iz) in metres.
+func _col_centre(ix: int, iz: int) -> Vector2:
+	return Vector2((ix + 0.5) * _bs, (iz + 0.5) * _bs)
+
+
+## Metres -> whole blocks (at least 1).
+func _blocks(metres: float) -> int:
+	return maxi(1, int(round(metres / _bs)))
 
 
 # --- growing an oak ----------------------------------------------------------
@@ -157,28 +182,33 @@ func _grow_tree(tree: Dictionary, index: int) -> void:
 	var p: Vector2i = tree.pos
 	var crown: float = tree.crown * rng.randf_range(0.9, 1.12)
 
-	var trunk_h: int = {"giant": rng.randi_range(5, 6), "big": rng.randi_range(4, 5),
+	# Trunk height (m) and width (m): 2 m wide for big/giant oaks, 1 m otherwise.
+	var trunk_m: int = {"giant": rng.randi_range(5, 6), "big": rng.randi_range(4, 5),
 		"medium": rng.randi_range(3, 4), "sapling": rng.randi_range(2, 3)}[kind]
 	var thick := kind == "giant" or kind == "big"
 	var leaf_base := COLOR_LEAF.lerp(COLOR_LEAF_ALT, rng.randf() * rng.randf())
+	var foot_n := _blocks(2.0 if thick else 1.0)       # trunk footprint, blocks per side
 
 	# Trunk: each footprint column grows from its own ground up to a shared top.
-	var foot: Array[Vector2i] = [p]
-	if thick:
-		foot = [p, p + Vector2i(1, 0), p + Vector2i(0, 1), p + Vector2i(1, 1)]
+	var foot: Array[Vector2i] = []
+	for fz in foot_n:
+		for fx in foot_n:
+			foot.append(Vector2i(clampi(p.x + fx, 0, size - 1), clampi(p.y + fz, 0, size - 1)))
 	var ground := 1 << 30
 	for f in foot:
 		ground = mini(ground, terrain.heights[f.y * size + f.x])
-	var top := ground + trunk_h
+	var top := ground + _blocks(trunk_m)
 	for f in foot:
 		_trunk_cols[f.y * size + f.x] = 1
 		for y in range(terrain.heights[f.y * size + f.x], top + 1):
 			_set_bark(Vector3i(f.x, y, f.y))
-	var centre := Vector3(p.x + (1.0 if thick else 0.5), top + 0.5, p.y + (1.0 if thick else 0.5))
-	var collider_h := float(top - ground + 1)
+	# From here on, positions are in BLOCK units (converted back for the collider).
+	var centre := Vector3(p.x + foot_n / 2.0, top + 0.5, p.y + foot_n / 2.0)
+	var collider_h := float(top - ground + 1) * _bs
 	tree["collider"] = {
-		"pos": Vector3(centre.x, ground + collider_h / 2.0, centre.z),
-		"size": Vector3(2.0 if thick else 1.0, collider_h, 2.0 if thick else 1.0)}
+		"pos": Vector3(centre.x * _bs, ground * _bs + collider_h / 2.0, centre.z * _bs),
+		"size": Vector3(foot_n * _bs, collider_h, foot_n * _bs)}
+	crown /= _bs   # metres -> blocks for the crown/limb geometry below
 
 	# Central crown blob, sitting on top of the trunk.
 	var blobs: Array = [[centre + Vector3(0, crown * 0.35, 0), crown * 0.72]]
@@ -192,23 +222,38 @@ func _grow_tree(tree: Dictionary, index: int) -> void:
 		var elev := deg_to_rad(rng.randf_range(28.0, 50.0))
 		var length := crown * rng.randf_range(0.7, 0.95)
 		var dir := Vector3(cos(az) * cos(elev), sin(elev), sin(az) * cos(elev))
-		var pos := centre - Vector3(0, rng.randi_range(0, mini(2, trunk_h - 2)), 0)
-		var steps := int(length / 0.5)
+		var drop_m := rng.randi_range(0, mini(2, trunk_m - 2))   # limbs start up to 2 m down
+		var pos := centre - Vector3(0, drop_m / _bs, 0)
+		var step := 0.5 / _bs                                   # half a metre, in blocks
+		var steps := int(length / step)
+		var limb_n := _blocks(1.0)                              # limbs ~1 m thick
 		for s in steps:
 			# Wander a little so limbs look crooked, not ruler-straight.
 			dir = (dir + Vector3(rng.randf_range(-0.12, 0.12), rng.randf_range(-0.08, 0.1),
 				rng.randf_range(-0.12, 0.12))).normalized()
-			pos += dir * 0.5
-			_set_bark(Vector3i(floori(pos.x), floori(pos.y), floori(pos.z)))
+			pos += dir * step
+			# Taper towards the tip when blocks are fine enough to show it.
+			var n := maxi(1, int(round(limb_n * lerpf(1.0, 0.5, float(s) / steps))))
+			_bark_cube(pos, n)
 			if thick and s < steps / 2:
-				_set_bark(Vector3i(floori(pos.x), floori(pos.y) - 1, floori(pos.z)))
-		blobs.append([pos + Vector3(0, 0.6, 0), crown * rng.randf_range(0.5, 0.66)])
+				_bark_cube(pos - Vector3(0, limb_n, 0), n)
+		blobs.append([pos + Vector3(0, 0.6 / _bs, 0), crown * rng.randf_range(0.5, 0.66)])
 
 	# Leaves: squashed ellipsoids (wider than tall) with noisy, bitten edges.
 	for b in blobs:
 		_leaf_blob(b[0], b[1], leaf_base, rng)
 
 
+## Stamps an n x n x n cube of bark around p (block units).
+func _bark_cube(p: Vector3, n: int) -> void:
+	var o := Vector3i(floori(p.x - (n - 1) / 2.0), floori(p.y - (n - 1) / 2.0), floori(p.z - (n - 1) / 2.0))
+	for dy in n:
+		for dz in n:
+			for dx in n:
+				_set_bark(o + Vector3i(dx, dy, dz))
+
+
+## Leaf blob centred at c with radius r, both in block units.
 func _leaf_blob(c: Vector3, r: float, base: Color, rng: RandomNumberGenerator) -> void:
 	var size: int = terrain.size
 	var ry := r * 0.62
@@ -221,7 +266,8 @@ func _leaf_blob(c: Vector3, r: float, base: Color, rng: RandomNumberGenerator) -
 				var dy := (y + 0.5 - c.y) / ry
 				var dz := (z + 0.5 - c.z) / r
 				var d := dx * dx + dy * dy + dz * dz
-				var n := _leaf_noise.get_noise_3d(x, y, z)
+				# Noise sampled in metres, so the "bites" are the same size at any block size.
+				var n := _leaf_noise.get_noise_3d(x * _bs, y * _bs, z * _bs)
 				if d > 0.78 + n * 0.45:
 					continue
 				var key := Vector3i(x, y, z)
@@ -304,6 +350,7 @@ func _build_tree_meshes() -> void:
 		mi.name = "Trees_%d_%d" % [ck.x, ck.y]
 		mi.mesh = mesh
 		mi.material_override = _bark_material
+		mi.scale = Vector3.ONE * _bs   # block units -> metres
 		holder.add_child(mi)
 
 	# Solid trunks (crowns stay walk-through, for now).
@@ -359,19 +406,23 @@ func _scatter_flowers() -> void:
 	var batches := {}
 	flower_counts.clear()
 	var spawn: Vector3 = terrain.spawn_point()
+	var area := _bs * _bs          # m^2 per column
+	var margin := maxi(1, int(4.0 / _bs))
 
-	for z in range(4, size - 4):
-		for x in range(4, size - 4):
+	for z in range(margin, size - margin):
+		for x in range(margin, size - margin):
 			var i := z * size + x
 			if _trunk_cols[i] == 1 or terrain.is_underwater(x, z):
 				continue
 			var h: int = terrain.heights[i]
 			if _vox.has(Vector3i(x, h, z)):
 				continue
-			var c: float = clumps.get_noise_2d(x, z)
-			var roll := _hash(x, 7, z)
+			var m := _col_centre(x, z)
+			var c: float = clumps.get_noise_2d(m.x, m.y)
+			# Densities below are "per square metre"; smaller columns roll less often.
+			var roll := _hash(x, 7, z) / area
 			var sp := ""
-			var edge_d: float = terrain.lake_edge_distance(x + 0.5, z + 0.5)
+			var edge_d: float = terrain.lake_edge_distance(m.x, m.y)
 			if edge_d > -1.5 and edge_d < 3.5:
 				# Lakeshore: iris right at the water, marigold in the wet mud/sand.
 				if roll < 0.10 + maxf(c, 0.0) * 0.35:
@@ -387,20 +438,21 @@ func _scatter_flowers() -> void:
 				var density := clampf((c + 0.05) * 0.75, 0.0, 0.6) + 0.006
 				if roll < density:
 					# Cellular noise gives each patch one value; hash it to a species.
-					var cell := int(absf(patches.get_noise_2d(x, z)) * 9973.0)
+					var cell := int(absf(patches.get_noise_2d(m.x, m.y)) * 9973.0)
 					sp = MEADOW_SPECIES[cell % MEADOW_SPECIES.size()]
 					# ...with the odd stray from another species mixed in.
 					if _hash(x, 29, z) < 0.12:
 						sp = MEADOW_SPECIES[int(_hash(x, 31, z) * 3.99)]
 			if sp == "":
 				continue
-			if Vector2(x, z).distance_to(Vector2(spawn.x, spawn.z)) < 1.5:
+			if m.distance_to(Vector2(spawn.x, spawn.z)) < 1.5:
 				continue
 			var yaw := _hash(x, 13, z) * TAU
 			var s := 1.05 + _hash(x, 17, z) * 0.5
 			var basis := Basis(Vector3.UP, yaw).scaled(Vector3(s, s, s))
-			var pos := Vector3(x + 0.2 + _hash(x, 19, z) * 0.6, h, z + 0.2 + _hash(x, 23, z) * 0.6)
-			var region := Vector2i(x / region_size, z / region_size)
+			var pos := Vector3((x + 0.2 + _hash(x, 19, z) * 0.6) * _bs, h * _bs,
+				(z + 0.2 + _hash(x, 23, z) * 0.6) * _bs)
+			var region := Vector2i(int(pos.x) / region_size, int(pos.z) / region_size)
 			if not batches.has(region):
 				batches[region] = {}
 			if not batches[region].has(sp):

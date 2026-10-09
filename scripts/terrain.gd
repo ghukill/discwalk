@@ -2,18 +2,28 @@ extends Node3D
 ## Generates a blocky, voxel-style world: rolling glacial hills, kettle lakes,
 ## and a raised moraine around the edge.
 ##
-## Heights live in a 2D grid (one column of 1m blocks per cell). Visuals are
+## Heights live in a 2D grid (one column of blocks per cell). Visuals are
 ## true blocks; collision is a smooth HeightMapShape3D through the block
 ## centres, so walking glides up 1-block steps like gentle ramps instead of
 ## needing to jump (2+ block steps are too steep, so they act as walls).
+##
+## Units: every tunable below is in METRES. `block_size` only decides how
+## finely those metres are chopped into blocks, so the same seed gives the
+## same landscape at any block size, just chunkier or finer. Internally the
+## grid works in whole blocks ("b" suffix / ix, iz names); anything public that
+## returns a position returns metres. See docs/ARCHITECTURE.md.
 
 signal generated
 
 const FLORA_SCRIPT := preload("res://scripts/flora.gd")
 
 @export var world_seed: int = 1848
-@export var size_chunks: int = 8          ## World is size_chunks x size_chunks chunks.
-@export var chunk_size: int = 32          ## Blocks per chunk side.
+## Edge length of one voxel in metres. 1.0 is the classic look; 0.5 is twice
+## as fine (about 4x the triangles). Override at launch with
+## `-- --block-size=0.5`. See docs/CONFIG.md.
+@export_range(0.25, 2.0, 0.25) var block_size: float = 1.0
+@export var world_size: float = 256.0     ## World edge length (m).
+@export var chunk_size: int = 32          ## Blocks per chunk side (one mesh each).
 @export var base_height: float = 14.0
 @export var hill_height: float = 9.0
 @export var lake_count: int = 7
@@ -34,8 +44,9 @@ const COLOR_MUD := Color(0.40, 0.36, 0.28)
 const COLOR_WATER := Color(0.22, 0.45, 0.62, 0.78)
 
 var size: int = 0                          ## World size in blocks (per side).
-var heights := PackedInt32Array()          ## Top surface y of each column.
-var lakes: Array[Dictionary] = []          ## {center: Vector2, radius: float, water_y: float}
+var size_chunks: int = 0                   ## Chunks per side (derived).
+var heights := PackedInt32Array()          ## Top surface of each column, in blocks.
+var lakes: Array[Dictionary] = []          ## {center: Vector2 (m), radius: m, water_y: m}
 
 var flora: Node3D                          ## Oaks + wildflowers (scripts/flora.gd).
 
@@ -66,6 +77,8 @@ func generate() -> void:
 		remove_child(child)
 		child.queue_free()
 
+	_apply_cmdline_overrides()
+	size_chunks = maxi(1, int(round(world_size / (block_size * chunk_size))))
 	size = size_chunks * chunk_size
 	_rng.seed = world_seed
 
@@ -86,32 +99,50 @@ func generate() -> void:
 	var flowers := 0
 	for n in flora.flower_counts.values():
 		flowers += n
-	print("discwalk: world seed %d generated in %d ms (%d lakes; flora %d ms: %d oaks, %d flowers)" % [
-		world_seed, Time.get_ticks_msec() - t0, lakes.size(), Time.get_ticks_msec() - t1,
-		flora.trees.size(), flowers])
+	print("discwalk: world seed %d (block %.2fm, %d^2 columns) generated in %d ms (%d lakes; flora %d ms: %d oaks, %d flowers)" % [
+		world_seed, block_size, size, Time.get_ticks_msec() - t0, lakes.size(),
+		Time.get_ticks_msec() - t1, flora.trees.size(), flowers])
 	generated.emit()
 
 
-## Top surface height of the column containing world position (x, z).
-func height_at(x: float, z: float) -> int:
-	var ix := clampi(int(floor(x)), 0, size - 1)
-	var iz := clampi(int(floor(z)), 0, size - 1)
-	return heights[iz * size + ix]
+## `--block-size=0.5` (after `--` on the command line) overrides the export.
+func _apply_cmdline_overrides() -> void:
+	for arg in OS.get_cmdline_user_args():
+		if arg.begins_with("--block-size="):
+			var v := arg.get_slice("=", 1).to_float()
+			if v >= 0.125 and v <= 4.0:
+				block_size = v
 
 
-## True for sandy shore / lake-bed columns.
+## Surface height (m) of the column containing world position (x, z) in metres.
+func height_at(x: float, z: float) -> float:
+	return col_height(col_of(x), col_of(z)) * block_size
+
+
+## Grid column index for a world coordinate (m), clamped to the world.
+func col_of(m: float) -> int:
+	return clampi(int(floor(m / block_size)), 0, size - 1)
+
+
+## Top of column (ix, iz), in blocks.
+func col_height(ix: int, iz: int) -> int:
+	return heights[clampi(iz, 0, size - 1) * size + clampi(ix, 0, size - 1)]
+
+
+## True for sandy shore / lake-bed columns (grid indices).
 func is_shore(x: int, z: int) -> bool:
 	if x < 0 or z < 0 or x >= size or z >= size:
 		return false
 	return _shore[z * size + x] == 1
 
 
-## True if the top of this column sits below a lake's waterline.
+## True if the top of column (ix, iz) sits below a lake's waterline.
 func is_underwater(x: int, z: int) -> bool:
 	return _is_underwater(x, z, heights[z * size + x])
 
 
-## Distance from (x, z) to the nearest lake's edge (negative = inside a lake).
+## Distance (m) from world point (x, z) to the nearest lake's edge
+## (negative = inside a lake).
 func lake_edge_distance(x: float, z: float) -> float:
 	var best := 1e9
 	var p := Vector2(x, z)
@@ -120,8 +151,9 @@ func lake_edge_distance(x: float, z: float) -> float:
 	return best
 
 
+## Where the walker starts (m): middle of the world, a metre above ground.
 func spawn_point() -> Vector3:
-	var c := size / 2.0
+	var c := world_size / 2.0
 	return Vector3(c, height_at(c, c) + 1.0, c)
 
 
@@ -143,30 +175,33 @@ func _base_heights() -> PackedFloat32Array:
 
 	var hf := PackedFloat32Array()
 	hf.resize(size * size)
+	var bs := block_size
 	for z in size:
 		for x in size:
+			var mx := x * bs
+			var mz := z * bs
 			var h := base_height
-			h += hill_height * hills.get_noise_2d(x, z)
-			h += hill_height * 0.6 * swells.get_noise_2d(x, z)
+			h += hill_height * hills.get_noise_2d(mx, mz)
+			h += hill_height * 0.6 * swells.get_noise_2d(mx, mz)
 			# Moraine: the world's edge rises into a ridge.
-			var edge := float(mini(mini(x, z), mini(size - 1 - x, size - 1 - z)))
+			var edge := float(mini(mini(x, z), mini(size - 1 - x, size - 1 - z))) * bs
 			if edge < moraine_width:
 				var t := 1.0 - edge / moraine_width
 				h += moraine_height * t * t
-			hf[z * size + x] = h
+			hf[z * size + x] = h   # metres
 	return hf
 
 
 func _carve_kettles(hf: PackedFloat32Array) -> void:
 	lakes.clear()
-	var centre := Vector2(size, size) / 2.0
+	var centre := Vector2(world_size, world_size) / 2.0
 	var margin := moraine_width + 4.0
 	for i in lake_count:
 		for attempt in 60:
 			var r := _rng.randf_range(lake_radius_min, lake_radius_max)
 			var c := Vector2(
-				_rng.randf_range(margin + r, size - margin - r),
-				_rng.randf_range(margin + r, size - margin - r))
+				_rng.randf_range(margin + r, world_size - margin - r),
+				_rng.randf_range(margin + r, world_size - margin - r))
 			if c.distance_to(centre) < spawn_clear_radius + r:
 				continue
 			var ok := true
@@ -181,23 +216,26 @@ func _carve_kettles(hf: PackedFloat32Array) -> void:
 			break
 
 
+## Presses a round bowl (centre c, radius r, metres) into the height field.
 func _carve_bowl(hf: PackedFloat32Array, c: Vector2, r: float) -> void:
-	var x0 := maxi(0, int(c.x - r) - 1)
-	var x1 := mini(size - 1, int(c.x + r) + 1)
-	var z0 := maxi(0, int(c.y - r) - 1)
-	var z1 := mini(size - 1, int(c.y + r) + 1)
+	var bs := block_size
+	var x0 := maxi(0, int((c.x - r) / bs) - 1)
+	var x1 := mini(size - 1, int((c.x + r) / bs) + 1)
+	var z0 := maxi(0, int((c.y - r) / bs) - 1)
+	var z1 := mini(size - 1, int((c.y + r) / bs) + 1)
 	for z in range(z0, z1 + 1):
 		for x in range(x0, x1 + 1):
-			var d := Vector2(x + 0.5, z + 0.5).distance_to(c)
+			var d := Vector2((x + 0.5) * bs, (z + 0.5) * bs).distance_to(c)
 			if d < r:
 				var t := d / r
 				hf[z * size + x] -= lake_depth * (1.0 - t * t)
 
 
+## Metres -> whole blocks.
 func _quantize(hf: PackedFloat32Array) -> void:
 	heights.resize(size * size)
 	for i in hf.size():
-		heights[i] = maxi(1, int(round(hf[i])))
+		heights[i] = maxi(1, int(round(hf[i] / block_size)))
 
 
 ## Water fills each kettle up to just below the lowest point of its rim.
@@ -207,17 +245,19 @@ func _fill_lakes() -> void:
 	for lake in lakes:
 		var c: Vector2 = lake.center
 		var r: float = lake.radius
-		var rim := 1 << 30
+		var bs := block_size
+		var rim := 1e9
 		for step in 48:
 			var a := TAU * step / 48.0
 			var p := c + Vector2(cos(a), sin(a)) * r * 0.92
-			rim = mini(rim, height_at(p.x, p.y))
-		lake.water_y = rim - 0.35
-		# Sandy beach + muddy bed for anything at or below the waterline + 1.
-		for z in range(maxi(0, int(c.y - r) - 2), mini(size, int(c.y + r) + 3)):
-			for x in range(maxi(0, int(c.x - r) - 2), mini(size, int(c.x + r) + 3)):
-				if Vector2(x + 0.5, z + 0.5).distance_to(c) < r * 1.08:
-					if heights[z * size + x] <= lake.water_y + 1.0:
+			rim = minf(rim, height_at(p.x, p.y))
+		lake.water_y = rim - 0.35 * bs
+		# Sandy beach + muddy bed for anything at or below the waterline + 1 block.
+		var pad := int(2.0 / bs) + 1
+		for z in range(maxi(0, int((c.y - r) / bs) - pad), mini(size, int((c.y + r) / bs) + pad)):
+			for x in range(maxi(0, int((c.x - r) / bs) - pad), mini(size, int((c.x + r) / bs) + pad)):
+				if Vector2((x + 0.5) * bs, (z + 0.5) * bs).distance_to(c) < r * 1.08:
+					if heights[z * size + x] * bs <= lake.water_y + bs:
 						_shore[z * size + x] = 1
 
 
@@ -233,6 +273,8 @@ func _build_chunks() -> void:
 			mi.name = "Chunk_%d_%d" % [cx, cz]
 			mi.mesh = _chunk_mesh(cx * chunk_size, cz * chunk_size)
 			mi.material_override = _block_material
+			# Meshes are built in block units; scaling the node turns them into metres.
+			mi.scale = Vector3.ONE * block_size
 			holder.add_child(mi)
 
 
@@ -303,24 +345,28 @@ func _top_color(x: int, z: int, h: int, shore: bool) -> Color:
 	if shore:
 		var wet := _is_underwater(x, z, h)
 		return (COLOR_MUD if wet else COLOR_SAND).darkened(j * 0.08)
-	var dry := clampf((h - base_height - 4.0) / 10.0, 0.0, 1.0)
+	var dry := clampf((h * block_size - base_height - 4.0) / 10.0, 0.0, 1.0)
 	return COLOR_GRASS.lerp(COLOR_GRASS_DRY, dry).darkened(j * 0.12)
 
 
+## Soil layers are measured in metres below the surface: ~2m of sand on
+## shores, 1m of grassy turf, dirt down to 4m, then stone.
 func _side_color(x: int, y: int, z: int, h: int, shore: bool) -> Color:
 	var j := _jitter(x, y, z)
-	if shore and y >= h - 2:
+	var depth := (h - y) * block_size     # metres below the surface (top block = 1 block)
+	if shore and depth <= 2.0:
 		return COLOR_SAND.darkened(0.1 + j * 0.08)
-	if y == h - 1:
+	if depth <= 1.0:
 		return COLOR_GRASS_SIDE.darkened(j * 0.1)
-	if y >= h - 4:
+	if depth <= 4.0:
 		return COLOR_DIRT.darkened(j * 0.12)
 	return COLOR_STONE.darkened(j * 0.15)
 
 
 func _is_underwater(x: int, z: int, h: int) -> bool:
 	for lake in lakes:
-		if Vector2(x + 0.5, z + 0.5).distance_to(lake.center) < lake.radius and h < lake.water_y:
+		if Vector2((x + 0.5) * block_size, (z + 0.5) * block_size).distance_to(lake.center) \
+				< lake.radius and h * block_size < lake.water_y:
 			return true
 	return false
 
@@ -359,6 +405,8 @@ func _build_collision() -> void:
 	body.name = "Ground"
 	add_child(body)
 
+	# Built in block units (one sample per column) and uniformly scaled to
+	# metres, so slopes keep the same angle at every block size.
 	var shape := HeightMapShape3D.new()
 	shape.map_width = size
 	shape.map_depth = size
@@ -371,18 +419,20 @@ func _build_collision() -> void:
 	var cs := CollisionShape3D.new()
 	cs.shape = shape
 	# Heightmap points sit at block centres (x + 0.5, z + 0.5).
-	cs.position = Vector3(size / 2.0, 0.0, size / 2.0)
+	cs.position = Vector3(size / 2.0, 0.0, size / 2.0) * block_size
+	cs.scale = Vector3.ONE * block_size
 	body.add_child(cs)
 
 	# Invisible walls just inside the moraine so nobody walks off the world.
 	var wall_h := 200.0
 	var t := 2.0
 	var inset := 3.0
+	var ws := world_size
 	var walls := [
-		[Vector3(size / 2.0, 0, inset - t / 2), Vector3(size, wall_h, t)],
-		[Vector3(size / 2.0, 0, size - inset + t / 2), Vector3(size, wall_h, t)],
-		[Vector3(inset - t / 2, 0, size / 2.0), Vector3(t, wall_h, size)],
-		[Vector3(size - inset + t / 2, 0, size / 2.0), Vector3(t, wall_h, size)],
+		[Vector3(ws / 2.0, 0, inset - t / 2), Vector3(ws, wall_h, t)],
+		[Vector3(ws / 2.0, 0, ws - inset + t / 2), Vector3(ws, wall_h, t)],
+		[Vector3(inset - t / 2, 0, ws / 2.0), Vector3(t, wall_h, ws)],
+		[Vector3(ws - inset + t / 2, 0, ws / 2.0), Vector3(t, wall_h, ws)],
 	]
 	for w in walls:
 		var box := BoxShape3D.new()

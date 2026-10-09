@@ -51,7 +51,7 @@ func _process(_delta: float) -> bool:
 
 func _plan_views() -> void:
 	var t = _main.get_node("Terrain")
-	var s: float = t.size
+	var s: float = t.world_size
 	var spawn: Vector3 = t.spawn_point()
 	var lake: Dictionary = t.lakes[0]
 	var best := 1e9
@@ -72,7 +72,7 @@ func _plan_views() -> void:
 			oak = tr
 			if tr.kind == "giant":
 				break
-	var op := Vector3(oak.pos.x + 0.5, 0, oak.pos.y + 0.5)
+	var op := Vector3((oak.pos.x + 0.5) * t.block_size, 0, (oak.pos.y + 0.5) * t.block_size)
 	var oak_eye := op + Vector3(oak.crown * 2.2, 0, oak.crown * 1.4)
 	oak_eye.y = t.height_at(oak_eye.x, oak_eye.z) + 0.05
 	op.y = oak_eye.y + 1.0
@@ -88,7 +88,7 @@ func _plan_views() -> void:
 
 ## Finds the densest meadow-flower spot; returns [eye position, look target].
 func _flowery_spot(t) -> Array:
-	var best := Vector3(t.size / 2.0, 0, t.size / 2.0)
+	var best := Vector3(t.world_size / 2.0, 0, t.world_size / 2.0)
 	var best_n := -1
 	var grid := {}
 	for mmi in t.flora.get_node("Flowers").get_children():

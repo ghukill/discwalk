@@ -28,6 +28,7 @@ func _process(_delta: float) -> bool:
 	for lake in terrain.lakes:
 		water_ys.append(snappedf(lake.water_y, 0.01))
 
+	print("SMOKE block_size=%.2f" % terrain.block_size)
 	print("SMOKE size=%d chunks=%d triangles=%d lakes=%d water_y=%s" % [
 		terrain.size, chunks, verts / 3, terrain.lakes.size(), str(water_ys)])
 	var flora = terrain.flora
