@@ -15,7 +15,8 @@ scripts/player.gd        First-person walker: input bindings, movement, head bob
 shaders/voxel.gdshader   Terrain + tree shading: base colour + per-block jitter
 shaders/sway.gdshader    Wind sway for flowers (and grass, later)
 tools/smoke_test.gd      Headless PASS/FAIL check
-tools/screenshot.gd      Renders PNG views (needs a display/GPU)
+tools/screenshot.gd      Renders PNG views incl. one portrait per oak form (needs a display/GPU)
+tools/tree_gallery.gd    Flat-ground lineup of every oak form, for tuning trees
 docs/                    These docs + screenshots
 ```
 
@@ -80,10 +81,23 @@ Noise is always sampled at **metre** coordinates, which is why the same seed loo
 - Grove noise picks the zone: grove (dense, big/medium), grove edge (sparse saplings/medium), or meadow (about 1% chance of a giant lone oak).
 - Rejected if near the edge, near spawn, near a lake, on shore, on uneven ground (>2 m rise within 2 m), or too close to another crown.
 
-**Growing an oak** (deterministic per tree index)
-- Trunk: a footprint 1 m wide (2 m for big/giant oaks). Each column fills from its own ground up to a shared top.
-- Limbs: 2–5 random walks outward and upward from near the trunk top in 0.5 m steps, stamping bark cubes about 1 m thick that taper at fine block sizes.
-- Crown: a central blob plus one at each limb tip. Each is a squashed ellipsoid (height 0.62 × radius) with a noisy edge threshold, so the edges look bitten. Leaves are lighter on top and darker underneath.
+**Oak forms.** Each tree gets a size class (sapling / medium / big / giant) and a **form**, picked by `_pick_form()` from its size and how deep in a grove it stands:
+
+| Form | Where | Shape |
+|---|---|---|
+| `spreading` | lone giants, open groves | short massive trunk (2–4 m), 4–6 long low limbs (8–32°) that curve up at the ends, 3 levels of branching, wide crown |
+| `tall` | deep in groves (reaching for light) | tall clear trunk (5.5–9.5 m), steep limbs near the top, compact high crown |
+| `forked` | anywhere | trunk splits into 2 (sometimes 3) leaders part way up, each with its own limbs |
+| `leaning` | anywhere | trunk tilts 12–24°, so the crown reaches out over one side |
+| `sapling` | grove edges | thin stem (1.6–3.6 m), a few twiggy branches |
+
+All the numbers live in the `FORMS` and `TRUNK_R` tables at the top of the oak section in `flora.gd`. Crown radius also varies ±20–25% per tree.
+
+**Growing an oak** (deterministic per tree index, all in metres)
+- **Skeleton**: the trunk is a tapering tube with a root flare at the base, leaning per form. Primary limbs spiral up the top part of the trunk (golden-angle spacing). Then `_branch()` recurses: each branch wanders slightly, curves upward (`upcurve`), sprouts 0–2 side branches, and forks into 2–3 children at its tip, until `depth` runs out.
+- **Bark**: spheres stamped every ~0.4 m along each branch, with radius tapering from trunk to twig. Spheres thinner than about half a block become single voxels, so twigs are 1-block lines at coarse sizes and properly tapered at 0.25 m.
+- **Leaves**: every branch tip gets a leaf cluster sitting slightly above the twig end (so limbs show from underneath), plus an occasional smaller puff part way along. Each cluster is a squashed ellipsoid with a noisy, bitten edge. Shading mixes the cluster's own top/bottom with the whole crown's height, so puffs look rounded but the crown is still lit from above and dark underneath. Leaf greens are a per-tree mix of four oak greens.
+- **Dead limbs**: about 7% of primary limbs on bigger trees are bare and grey, with no leaves.
 - Voxels go into a `Dictionary` keyed by `Vector3i`. Each chunk is then greedy-meshed: visible faces (culled against other tree voxels and the ground) are grouped by direction and plane and merged by colour. Leaf shading is quantised into 5 bands so neighbouring leaves can merge.
 
 **Flowers**
@@ -124,7 +138,7 @@ Everything is driven by `world_seed`: `RandomNumberGenerator` seeds and `FastNoi
 
 ## Known limits / ideas
 
-- World build time at small block sizes is dominated by GDScript tree voxel growth and meshing (about 6 s + 12 s on the T480 at 0.25). Options: PackedArray voxel storage instead of a Dictionary, building on a thread, or building chunks lazily.
+- World build time at small block sizes is dominated by GDScript tree voxel growth and meshing. Since the branching oaks, that's about 35 s + 15 s on the T480 at 0.25, with ~3.6M tree voxels and ~1.7 GB RAM. Options if it ever matters: PackedArray voxel storage instead of a Dictionary, building on a thread with a loading screen, or building chunks lazily.
 - The whole world is built at once (no streaming); 256 m is comfortable.
 - Tree crowns are walk-through; a disc hitting leaves is future work (phase 4).
 - Over some VNC setups, held keys arrive as instant taps, so WASD won't move you (N still works). An auto-walk toggle is a candidate fix.

@@ -41,16 +41,15 @@ $G --path . --script res://tools/screenshot.gd -- /tmp/shots --block-size=0.5
 
 `block_size` only changes **how finely** the world is chopped into blocks. It does not change the world itself. Hills, lakes, tree positions and flower patches all come from the seed in metres, so the same seed gives the same landscape at any block size, just chunkier or finer.
 
-Measured on seed 1848 with greedy meshing:
+Measured on seed 1848 (greedy meshing, branching oaks):
 
 | | 1.0 (default) | 0.5 | 0.25 |
 |---|---|---|---|
 | Grid | 256² columns | 512² | 1024² |
 | Terrain triangles | 50k | 190k | 737k |
-| Tree voxels / triangles | 27k / 54k | 218k / 192k | 1.7M / 712k |
-| World build (T480) | ~1.1 s | ~5 s | ~18 s |
-| World build (M1 Pro) | ~0.7 s | ~3 s | ~11 s |
-| Frame rate (M1 Pro, uncapped) | ~500 fps | | ~250 fps |
+| Tree voxels / triangles | 77k / 181k | 496k / 683k | 3.6M / 2.3M |
+| World build (T480) | ~5 s | ~13 s | ~56 s |
+| Memory (T480, headless) | ~190 MB | ~440 MB | ~1.7 GB |
 | Walls (2 blocks) | 2 m | 1 m | 0.5 m |
 
 Notes:
@@ -59,7 +58,7 @@ Notes:
 - **Oaks** are measured in metres (trunk height, crown radius, 2 m trunks for big oaks), so they keep their size and gain detail. At 0.5 the limbs taper towards the tips.
 - **Flowers** are already smaller than a block and their density is per square metre, so the meadow looks about the same at any block size.
 - **Water level** sits 0.35 blocks below the lowest rim block, so lakes come out a little different at different sizes.
-- Small sizes cost mostly **build time** now, not frame rate. Greedy meshing keeps triangle counts low, but growing and meshing ~1.7M tree voxels in GDScript takes a while at 0.25. Below 0.25 is untested.
+- Small sizes cost mostly **build time and memory**, not frame rate. Growing and meshing millions of tree voxels in GDScript takes a while at 0.25 (Macs are roughly 1.5× faster than the T480). Below 0.25 is untested.
 
 ## Terrain knobs (`scripts/terrain.gd`)
 

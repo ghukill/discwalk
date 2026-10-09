@@ -26,8 +26,6 @@ const BARK := 1
 const LEAF := 2
 
 const COLOR_BARK := Color(0.34, 0.25, 0.17)
-const COLOR_LEAF := Color(0.22, 0.42, 0.16)
-const COLOR_LEAF_ALT := Color(0.33, 0.47, 0.17)   ## Some oaks are a touch yellower.
 const COLOR_STEM := Color(0.27, 0.45, 0.18)
 
 ## Flower species. habitat: "shore", "shade" or "meadow".
@@ -47,10 +45,11 @@ const MEADOW_SPECIES := ["black_eyed_susan", "coneflower", "lupine", "butterfly_
 @export var flower_view_distance: float = 110.0
 
 var terrain: Node3D
-var trees: Array[Dictionary] = []            ## {pos: Vector2i (column), kind, crown (m), collider}
+var trees: Array[Dictionary] = []            ## {pos: Vector2i (column), kind, form, crown (m), collider}
 var flower_counts := {}                      ## species -> count
 var voxel_count := 0
 var timings := {}                            ## Build step -> ms (for the smoke test).
+var preset_trees: Array = []                 ## Hand-placed trees (tools); skips placement.
 
 var _vox := {}                               ## Vector3i -> BARK/LEAF
 var _vox_color := {}                         ## Vector3i -> base Color (alpha = jitter strength)
@@ -81,7 +80,15 @@ func build(t: Node3D) -> void:
 	_sway_material.shader = SWAY_SHADER
 
 	var t0 := Time.get_ticks_msec()
-	_place_trees()
+	if preset_trees.is_empty():
+		_place_trees()
+	else:
+		trees.clear()
+		for pt: Dictionary in preset_trees:
+			var crown: float = pt.get("crown",
+				{"giant": 7.0, "big": 5.0, "medium": 3.6, "sapling": 1.8}[pt.kind])
+			trees.append({"pos": Vector2i(terrain.col_of(pt.x), terrain.col_of(pt.z)),
+				"kind": pt.kind, "form": pt.form, "crown": crown})
 	var t1 := Time.get_ticks_msec()
 	_build_tree_meshes()
 	var t2 := Time.get_ticks_msec()
@@ -130,15 +137,35 @@ func _place_trees() -> void:
 					continue
 				kind = "giant"
 			var crown: float = {"giant": 7.0, "big": 5.0, "medium": 3.6, "sapling": 1.8}[kind]
+			crown *= _rng.randf_range(0.8, 1.25)
 			if not _can_grow(x, z, kind, crown, spawn, placed):
-				# Giants are picky; let them fall back to a big oak.
 				continue
-			var tree := {"pos": Vector2i(x, z), "kind": kind, "crown": crown}
+			var tree := {"pos": Vector2i(x, z), "kind": kind, "crown": crown,
+				"form": _pick_form(kind, g)}
 			placed.append(tree)
 	trees = placed
 
 
 ## x, z are grid columns; crown and all distances are metres.
+## Shape of an oak, from its size class and how deep in a grove it stands.
+## Lone giants spread wide; crowded grove trees grow tall to reach the light.
+func _pick_form(kind: String, grove: float) -> String:
+	if kind == "sapling":
+		return "sapling"
+	var r := _rng.randf()
+	if kind == "giant":
+		return "spreading" if r < 0.75 else "forked"
+	var tall := clampf((grove - 0.1) * 1.6, 0.0, 0.6)   # deeper in grove -> taller
+	if r < tall:
+		return "tall"
+	r = _rng.randf()
+	if r < 0.4:
+		return "spreading"
+	if r < 0.7:
+		return "forked"
+	return "leaning"
+
+
 func _can_grow(x: int, z: int, kind: String, crown: float, spawn: Vector3,
 		placed: Array[Dictionary]) -> bool:
 	var size: int = terrain.size
@@ -178,90 +205,230 @@ func _blocks(metres: float) -> int:
 
 
 # --- growing an oak ----------------------------------------------------------
+# Every oak is grown in METRES as a little skeleton: a trunk (which may lean,
+# or fork into two leaders), primary limbs, and recursive side branches and
+# forks down to twigs. Bark is stamped as tapering spheres along each branch,
+# and every branch tip gets a leaf cluster. The result is voxelised on the
+# terrain's block grid, so the same tree just gets crisper at smaller blocks.
+#
+# Forms (picked in _place_trees):
+#   spreading  open-grown oak: short massive trunk, long low limbs that curve
+#              up at the ends, wide crown (lone giants, grove edges)
+#   tall       forest-grown oak: tall clear trunk, compact high crown
+#   forked     trunk splits into two leaders part way up
+#   leaning    trunk tilts and the crown reaches out over one side
+#   sapling    young tree: thin stem, a few twiggy branches
+
+## Per-form shape parameters. Ranges are [min, max]. Lengths are multiples of
+## the tree's crown radius unless marked (m).
+const FORMS := {
+	"spreading": {"trunk_h": [2.2, 4.2], "lean": [0.0, 6.0], "limbs": [4, 6],
+		"limb_from": [0.55, 1.0], "elev": [8.0, 32.0], "limb_len": [0.6, 0.85],
+		"upcurve": 0.035, "leader": 0.35, "depth": 3, "cluster": [0.22, 0.3]},
+	"tall": {"trunk_h": [5.5, 9.5], "lean": [0.0, 5.0], "limbs": [3, 5],
+		"limb_from": [0.7, 1.0], "elev": [35.0, 62.0], "limb_len": [0.45, 0.65],
+		"upcurve": 0.02, "leader": 0.7, "depth": 2, "cluster": [0.3, 0.4]},
+	"forked": {"trunk_h": [3.0, 5.5], "lean": [0.0, 6.0], "limbs": [2, 3],
+		"limb_from": [0.8, 1.0], "elev": [20.0, 45.0], "limb_len": [0.5, 0.7],
+		"upcurve": 0.03, "leader": 0.6, "depth": 2, "cluster": [0.27, 0.36]},
+	"leaning": {"trunk_h": [3.0, 6.0], "lean": [12.0, 24.0], "limbs": [3, 5],
+		"limb_from": [0.6, 1.0], "elev": [15.0, 45.0], "limb_len": [0.55, 0.8],
+		"upcurve": 0.03, "leader": 0.5, "depth": 2, "cluster": [0.27, 0.36]},
+	"sapling": {"trunk_h": [1.6, 3.6], "lean": [0.0, 10.0], "limbs": [2, 4],
+		"limb_from": [0.4, 1.0], "elev": [30.0, 60.0], "limb_len": [0.55, 0.8],
+		"upcurve": 0.03, "leader": 0.6, "depth": 1, "cluster": [0.5, 0.7]},
+}
+
+## Trunk base radius (m) by size class.
+const TRUNK_R := {"giant": [0.95, 1.35], "big": [0.6, 0.9], "medium": [0.35, 0.55],
+	"sapling": [0.12, 0.2]}
+
+const LEAF_GREENS := [
+	Color(0.22, 0.42, 0.16),   # classic oak green
+	Color(0.33, 0.47, 0.17),   # bur oak, a touch yellow
+	Color(0.17, 0.35, 0.15),   # deep red-oak green
+	Color(0.27, 0.45, 0.20),
+]
+const COLOR_DEAD := Color(0.42, 0.38, 0.33)   ## Weathered grey bark on dead limbs.
+
+var _t: Dictionary = {}          ## The tree currently being grown (shape context).
+
 
 func _grow_tree(tree: Dictionary, index: int) -> void:
 	var size: int = terrain.size
 	var rng := RandomNumberGenerator.new()
 	rng.seed = terrain.world_seed * 104729 + index * 7 + 3
 	var kind: String = tree.kind
+	var form: Dictionary = FORMS[tree.form]
+	var crown: float = tree.crown
 	var p: Vector2i = tree.pos
-	var crown: float = tree.crown * rng.randf_range(0.9, 1.12)
+	var base := Vector3((p.x + 0.5) * _bs, terrain.col_height(p.x, p.y) * _bs, (p.y + 0.5) * _bs)
 
-	# Trunk height (m) and width (m): 2 m wide for big/giant oaks, 1 m otherwise.
-	var trunk_m: int = {"giant": rng.randi_range(5, 6), "big": rng.randi_range(4, 5),
-		"medium": rng.randi_range(3, 4), "sapling": rng.randi_range(2, 3)}[kind]
-	var thick := kind == "giant" or kind == "big"
-	var leaf_base := COLOR_LEAF.lerp(COLOR_LEAF_ALT, rng.randf() * rng.randf())
-	var foot_n := _blocks(2.0 if thick else 1.0)       # trunk footprint, blocks per side
+	# Size scales the form's trunk height a little, so giants stand taller.
+	var size_k: float = {"giant": 1.15, "big": 1.0, "medium": 0.85, "sapling": 1.0}[kind]
+	var trunk_h := _rr(rng, form.trunk_h) * size_k
+	var r0 := _rr(rng, TRUNK_R[kind])
+	var green: Color = LEAF_GREENS[rng.randi() % LEAF_GREENS.size()]
+	green = green.lerp(LEAF_GREENS[rng.randi() % LEAF_GREENS.size()], rng.randf() * 0.5)
+	_t = {
+		"rng": rng, "form": form, "crown": crown, "green": green,
+		"cluster_r": maxf(_rr(rng, form.cluster) * crown, 0.8),
+		"crown_cy": base.y + trunk_h + crown * 0.35, "crown_ry": crown * 0.75,
+		"dead": false,
+	}
 
-	# Trunk: each footprint column grows from its own ground up to a shared top.
-	var foot: Array[Vector2i] = []
-	for fz in foot_n:
-		for fx in foot_n:
-			foot.append(Vector2i(clampi(p.x + fx, 0, size - 1), clampi(p.y + fz, 0, size - 1)))
-	var ground := 1 << 30
-	for f in foot:
-		ground = mini(ground, terrain.heights[f.y * size + f.x])
-	var top := ground + _blocks(trunk_m)
-	for f in foot:
-		_trunk_cols[f.y * size + f.x] = 1
-		for y in range(terrain.heights[f.y * size + f.x], top + 1):
-			_set_bark(Vector3i(f.x, y, f.y))
-	# From here on, positions are in BLOCK units (converted back for the collider).
-	var centre := Vector3(p.x + foot_n / 2.0, top + 0.5, p.y + foot_n / 2.0)
-	var collider_h := float(top - ground + 1) * _bs
-	tree["collider"] = {
-		"pos": Vector3(centre.x * _bs, ground * _bs + collider_h / 2.0, centre.z * _bs),
-		"size": Vector3(foot_n * _bs, collider_h, foot_n * _bs)}
-	crown /= _bs   # metres -> blocks for the crown/limb geometry below
+	# Trunk: from slightly below ground (so it never floats on a slope) up to
+	# trunk_h, leaning a little (or a lot, for "leaning" oaks).
+	var lean_az := rng.randf() * TAU
+	var lean := deg_to_rad(_rr(rng, form.lean))
+	var tdir := Vector3(sin(lean) * cos(lean_az), cos(lean), sin(lean) * sin(lean_az))
+	var start := base - Vector3(0, 0.6, 0)
+	var top := _limb(start, tdir, trunk_h + 0.6, r0, r0 * 0.72, 0.0, true)
 
-	# Central crown blob, sitting on top of the trunk.
-	var blobs: Array = [[centre + Vector3(0, crown * 0.35, 0), crown * 0.72]]
+	# Mark trunk columns (no flowers inside the trunk) and add the collider.
+	var rb := maxi(0, int(ceil(r0 / _bs)) - 1)
+	for dz in range(-rb, rb + 1):
+		for dx in range(-rb, rb + 1):
+			var cx := clampi(p.x + dx, 0, size - 1)
+			var cz := clampi(p.y + dz, 0, size - 1)
+			_trunk_cols[cz * size + cx] = 1
+	var w := maxf(r0 * 1.6, 0.5)
+	var ch := minf(trunk_h, 3.0)
+	tree["collider"] = {"pos": base + Vector3(0, ch / 2.0, 0), "size": Vector3(w, ch, w)}
 
-	# Limbs: crooked bark lines reaching outward and up, each ending in a blob.
-	var limbs: int = {"giant": rng.randi_range(4, 5), "big": rng.randi_range(3, 4),
-		"medium": rng.randi_range(2, 3), "sapling": 0}[kind]
+	var r_top := r0 * 0.72
+	if tree.form == "forked":
+		# Two (sometimes three) leaders, each carrying its own limbs.
+		var leaders := 3 if rng.randf() < 0.2 else 2
+		var az0 := rng.randf() * TAU
+		for i in leaders:
+			var az := az0 + TAU * i / leaders + rng.randf_range(-0.3, 0.3)
+			var d := _tilt(tdir, deg_to_rad(rng.randf_range(18.0, 34.0)), az)
+			var lead_len := crown * rng.randf_range(0.55, 0.8)
+			var lead_top := _limb(top, d, lead_len, r_top * 0.75, r_top * 0.5, 0.01, false)
+			_limbs_from(lead_top - d * lead_len * 0.45, lead_top, r_top * 0.45, 2, crown * 0.7)
+			_branch(lead_top, d, crown * 0.35, r_top * 0.4, form.depth)
+	else:
+		var low := start + tdir * (0.6 + trunk_h * _rr(rng, form.limb_from))
+		_limbs_from(low, top, r_top * 0.7, rng.randi_range(form.limbs[0], form.limbs[1]), crown)
+		# Central leader carries on upward.
+		var lead := _tilt(tdir, deg_to_rad(rng.randf_range(0.0, 12.0)), rng.randf() * TAU)
+		_branch(top, lead, crown * form.leader, r_top * 0.6, form.depth)
+
+
+## Primary limbs spread around the stem: they emerge spaced between `low` and
+## `high` on the stem (spiralling by the golden angle), aim outwards at the
+## form's elevation, then branch.
+func _limbs_from(low: Vector3, high: Vector3, r: float, count: int, crown: float) -> void:
+	var rng: RandomNumberGenerator = _t.rng
+	var form: Dictionary = _t.form
 	var az0 := rng.randf() * TAU
-	for i in limbs:
-		var az := az0 + TAU * i / limbs + rng.randf_range(-0.4, 0.4)
-		var elev := deg_to_rad(rng.randf_range(28.0, 50.0))
-		var length := crown * rng.randf_range(0.7, 0.95)
+	for i in count:
+		var az := az0 + i * 2.39996 + rng.randf_range(-0.35, 0.35)   # golden angle
+		var elev := deg_to_rad(_rr(rng, form.elev))
 		var dir := Vector3(cos(az) * cos(elev), sin(elev), sin(az) * cos(elev))
-		var drop_m := rng.randi_range(0, mini(2, trunk_m - 2))   # limbs start up to 2 m down
-		var pos := centre - Vector3(0, drop_m / _bs, 0)
-		var step := 0.5 / _bs                                   # half a metre, in blocks
-		var steps := int(length / step)
-		var limb_n := _blocks(1.0)                              # limbs ~1 m thick
-		for s in steps:
-			# Wander a little so limbs look crooked, not ruler-straight.
-			dir = (dir + Vector3(rng.randf_range(-0.12, 0.12), rng.randf_range(-0.08, 0.1),
-				rng.randf_range(-0.12, 0.12))).normalized()
-			pos += dir * step
-			# Taper towards the tip when blocks are fine enough to show it.
-			var n := maxi(1, int(round(limb_n * lerpf(1.0, 0.5, float(s) / steps))))
-			_bark_cube(pos, n)
-			if thick and s < steps / 2:
-				_bark_cube(pos - Vector3(0, limb_n, 0), n)
-		blobs.append([pos + Vector3(0, 0.6 / _bs, 0), crown * rng.randf_range(0.5, 0.66)])
-
-	# Leaves: squashed ellipsoids (wider than tall) with noisy, bitten edges.
-	for b in blobs:
-		_leaf_blob(b[0], b[1], leaf_base, rng)
+		var along := (float(i) / maxf(count - 1, 1)) if count > 1 else 1.0
+		var at := low.lerp(high, along)
+		var length := _rr(rng, form.limb_len) * crown * rng.randf_range(0.85, 1.15)
+		# Now and then a limb has died back: bare, grey, no leaves.
+		var was_dead: bool = _t.dead
+		_t.dead = rng.randf() < 0.07 and _t.crown > 2.5
+		_branch(at, dir, length, r * rng.randf_range(0.75, 1.0), form.depth)
+		_t.dead = was_dead
 
 
-## Stamps an n x n x n cube of bark around p (block units).
-func _bark_cube(p: Vector3, n: int) -> void:
-	var o := Vector3i(floori(p.x - (n - 1) / 2.0), floori(p.y - (n - 1) / 2.0), floori(p.z - (n - 1) / 2.0))
-	for dy in n:
-		for dz in n:
-			for dx in n:
-				_set_bark(o + Vector3i(dx, dy, dz))
+## A branch: a tapering, wandering limb that sprouts side branches along the
+## way and forks at the end, recursing `depth` more levels. Tips get leaves.
+func _branch(start: Vector3, dir: Vector3, length: float, r: float, depth: int) -> void:
+	var rng: RandomNumberGenerator = _t.rng
+	var form: Dictionary = _t.form
+	var r_end := r * 0.6
+	var tip := _limb(start, dir, length, r, r_end, form.upcurve, false)
+
+	if depth <= 0 or length < 0.6:
+		if not _t.dead:
+			# Leaves sit on top of the twig ends, so limbs show from below.
+			var cr: float = _t.cluster_r * rng.randf_range(0.75, 1.2)
+			_leaf_cluster(tip + Vector3(0, cr * 0.35, 0), cr)
+			# Now and then a smaller puff part way back fills the crown out.
+			if rng.randf() < 0.3:
+				var cr2: float = _t.cluster_r * rng.randf_range(0.5, 0.75)
+				_leaf_cluster(start.lerp(tip, 0.55) + Vector3(0, cr2 * 0.3, 0), cr2)
+		return
+
+	# Side branches along the limb.
+	var sides := rng.randi_range(1, 2) if depth >= 2 else rng.randi_range(0, 2)
+	for i in sides:
+		var t := rng.randf_range(0.35, 0.8)
+		var at := start.lerp(tip, t)
+		var d := _tilt(dir, deg_to_rad(rng.randf_range(35.0, 70.0)), rng.randf() * TAU)
+		d = (d + Vector3(0, 0.25, 0)).normalized()
+		_branch(at, d, length * rng.randf_range(0.4, 0.6), lerpf(r, r_end, t) * 0.6, depth - 1)
+
+	# Fork at the tip into 2-3 children.
+	var forks := 3 if rng.randf() < 0.3 else 2
+	var az0 := rng.randf() * TAU
+	for i in forks:
+		var d := _tilt(dir, deg_to_rad(rng.randf_range(20.0, 48.0)), az0 + TAU * i / forks)
+		_branch(tip, d, length * rng.randf_range(0.5, 0.72), r_end * 0.8, depth - 1)
 
 
-## Leaf blob centred at c with radius r, both in block units.
-func _leaf_blob(c: Vector3, r: float, base: Color, rng: RandomNumberGenerator) -> void:
+## Stamps a tapering, slightly wandering tube of bark from `start` along `dir`
+## for `length` m. `upcurve` bends it skyward as it goes (oak limbs tend to
+## turn up at the ends). Returns the end point.
+func _limb(start: Vector3, dir: Vector3, length: float, r0: float, r1: float,
+		upcurve: float, flare: bool) -> Vector3:
+	var rng: RandomNumberGenerator = _t.rng
+	var pos := start
+	var d := dir.normalized()
+	var travelled := 0.0
+	while travelled < length:
+		var t := travelled / length
+		var r := lerpf(r0, r1, t)
+		if flare and travelled < 1.2:
+			r *= 1.0 + 0.45 * (1.0 - travelled / 1.2)   # root flare at the base
+		_bark_sphere(pos, r)
+		var step := minf(0.4, maxf(0.7 * _bs, r * 0.7))
+		d = (d + Vector3(rng.randf_range(-0.06, 0.06), upcurve * step / 0.4,
+			rng.randf_range(-0.06, 0.06))).normalized()
+		pos += d * step
+		travelled += step
+	_bark_sphere(pos, r1)
+	return pos
+
+
+## Fills bark voxels within radius r (m) of point p (m).
+func _bark_sphere(p: Vector3, r: float) -> void:
+	var c := p / _bs
+	var rb := r / _bs
+	var col := COLOR_DEAD if _t.dead else COLOR_BARK
+	if rb < 0.6:
+		_set_bark(Vector3i(floori(c.x), floori(c.y), floori(c.z)), col)
+		return
+	var n := ceili(rb)
+	var r2 := rb * rb
+	for y in range(floori(c.y) - n, floori(c.y) + n + 1):
+		for z in range(floori(c.z) - n, floori(c.z) + n + 1):
+			for x in range(floori(c.x) - n, floori(c.x) + n + 1):
+				var dx := x + 0.5 - c.x
+				var dy := y + 0.5 - c.y
+				var dz := z + 0.5 - c.z
+				if dx * dx + dy * dy + dz * dz <= r2:
+					_set_bark(Vector3i(x, y, z), col)
+
+
+## A leaf cluster centred at c (m) with radius r (m).
+func _leaf_cluster(c: Vector3, r: float) -> void:
+	_leaf_blob(c / _bs, maxf(r / _bs, 1.3), _t.green,
+		_t.crown_cy / _bs, _t.crown_ry / _bs)
+
+
+## Leaf blob centred at c with radius r, both in block units. Shading mixes
+## the blob's own top/bottom with the whole crown's (cy, ry), so puffs look
+## rounded but the crown is still lit from above and dark underneath.
+func _leaf_blob(c: Vector3, r: float, base: Color, cy: float, ry_crown: float) -> void:
 	var size: int = terrain.size
-	var ry := r * 0.62
+	var ry := r * 0.7
 	for y in range(floori(c.y - ry) - 1, ceili(c.y + ry) + 2):
 		for z in range(floori(c.z - r) - 1, ceili(c.z + r) + 2):
 			for x in range(floori(c.x - r) - 1, ceili(c.x + r) + 2):
@@ -277,8 +444,8 @@ func _leaf_blob(c: Vector3, r: float, base: Color, rng: RandomNumberGenerator) -
 					continue
 				if d > 0.33:
 					# Noise sampled in metres, so the "bites" are the same size at any block size.
-					var n := _leaf_noise.get_noise_3d(x * _bs, y * _bs, z * _bs)
-					if d > 0.78 + n * 0.45:
+					var nz := _leaf_noise.get_noise_3d(x * _bs, y * _bs, z * _bs)
+					if d > 0.78 + nz * 0.45:
 						continue
 				var key := Vector3i(x, y, z)
 				if _vox.get(key, 0) == BARK:
@@ -288,18 +455,36 @@ func _leaf_blob(c: Vector3, r: float, base: Color, rng: RandomNumberGenerator) -
 				_vox[key] = LEAF
 				# Lighter on top, darker underneath (in 5 bands so faces can merge);
 				# per-leaf jitter comes from the voxel shader.
-				var shade := snappedf(clampf(0.5 - dy * 0.5, 0.0, 1.0), 0.25)
-				var col := base.darkened(shade * 0.28).lightened(0.06 if dy > 0.4 else 0.0)
+				var gy := clampf((y + 0.5 - cy) / ry_crown, -1.0, 1.0)
+				var up := dy * 0.55 + gy * 0.45
+				var shade := snappedf(clampf(0.5 - up * 0.5, 0.0, 1.0), 0.25)
+				var col := base.darkened(shade * 0.3).lightened(0.06 if up > 0.45 else 0.0)
 				col.a = 0.14
 				_vox_color[key] = col
 				_shade[z * size + x] = 1
 
 
-func _set_bark(key: Vector3i) -> void:
+func _set_bark(key: Vector3i, col: Color = COLOR_BARK) -> void:
 	_vox[key] = BARK
-	var col := COLOR_BARK
 	col.a = 0.25
 	_vox_color[key] = col
+
+
+## Rotates direction d away from itself by `angle`, towards azimuth `az`
+## around it.
+func _tilt(d: Vector3, angle: float, az: float) -> Vector3:
+	var side := d.cross(Vector3.UP)
+	if side.length_squared() < 0.001:
+		side = Vector3.RIGHT
+	side = side.normalized()
+	var other := d.cross(side).normalized()
+	var off := side * cos(az) + other * sin(az)
+	return (d * cos(angle) + off * sin(angle)).normalized()
+
+
+## Random float in [r[0], r[1]].
+func _rr(rng: RandomNumberGenerator, r: Array) -> float:
+	return rng.randf_range(r[0], r[1])
 
 
 # --- tree meshing + collision ------------------------------------------------

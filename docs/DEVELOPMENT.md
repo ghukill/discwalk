@@ -37,7 +37,13 @@ The smoke test passes when:
 
 It prints counts (terrain/tree triangles, oaks by size, voxels, flowers per species) and flora build timings, which are handy for spotting regressions. At the default settings, seed 1848 gives 50,208 terrain triangles, 54,380 tree triangles, 295 oaks and 27,345 tree voxels.
 
-Screenshot views: oak, meadow, spawn, lakeshore, overview.
+Screenshot views: oak, meadow, spawn, lakeshore, overview, plus one portrait per oak form (`form_spreading`, `form_tall`, …).
+
+For tree work, the gallery is quicker. It puts one row per form, three trees each, on flat ground, and shoots each row plus a look up from under the biggest tree:
+
+```sh
+DISPLAY=:0 $G --path . --resolution 1280x720 --script res://tools/tree_gallery.gd -- /tmp/gallery --block-size=0.25
+```
 
 To check frame rate: `DISPLAY=:0 $G --path . --resolution 1280x720 --print-fps --quit-after 600`.
 

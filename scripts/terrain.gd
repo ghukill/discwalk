@@ -51,6 +51,9 @@ var heights := PackedInt32Array()          ## Top surface of each column, in blo
 var lakes: Array[Dictionary] = []          ## {center: Vector2 (m), radius: m, water_y: m}
 
 var flora: Node3D                          ## Oaks + wildflowers (scripts/flora.gd).
+## Optional hand-placed trees for tools (see tools/tree_gallery.gd):
+## [{x: m, z: m, kind, form, crown?}]. Empty = normal generated placement.
+var flora_preset: Array = []
 
 var _shore := PackedByteArray()            ## 1 = sandy shore / lake bed.
 var _rng := RandomNumberGenerator.new()
@@ -94,6 +97,7 @@ func generate() -> void:
 	flora = Node3D.new()
 	flora.set_script(FLORA_SCRIPT)
 	flora.name = "Flora"
+	flora.preset_trees = flora_preset
 	add_child(flora)
 	flora.build(self)
 	var flowers := 0

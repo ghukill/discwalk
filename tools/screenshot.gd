@@ -77,6 +77,7 @@ func _plan_views() -> void:
 	oak_eye.y = t.height_at(oak_eye.x, oak_eye.z) + 0.05
 	op.y = oak_eye.y + 1.0
 	var meadow := _flowery_spot(t)
+	var portraits := _form_portraits(t)
 	_views = [
 		{"name": "oak", "pos": oak_eye, "look": op, "pitch": 0.12},
 		{"name": "meadow", "pos": meadow[0], "look": meadow[1], "pitch": -0.32},
@@ -84,6 +85,7 @@ func _plan_views() -> void:
 		{"name": "lakeshore", "pos": shore, "look": lc, "pitch": -0.25},
 		{"name": "overview", "pos": Vector3(s * 0.12, 60, s * 0.12), "look": Vector3(s * 0.55, 0, s * 0.55), "pitch": -0.55},
 	]
+	_views.append_array(portraits)
 
 
 ## Finds the densest meadow-flower spot; returns [eye position, look target].
@@ -106,3 +108,60 @@ func _flowery_spot(t) -> Array:
 	eye.y = t.height_at(eye.x, eye.z) + 0.05
 	best.y = eye.y
 	return [eye, best]
+
+
+## One "portrait" per oak form: the most open-standing example of each form,
+## seen from a few crown-widths away.
+func _form_portraits(t) -> Array:
+	var bs: float = t.block_size
+	var out := []
+	var rank := {"giant": 3, "big": 2, "medium": 1, "sapling": 0}
+	for form in ["spreading", "tall", "forked", "leaning", "sapling"]:
+		var best = null
+		var best_score := -1e9
+		for tr in t.flora.trees:
+			if tr.form != form:
+				continue
+			var p := Vector2((tr.pos.x + 0.5) * bs, (tr.pos.y + 0.5) * bs)
+			var crowd := 0.0
+			for o in t.flora.trees:
+				var d := p.distance_to(Vector2((o.pos.x + 0.5) * bs, (o.pos.y + 0.5) * bs))
+				if d > 0.1 and d < 16.0:
+					crowd += 1.0
+			var score: float = rank[tr.kind] * 3.0 - crowd
+			if score > best_score:
+				best_score = score
+				best = tr
+		if best == null:
+			continue
+		var c := Vector3((best.pos.x + 0.5) * bs, 0, (best.pos.y + 0.5) * bs)
+		var dist: float = best.crown * 2.4 + 5.0
+		# Look from whichever of 8 directions has the fewest trees in the way.
+		var eye := c
+		var fewest := 1 << 30
+		for k in 8:
+			var a := TAU * k / 8.0
+			var e := c + Vector3(cos(a), 0, sin(a)) * dist
+			if e.x < 8 or e.z < 8 or e.x > t.world_size - 8 or e.z > t.world_size - 8:
+				continue
+			if t.lake_edge_distance(e.x, e.z) < 2.0:
+				continue
+			var blockers := 0
+			for o in t.flora.trees:
+				var op := Vector3((o.pos.x + 0.5) * bs, 0, (o.pos.y + 0.5) * bs)
+				if op.distance_to(c) < 0.5:
+					continue
+				# distance from o to the eye->tree segment
+				var seg: Vector3 = c - e
+				var u := clampf((op - e).dot(seg) / seg.length_squared(), 0.0, 1.0)
+				if (e + seg * u).distance_to(op) < float(o.crown) * 0.9:
+					blockers += 1
+			if blockers < fewest:
+				fewest = blockers
+				eye = e
+		eye.y = t.height_at(eye.x, eye.z) + 0.05
+		var look := c
+		look.y = eye.y + 1.0
+		out.append({"name": "form_" + form, "pos": eye, "look": look,
+			"pitch": clampf(atan2(best.crown * 0.9, dist), 0.05, 0.45)})
+	return out
