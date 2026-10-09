@@ -44,6 +44,20 @@ func _setup_throwing() -> void:
 	status.vertical_alignment = VERTICAL_ALIGNMENT_BOTTOM
 	$HUD.add_child(status)
 
+	var corner := Label.new()
+	corner.name = "ThrowStatus"
+	corner.add_theme_color_override("font_color", Color(1, 0.85, 0.7, 0.95))
+	corner.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.6))
+	corner.add_theme_constant_override("shadow_offset_x", 1)
+	corner.add_theme_constant_override("shadow_offset_y", 1)
+	corner.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
+	corner.offset_left = -260
+	corner.offset_right = -16
+	corner.offset_top = 12
+	corner.offset_bottom = 70
+	corner.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	$HUD.add_child(corner)
+
 	thrower = Node.new()
 	thrower.set_script(THROWER_SCRIPT)
 	thrower.name = "Thrower"
@@ -51,6 +65,7 @@ func _setup_throwing() -> void:
 	thrower.player = player
 	thrower.camera = $Player/Head/Camera3D
 	thrower.label = status
+	thrower.status_label = corner
 	add_child(thrower)
 
 

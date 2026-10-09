@@ -1,6 +1,8 @@
 extends SceneTree
 ## Headless disc-throw check: throws at a few powers across open ground, one
 ## straight into an oak, one into a lake, and reports where each came to rest.
+## Also: a sky-high throw that gets fetched mid-flight (the player should
+## inherit its velocity), and the beam toggle.
 ##
 ##   godot --headless --path . --script res://tools/throw_test.gd [-- --block-size=0.5]
 
@@ -8,6 +10,10 @@ var _main: Node
 var _frames := 0
 var _plan: Array = []
 var _discs: Array = []
+var _sky
+var _fling_ok := false
+var _fling_msg := ""
+var _fling_y0 := 0.0
 
 
 func _initialize() -> void:
@@ -19,6 +25,17 @@ func _process(_delta: float) -> bool:
 	_frames += 1
 	if _frames == 5:
 		_launch_all()
+	if _frames == 25:
+		_fetch_mid_flight()
+	if _frames == 55:
+		# Half a second later we should still be soaring upward with it.
+		var player: CharacterBody3D = _main.get_node("Player")
+		# ...keeping pace with the disc (same launch, same gravity).
+		var rose := player.global_position.y - _fling_y0
+		var gap: float = absf(player.global_position.y + 1.6 - _sky.global_position.y)
+		if rose < 2.0 or gap > 1.5:
+			_fling_ok = false
+		_fling_msg += " | later: rose %.1f m, eye-to-disc height gap %.2f m" % [rose, gap]
 	if _frames < 5 + 60 * 25 and not _all_rested():
 		return false
 	var ok := true
@@ -32,6 +49,17 @@ func _process(_delta: float) -> bool:
 		print("THROW %-10s power=%2d dist=%5.1f m peak=%4.1f m rest=%s bark=%d leaves=%d splash=%s" % [
 			name, d.power, d.distance(), d.max_height, d.resting, d.bark_hits, d.leaf_cells, d.splashed])
 		ok = ok and d.resting
+	print("THROW fetch_mid_flight %s %s" % ["ok" if _fling_ok else "BAD", _fling_msg])
+	ok = ok and _fling_ok
+	var thrower = _main.thrower
+	thrower.set_beams(false)
+	var beams_off := true
+	for d in _discs:
+		if is_instance_valid(d) and d.resting and d._beacon != null and d._beacon.visible:
+			beams_off = false
+	thrower.set_beams(true)
+	print("THROW beams_toggle %s" % ("ok" if beams_off else "BAD"))
+	ok = ok and beams_off
 	var tree_d = _discs[_plan.size() - 2]
 	var lake_d = _discs[_plan.size() - 1]
 	ok = ok and is_instance_valid(tree_d) and (tree_d.bark_hits > 0 or tree_d.leaf_cells > 0)
@@ -96,3 +124,17 @@ func _launch_all() -> void:
 		d.launch(pl.from, pl.dir * speed, Vector3(3, 5, 2))
 		_discs.append(d)
 	thrower.max_discs = 100
+	# Straight up and a bit forward, to be fetched mid-flight.
+	_sky = thrower.throw(8)
+	_sky.launch(spawn + Vector3(0, 1.0, 0), Vector3(3, 30, 0), Vector3.ZERO)
+
+
+func _fetch_mid_flight() -> void:
+	var player: CharacterBody3D = _main.get_node("Player")
+	var v0: Vector3 = _sky.linear_velocity
+	_main.thrower.fetch()
+	var dv := player.velocity.distance_to(v0)
+	var dp := (player.global_position + Vector3(0, 1.6, 0)).distance_to(_sky.global_position)
+	_fling_y0 = player.global_position.y
+	_fling_ok = dv < 0.5 and dp < 0.5 and v0.y > 5.0
+	_fling_msg = "(disc v=%s, player v=%s, eye-to-disc %.2f m)" % [v0, player.velocity, dp]

@@ -1,9 +1,11 @@
 extends Node
 ## Throwing discs (step 1: a block out of a cannon).
 ##
-##   1-9, 0   throw at power 1..10 along where you're looking (0 = 10)
-##   click    throw again at the last power
-##   F        fetch: walk (well, teleport) to your last disc
+##   1-9, 0   set power 1..10 (0 = 10)
+##   click/T  throw at the current power, along where you're looking
+##   F        fetch: teleport to your last disc. If it's still flying, you
+##            take over its speed and direction and fly on with it.
+##   B        toggle the beams of light over resting discs
 ##
 ## Power p launches at p x speed_per_level m/s (default 4 m/s per level, so
 ## 0 = 40 m/s, about a strong disc golf drive). Aim is your view direction.
@@ -17,8 +19,10 @@ var terrain: Node3D
 var player: CharacterBody3D
 var camera: Camera3D
 var label: Label
+var status_label: Label                  ## Upper-right: power + beams.
 
 var power := 5
+var beams := true
 var discs: Array = []
 var _last: Node = null
 var _flying_text := ""
@@ -33,11 +37,17 @@ func _unhandled_input(event: InputEvent) -> void:
 	for level in range(1, 11):
 		if event.is_action_pressed("throw_%d" % level):
 			power = level
-			throw(level)
+			_update_label()
 			get_viewport().set_input_as_handled()
 			return
 	if event.is_action_pressed("fetch"):
 		fetch()
+		get_viewport().set_input_as_handled()
+	elif event.is_action_pressed("throw"):
+		throw(power)
+		get_viewport().set_input_as_handled()
+	elif event.is_action_pressed("beams"):
+		set_beams(not beams)
 		get_viewport().set_input_as_handled()
 	elif event is InputEventMouseButton and event.pressed \
 			and event.button_index == MOUSE_BUTTON_LEFT \
@@ -55,6 +65,7 @@ func throw(level: int) -> Node:
 	disc.name = "Disc"
 	disc.terrain = terrain
 	disc.power = level
+	disc.beam_on = beams
 	get_parent().add_child(disc)
 	disc.add_collision_exception_with(player)   # don't bonk yourself
 	var vel := fwd * level * speed_per_level + player.velocity
@@ -72,11 +83,27 @@ func throw(level: int) -> Node:
 	return disc
 
 
-## Teleports the walker next to the last disc, facing the same way.
+## Turns every disc's beam of light on or off (and future ones too).
+func set_beams(on: bool) -> void:
+	beams = on
+	for d in discs:
+		if is_instance_valid(d):
+			d.set_beam(on)
+	_update_label()
+
+
+## Teleports the walker to the last disc. A resting disc: stand beside it,
+## facing the same way. A flying disc: your eyes go where it is and you
+## inherit its velocity, so you fly on alongside it until you land.
 func fetch() -> void:
 	if not is_instance_valid(_last):
 		return
 	var p: Vector3 = _last.global_position
+	if not _last.resting:
+		var at := p - Vector3(0, 1.6, 0)                     # eyes at the disc
+		at.y = maxf(at.y, terrain.height_at(at.x, at.z) + 0.1)
+		player.fling(at, _last.linear_velocity)
+		return
 	var back := Vector3(camera.global_transform.basis.z.x, 0, camera.global_transform.basis.z.z)
 	back = back.normalized() if back.length() > 0.01 else Vector3.BACK
 	var at := p + back * 1.2
@@ -120,7 +147,10 @@ func _on_rest(disc: Node) -> void:
 func _update_label() -> void:
 	if label == null:
 		return
-	var lines := ["throw: 1-9, 0 = power 1-10  ·  click = power %d  ·  F fetch" % power]
+	if status_label != null:
+		status_label.text = "Velocity: %d  (%d m/s)\nBeams: %s" % [
+			power, int(power * speed_per_level), "on" if beams else "off"]
+	var lines := ["1-9, 0 set power  ·  click or T throw  ·  F fetch  ·  B beams"]
 	if _flying_text != "":
 		lines.append(_flying_text)
 	elif _result_text != "":

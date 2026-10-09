@@ -14,6 +14,8 @@ extends CharacterBody3D
 
 var _gravity: float = ProjectSettings.get_setting("physics/3d/default_gravity")
 var _bob_time := 0.0
+var _flung := false              ## Carrying momentum from a mid-air fetch.
+var _fling_t := 0.0
 var _head_base_y := 0.0
 
 
@@ -48,9 +50,19 @@ func _physics_process(delta: float) -> void:
 	var input := Input.get_vector("move_left", "move_right", "move_forward", "move_back")
 	var dir := (transform.basis * Vector3(input.x, 0, input.y)).normalized()
 	var speed := sprint_speed if Input.is_action_pressed("sprint") else walk_speed
-	var k := clampf(acceleration * delta, 0.0, 1.0)
-	velocity.x = lerpf(velocity.x, dir.x * speed, k)
-	velocity.z = lerpf(velocity.z, dir.z * speed, k)
+	if _flung:
+		# Riding a disc's momentum: keep it until we land, with a touch of
+		# air control (and the same whisper of drag the disc has).
+		_fling_t += delta
+		if _fling_t > 0.2 and is_on_floor():
+			_flung = false
+		velocity.x += dir.x * speed * 1.5 * delta
+		velocity.z += dir.z * speed * 1.5 * delta
+		velocity *= 1.0 - 0.05 * delta
+	if not _flung:
+		var k := clampf(acceleration * delta, 0.0, 1.0)
+		velocity.x = lerpf(velocity.x, dir.x * speed, k)
+		velocity.z = lerpf(velocity.z, dir.z * speed, k)
 
 	move_and_slide()
 	_head_bob(delta)
@@ -62,6 +74,16 @@ func _physics_process(delta: float) -> void:
 func respawn(at: Vector3) -> void:
 	global_position = at
 	velocity = Vector3.ZERO
+	_flung = false
+
+
+## Teleport to `at` already moving at `vel` (m/s); momentum is kept until
+## you land. Used by fetching a disc that's still in flight.
+func fling(at: Vector3, vel: Vector3) -> void:
+	global_position = at
+	velocity = vel
+	_flung = true
+	_fling_t = 0.0
 
 
 ## Gentle walking bob, because strolling should feel like strolling.
@@ -84,6 +106,8 @@ static func _ensure_input_actions() -> void:
 		"sprint": [KEY_SHIFT],
 		"new_world": [KEY_N],
 		"fetch": [KEY_F],
+		"throw": [KEY_T],
+		"beams": [KEY_B],
 		"throw_1": [KEY_1, KEY_KP_1], "throw_2": [KEY_2, KEY_KP_2],
 		"throw_3": [KEY_3, KEY_KP_3], "throw_4": [KEY_4, KEY_KP_4],
 		"throw_5": [KEY_5, KEY_KP_5], "throw_6": [KEY_6, KEY_KP_6],

@@ -34,9 +34,10 @@ Or from a terminal:
 | Mouse | look |
 | Shift | stroll faster |
 | Space | hop |
-| 1–9, 0 | **throw a disc** at power 1–10 (0 = 10) where you're looking |
-| Left click | throw again at the last power |
-| F | fetch: jump to your last disc |
+| 1–9, 0 | set throw power 1–10 (0 = 10), shown top-right as `Velocity: #` |
+| Left click / T | **throw a disc** at the current power, where you're looking |
+| F | fetch: jump to your last disc. **If it's still flying, you fly with it** (you take on its speed and direction until you land) |
+| B | toggle the beams of light over resting discs (status top-right) |
 | N | roll a brand-new world |
 | Esc | free the mouse (click to grab it again) |
 

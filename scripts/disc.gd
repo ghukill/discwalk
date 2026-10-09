@@ -33,6 +33,7 @@ var splashed := false
 var resting := false
 var max_height := 0.0                ## Peak height above release (m).
 
+var beam_on := true                  ## Show the rest beacon (toggled with B).
 var _still := 0.0
 var _in_water := false
 var _beacon: MeshInstance3D
@@ -195,7 +196,14 @@ func _come_to_rest() -> void:
 	_beacon.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	add_child(_beacon)
 	_beacon.global_position = global_position + Vector3(0, 4.0, 0)
+	_beacon.visible = beam_on
 	came_to_rest.emit(self)
+
+
+func set_beam(on: bool) -> void:
+	beam_on = on
+	if _beacon != null:
+		_beacon.visible = on
 
 
 static func _cell(p: Vector3, bs: float) -> Vector3i:

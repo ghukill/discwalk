@@ -28,7 +28,12 @@ $G --headless --path . --script res://tools/smoke_test.gd -- --block-size=0.5  #
 DISPLAY=:0 $G --path . --resolution 1280x720 --script res://tools/screenshot.gd -- /tmp/shots
 ```
 
-Throwing has its own headless check. It throws 4 discs across open ground at powers 2, 5, 8 and 10, one into the biggest oak, and one into a lake. It passes when they all come to rest, the oak throw touches bark or leaves, and the lake throw splashes:
+Throwing has its own headless check. It throws 4 discs across open ground at powers 2, 5, 8 and 10, one into the biggest oak, and one into a lake. It passes when:
+- they all come to rest
+- the oak throw touches bark or leaves
+- the lake throw splashes
+- a sky-high throw fetched mid-flight hands its velocity to the player, who then keeps pace with it
+- the beam toggle hides every beam
 
 ```sh
 $G --headless --path . --script res://tools/throw_test.gd [-- --block-size=0.5]

@@ -141,13 +141,14 @@ Caveat: greedy meshes have T-junctions (a big quad's edge meeting several small 
 
 Step 1 is deliberately simple: the disc is a 22 cm bright-orange block fired out of your face like a cannonball.
 
-- **Launch**: keys 1–9 and 0 throw at power 1–10. The speed is `power × speed_per_level` (4 m/s per level, so 0 = 40 m/s, a strong drive), along the camera's forward direction, plus your walking velocity. Left click repeats the last power. It gets a random tumble spin, and it never collides with you.
+- **Launch**: keys 1–9 and 0 *set* power 1–10 (top-right HUD: `Velocity: #` and the m/s). Left click or T throws. The speed is `power × speed_per_level` (4 m/s per level, so 0 = 40 m/s, a strong drive), along the camera's forward direction, plus your walking velocity. It gets a random tumble spin, and it never collides with you.
 - **Ground and trunks**: plain Godot rigid-body physics. The terrain heightmap and trunk boxes are real collision shapes, so it bounces (0.35), slides and rolls downhill on its own. Continuous collision detection stops it tunnelling through the ground at speed.
 - **Branches and leaves**: tree voxels aren't physics bodies (there are millions), so each physics tick `_integrate_forces()` walks the disc's path through the tree voxel grid (`flora.voxel_at()`) in steps smaller than a block:
   - **Bark**: reflect the velocity on the axis it crossed (×0.4) and put the disc back just outside the bark. That's how it clatters off limbs.
   - **Leaves**: keep 72% of speed per metre of leaves, plus a small random knock. A hard throw punches through a crown; a soft one gets swallowed and drops out underneath.
 - **Water**: on entry, speed ×0.35 (splash). After that, heavy drag and buoyancy float it at the surface.
-- **Coming to rest**: when it's barely moving (horizontally, if floating) for 0.6 s, it plants a faint orange beam so you can find it, and the HUD shows distance, peak height and what it hit. **F** teleports you beside it.
+- **Coming to rest**: when it's barely moving (horizontally, if floating) for 0.6 s, it plants a faint orange beam so you can find it, and the HUD shows distance, peak height and what it hit. **B** toggles all beams (`thrower.set_beams()`, remembered for new discs).
+- **Fetch (F)**: if the disc is resting, you appear beside it. If it's still flying, `player.fling()` puts your eyes where the disc is and gives you its exact velocity. While flung, the player keeps momentum (gravity, a whisper of drag, a little air steering) instead of the usual walk-speed lerp, until you land. So you ride the throw's arc.
 - **Future flight physics** goes in `disc.apply_aero(state, v)`, which runs every physics tick with the current velocity. Lift, drag, spin and fade would be forces added there, with the block swapped for a flat disc mesh + cylinder collider.
 
 ## Determinism
