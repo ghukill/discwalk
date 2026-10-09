@@ -35,7 +35,7 @@ The smoke test passes when:
 - there are more than 10 oaks
 - at least 5 flower species appear
 
-It prints counts (triangles, oaks by size, voxels, flowers per species), which are handy for spotting regressions. At the default settings, seed 1848 gives 246,396 terrain triangles and 295 oaks.
+It prints counts (terrain/tree triangles, oaks by size, voxels, flowers per species) and flora build timings, which are handy for spotting regressions. At the default settings, seed 1848 gives 50,208 terrain triangles, 54,380 tree triangles, 295 oaks and 27,345 tree voxels.
 
 Screenshot views: oak, meadow, spawn, lakeshore, overview.
 

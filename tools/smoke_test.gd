@@ -32,11 +32,15 @@ func _process(_delta: float) -> bool:
 	print("SMOKE size=%d chunks=%d triangles=%d lakes=%d water_y=%s" % [
 		terrain.size, chunks, verts / 3, terrain.lakes.size(), str(water_ys)])
 	var flora = terrain.flora
+	var tree_tris := 0
+	for tm in flora.get_node("Trees").get_children():
+		tree_tris += tm.mesh.get_faces().size() / 3
 	var kinds := {}
 	for tr in flora.trees:
 		kinds[tr.kind] = kinds.get(tr.kind, 0) + 1
-	print("SMOKE oaks=%d %s voxels=%d flowers=%s" % [
-		flora.trees.size(), str(kinds), flora.voxel_count, str(flora.flower_counts)])
+	print("SMOKE oaks=%d %s voxels=%d tree_triangles=%d flowers=%s" % [
+		flora.trees.size(), str(kinds), flora.voxel_count, tree_tris, str(flora.flower_counts)])
+	print("SMOKE flora_ms=%s" % str(flora.timings))
 	print("SMOKE player=%s on_floor=%s" % [player.global_position, player.is_on_floor()])
 
 	var ok: bool = chunks == terrain.size_chunks * terrain.size_chunks \

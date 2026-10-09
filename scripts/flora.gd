@@ -20,6 +20,7 @@ extends Node3D
 ## doesn't get 4x busier at half-size blocks.
 
 const SWAY_SHADER := preload("res://shaders/sway.gdshader")
+const VoxelMesh := preload("res://scripts/voxel_mesh.gd")
 
 const BARK := 1
 const LEAF := 2
@@ -49,14 +50,15 @@ var terrain: Node3D
 var trees: Array[Dictionary] = []            ## {pos: Vector2i (column), kind, crown (m), collider}
 var flower_counts := {}                      ## species -> count
 var voxel_count := 0
+var timings := {}                            ## Build step -> ms (for the smoke test).
 
 var _vox := {}                               ## Vector3i -> BARK/LEAF
-var _vox_color := {}                         ## Vector3i -> Color
+var _vox_color := {}                         ## Vector3i -> base Color (alpha = jitter strength)
 var _shade := PackedByteArray()              ## 1 = column under an oak crown.
 var _trunk_cols := PackedByteArray()         ## 1 = column has a trunk at ground level.
 var _rng := RandomNumberGenerator.new()
 var _leaf_noise := FastNoiseLite.new()
-var _bark_material: StandardMaterial3D
+var _bark_material: ShaderMaterial
 var _sway_material: ShaderMaterial
 var _bs := 1.0                               ## terrain.block_size, cached.
 
@@ -74,16 +76,19 @@ func build(t: Node3D) -> void:
 	_trunk_cols.resize(size * size)
 	_trunk_cols.fill(0)
 
-	_bark_material = StandardMaterial3D.new()
-	_bark_material.vertex_color_use_as_albedo = true
-	_bark_material.vertex_color_is_srgb = true
-	_bark_material.roughness = 1.0
+	_bark_material = VoxelMesh.make_material()
 	_sway_material = ShaderMaterial.new()
 	_sway_material.shader = SWAY_SHADER
 
+	var t0 := Time.get_ticks_msec()
 	_place_trees()
+	var t1 := Time.get_ticks_msec()
 	_build_tree_meshes()
+	var t2 := Time.get_ticks_msec()
 	_scatter_flowers()
+	timings["place"] = t1 - t0
+	timings["trees"] = t2 - t1
+	timings["flowers"] = Time.get_ticks_msec() - t2
 
 
 # --- tree placement ----------------------------------------------------------
@@ -266,34 +271,45 @@ func _leaf_blob(c: Vector3, r: float, base: Color, rng: RandomNumberGenerator) -
 				var dy := (y + 0.5 - c.y) / ry
 				var dz := (z + 0.5 - c.z) / r
 				var d := dx * dx + dy * dy + dz * dz
-				# Noise sampled in metres, so the "bites" are the same size at any block size.
-				var n := _leaf_noise.get_noise_3d(x * _bs, y * _bs, z * _bs)
-				if d > 0.78 + n * 0.45:
+				# Edge test: d > 0.78 + noise * 0.45, noise in [-1, 1]. Only sample
+				# the (slow) noise in the band where it can change the answer.
+				if d > 1.23:
 					continue
+				if d > 0.33:
+					# Noise sampled in metres, so the "bites" are the same size at any block size.
+					var n := _leaf_noise.get_noise_3d(x * _bs, y * _bs, z * _bs)
+					if d > 0.78 + n * 0.45:
+						continue
 				var key := Vector3i(x, y, z)
 				if _vox.get(key, 0) == BARK:
 					continue
 				if y < terrain.heights[z * size + x]:
 					continue
 				_vox[key] = LEAF
-				# Lighter on top, darker underneath, plus per-leaf jitter.
-				var shade := clampf(0.5 - dy * 0.5, 0.0, 1.0)
-				_vox_color[key] = base.darkened(shade * 0.28 + _hash(x, y, z) * 0.14) \
-					.lightened(0.06 if dy > 0.4 else 0.0)
+				# Lighter on top, darker underneath (in 5 bands so faces can merge);
+				# per-leaf jitter comes from the voxel shader.
+				var shade := snappedf(clampf(0.5 - dy * 0.5, 0.0, 1.0), 0.25)
+				var col := base.darkened(shade * 0.28).lightened(0.06 if dy > 0.4 else 0.0)
+				col.a = 0.14
+				_vox_color[key] = col
 				_shade[z * size + x] = 1
 
 
 func _set_bark(key: Vector3i) -> void:
 	_vox[key] = BARK
-	_vox_color[key] = COLOR_BARK.darkened(_hash(key.x, key.y, key.z) * 0.25)
+	var col := COLOR_BARK
+	col.a = 0.25
+	_vox_color[key] = col
 
 
 # --- tree meshing + collision ------------------------------------------------
 
 func _build_tree_meshes() -> void:
+	var t0 := Time.get_ticks_msec()
 	for i in trees.size():
 		_grow_tree(trees[i], i)
 	voxel_count = _vox.size()
+	timings["grow"] = Time.get_ticks_msec() - t0
 
 	# Bucket voxels by terrain chunk so each chunk gets one tree mesh.
 	var cs: int = terrain.chunk_size
@@ -307,45 +323,10 @@ func _build_tree_meshes() -> void:
 	var holder := Node3D.new()
 	holder.name = "Trees"
 	add_child(holder)
-	var size: int = terrain.size
-	var dirs := [
-		[Vector3i(1, 0, 0), Vector3(1, 0, 0), Vector3(0, 0, 1), Vector3(0, 1, 0)],
-		[Vector3i(-1, 0, 0), Vector3(0, 0, 0), Vector3(0, 1, 0), Vector3(0, 0, 1)],
-		[Vector3i(0, 1, 0), Vector3(0, 1, 0), Vector3(1, 0, 0), Vector3(0, 0, 1)],
-		[Vector3i(0, -1, 0), Vector3(0, 0, 0), Vector3(0, 0, 1), Vector3(1, 0, 0)],
-		[Vector3i(0, 0, 1), Vector3(0, 0, 1), Vector3(0, 1, 0), Vector3(1, 0, 0)],
-		[Vector3i(0, 0, -1), Vector3(0, 0, 0), Vector3(1, 0, 0), Vector3(0, 1, 0)],
-	]
-	for ck in buckets:
-		var verts := PackedVector3Array()
-		var normals := PackedVector3Array()
-		var colors := PackedColorArray()
-		for key in buckets[ck]:
-			var col: Color = _vox_color[key]
-			for d: Array in dirs:
-				var nb: Vector3i = key + d[0]
-				if _vox.has(nb):
-					continue
-				# Hidden inside the ground?
-				if nb.x >= 0 and nb.z >= 0 and nb.x < size and nb.z < size \
-						and nb.y < terrain.heights[nb.z * size + nb.x]:
-					continue
-				var face_col := col
-				if d[0].y == -1:
-					face_col = col.darkened(0.25)
-				elif d[0].y == 0:
-					face_col = col.darkened(0.08)
-				var o: Vector3 = Vector3(key) + d[1]
-				_quad(verts, normals, colors, o, d[2], d[3], Vector3(d[0]), face_col)
-		if verts.is_empty():
+	for ck: Vector2i in buckets:
+		var mesh := _tree_chunk_mesh(buckets[ck], ck.x * cs, ck.y * cs)
+		if mesh == null:
 			continue
-		var arrays := []
-		arrays.resize(Mesh.ARRAY_MAX)
-		arrays[Mesh.ARRAY_VERTEX] = verts
-		arrays[Mesh.ARRAY_NORMAL] = normals
-		arrays[Mesh.ARRAY_COLOR] = colors
-		var mesh := ArrayMesh.new()
-		mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
 		var mi := MeshInstance3D.new()
 		mi.name = "Trees_%d_%d" % [ck.x, ck.y]
 		mi.mesh = mesh
@@ -364,6 +345,81 @@ func _build_tree_meshes() -> void:
 		shape.shape = box
 		shape.position = tree.collider.pos
 		body.add_child(shape)
+
+
+## The six face directions: [neighbour offset, normal axis, u axis, v axis,
+## colour darkening]. Undersides are darker, sides a little darker.
+const _TREE_DIRS := [
+	[Vector3i(1, 0, 0), 0, 1, 2, 0.08], [Vector3i(-1, 0, 0), 0, 1, 2, 0.08],
+	[Vector3i(0, 1, 0), 1, 0, 2, 0.0], [Vector3i(0, -1, 0), 1, 0, 2, 0.25],
+	[Vector3i(0, 0, 1), 2, 0, 1, 0.08], [Vector3i(0, 0, -1), 2, 0, 1, 0.08],
+]
+
+
+## Greedy-meshes one chunk's tree voxels. Visible faces are grouped by
+## direction and plane, then merged with VoxelMesh.merge_rows().
+func _tree_chunk_mesh(keys: Array, ox: int, oz: int) -> ArrayMesh:
+	var size: int = terrain.size
+	var palette := {}            # Color -> cid
+	var colours: Array[Color] = []
+	# planes[dir] = { plane -> { v -> Array of face(u, cid) } }
+	var planes := [{}, {}, {}, {}, {}, {}]
+	var origin := Vector3i(ox, 0, oz)
+	for key: Vector3i in keys:
+		var col: Color = _vox_color[key]
+		var cid: int = palette.get(col, -1)
+		if cid < 0:
+			cid = colours.size()
+			palette[col] = cid
+			colours.append(col)
+		var local := key - origin
+		for di in 6:
+			var d: Array = _TREE_DIRS[di]
+			var nb: Vector3i = key + d[0]
+			if _vox.has(nb):
+				continue
+			# Hidden inside the ground?
+			if nb.x >= 0 and nb.z >= 0 and nb.x < size and nb.z < size \
+					and nb.y < terrain.heights[nb.z * size + nb.x]:
+				continue
+			var a: int = d[1]
+			var plane: int = local[a] + (1 if d[0][a] > 0 else 0)
+			var v: int = local[d[3]]
+			var by_v: Dictionary = planes[di].get(plane, {})
+			if by_v.is_empty():
+				planes[di][plane] = by_v
+			if not by_v.has(v):
+				by_v[v] = []
+			by_v[v].append(VoxelMesh.face(local[d[2]], cid))
+
+	var verts := PackedVector3Array()
+	var normals := PackedVector3Array()
+	var cols := PackedColorArray()
+	for di in 6:
+		var d: Array = _TREE_DIRS[di]
+		var n := Vector3(d[0])
+		var a: int = d[1]
+		var ua: int = d[2]
+		var va: int = d[3]
+		var dark: float = d[4]
+		for plane: int in planes[di]:
+			var rects := VoxelMesh.merge_rows(planes[di][plane])
+			for r in range(0, rects.size(), 5):
+				var o := Vector3.ZERO
+				o[a] = plane
+				o[ua] = rects[r]
+				o[va] = rects[r + 1]
+				var eu := Vector3.ZERO
+				eu[ua] = rects[r + 2] - rects[r]
+				var ev := Vector3.ZERO
+				ev[va] = rects[r + 3] - rects[r + 1]
+				var col: Color = colours[rects[r + 4]]
+				var face_col := col.darkened(dark)
+				face_col.a = col.a
+				VoxelMesh.add_quad(verts, normals, cols, o + Vector3(origin), eu, ev, n, face_col)
+	if verts.is_empty():
+		return null
+	return VoxelMesh.build_mesh(verts, normals, cols)
 
 
 ## Same winding rule as the terrain: v x u == normal.
@@ -409,8 +465,13 @@ func _scatter_flowers() -> void:
 	var area := _bs * _bs          # m^2 per column
 	var margin := maxi(1, int(4.0 / _bs))
 
+	# No habitat accepts a roll above this, so most columns bail out early.
+	var max_roll := 0.61
 	for z in range(margin, size - margin):
 		for x in range(margin, size - margin):
+			var roll := _hash(x, 7, z) / area
+			if roll >= max_roll:
+				continue
 			var i := z * size + x
 			if _trunk_cols[i] == 1 or terrain.is_underwater(x, z):
 				continue
@@ -419,8 +480,8 @@ func _scatter_flowers() -> void:
 				continue
 			var m := _col_centre(x, z)
 			var c: float = clumps.get_noise_2d(m.x, m.y)
-			# Densities below are "per square metre"; smaller columns roll less often.
-			var roll := _hash(x, 7, z) / area
+			# Densities are "per square metre": `roll` is scaled by the column area
+			# above, so smaller columns pass less often.
 			var sp := ""
 			var edge_d: float = terrain.lake_edge_distance(m.x, m.y)
 			if edge_d > -1.5 and edge_d < 3.5:

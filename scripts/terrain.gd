@@ -16,6 +16,7 @@ extends Node3D
 signal generated
 
 const FLORA_SCRIPT := preload("res://scripts/flora.gd")
+const VoxelMesh := preload("res://scripts/voxel_mesh.gd")
 
 @export var world_seed: int = 1848
 ## Edge length of one voxel in metres. 1.0 is the classic look; 0.5 is twice
@@ -23,7 +24,7 @@ const FLORA_SCRIPT := preload("res://scripts/flora.gd")
 ## `-- --block-size=0.5`. See docs/CONFIG.md.
 @export_range(0.25, 2.0, 0.25) var block_size: float = 1.0
 @export var world_size: float = 256.0     ## World edge length (m).
-@export var chunk_size: int = 32          ## Blocks per chunk side (one mesh each).
+@export var chunk_metres: float = 32.0    ## Chunk edge (m); one mesh per chunk.
 @export var base_height: float = 14.0
 @export var hill_height: float = 9.0
 @export var lake_count: int = 7
@@ -45,6 +46,7 @@ const COLOR_WATER := Color(0.22, 0.45, 0.62, 0.78)
 
 var size: int = 0                          ## World size in blocks (per side).
 var size_chunks: int = 0                   ## Chunks per side (derived).
+var chunk_size: int = 32                   ## Blocks per chunk side (derived).
 var heights := PackedInt32Array()          ## Top surface of each column, in blocks.
 var lakes: Array[Dictionary] = []          ## {center: Vector2 (m), radius: m, water_y: m}
 
@@ -52,15 +54,12 @@ var flora: Node3D                          ## Oaks + wildflowers (scripts/flora.
 
 var _shore := PackedByteArray()            ## 1 = sandy shore / lake bed.
 var _rng := RandomNumberGenerator.new()
-var _block_material: StandardMaterial3D
+var _block_material: ShaderMaterial
 var _water_material: StandardMaterial3D
 
 
 func _ready() -> void:
-	_block_material = StandardMaterial3D.new()
-	_block_material.vertex_color_use_as_albedo = true
-	_block_material.vertex_color_is_srgb = true
-	_block_material.roughness = 1.0
+	_block_material = VoxelMesh.make_material()
 
 	_water_material = StandardMaterial3D.new()
 	_water_material.albedo_color = COLOR_WATER
@@ -78,6 +77,7 @@ func generate() -> void:
 		child.queue_free()
 
 	_apply_cmdline_overrides()
+	chunk_size = clampi(int(round(chunk_metres / block_size)), 8, 1024)
 	size_chunks = maxi(1, int(round(world_size / (block_size * chunk_size))))
 	size = size_chunks * chunk_size
 	_rng.seed = world_seed
@@ -262,6 +262,9 @@ func _fill_lakes() -> void:
 
 
 # --- meshing -----------------------------------------------------------------
+# Greedy meshing (see scripts/voxel_mesh.gd): coplanar faces of the same kind
+# are merged into big rectangles. Vertex colours carry the base colour plus a
+# jitter strength in alpha; shaders/voxel.gdshader adds per-block variation.
 
 func _build_chunks() -> void:
 	var holder := Node3D.new()
@@ -278,89 +281,146 @@ func _build_chunks() -> void:
 			holder.add_child(mi)
 
 
+## Side faces, one entry per direction: [dx, dz, normal].
+const _SIDE_DIRS := [
+	[1, 0, Vector3.RIGHT], [-1, 0, Vector3.LEFT],
+	[0, 1, Vector3.BACK], [0, -1, Vector3.FORWARD],
+]
+
+
 func _chunk_mesh(ox: int, oz: int) -> ArrayMesh:
 	var verts := PackedVector3Array()
 	var normals := PackedVector3Array()
 	var colors := PackedColorArray()
+	var cs := chunk_size
 
-	for z in range(oz, oz + chunk_size):
-		for x in range(ox, ox + chunk_size):
+	# Tops: one horizontal "slice" per chunk; rows are z, faces run along x.
+	# The colour id packs the height in too, so only same-height faces merge.
+	var rows := {}
+	for z in range(oz, oz + cs):
+		var row := []
+		for x in range(ox, ox + cs):
 			var h := heights[z * size + x]
-			var shore := _shore[z * size + x] == 1
+			row.append(VoxelMesh.face(x - ox, h * 4 + _top_kind(x, z, h)))
+		rows[z - oz] = row
+	var rects := VoxelMesh.merge_rows(rows)
+	for r in range(0, rects.size(), 5):
+		var h := rects[r + 4] >> 2
+		VoxelMesh.add_quad(verts, normals, colors,
+			Vector3(ox + rects[r], h, oz + rects[r + 1]),
+			Vector3(rects[r + 2] - rects[r], 0, 0), Vector3(0, 0, rects[r + 3] - rects[r + 1]),
+			Vector3.UP, _top_color(h, rects[r + 4] & 3))
 
-			# Top face.
-			var top := _top_color(x, z, h, shore)
-			_quad(verts, normals, colors, Vector3(x, h, z),
-				Vector3(1, 0, 0), Vector3(0, 0, 1), Vector3.UP, top)
+	# Sides: for each direction, one vertical slice per column line. Each column
+	# contributes its exposed side split into soil-layer segments, which then
+	# merge with identical segments of the neighbouring columns.
+	for d: Array in _SIDE_DIRS:
+		var dx: int = d[0]
+		var dz: int = d[1]
+		var n: Vector3 = d[2]
+		for s in cs:
+			rows = {}
+			for t in cs:
+				var x := ox + (s if dx != 0 else t)
+				var z := oz + (t if dx != 0 else s)
+				var h := heights[z * size + x]
+				var nx := x + dx
+				var nz := z + dz
+				var nh := 0
+				if nx >= 0 and nx < size and nz >= 0 and nz < size:
+					nh = heights[nz * size + nx]
+				if nh >= h:
+					continue
+				rows[t] = _side_segments(x, z, h, nh)
+			if rows.is_empty():
+				continue
+			rects = VoxelMesh.merge_rows(rows)
+			var plane := s + (1 if dx + dz > 0 else 0)
+			for r in range(0, rects.size(), 5):
+				var y0 := rects[r]
+				var length := rects[r + 4] >> 3
+				var t0 := rects[r + 1]
+				var span := rects[r + 3] - t0
+				var col := _side_color(rects[r + 4] & 7)
+				if dx != 0:
+					VoxelMesh.add_quad(verts, normals, colors, Vector3(ox + plane, y0, oz + t0),
+						Vector3(0, length, 0), Vector3(0, 0, span), n, col)
+				else:
+					VoxelMesh.add_quad(verts, normals, colors, Vector3(ox + t0, y0, oz + plane),
+						Vector3(0, length, 0), Vector3(span, 0, 0), n, col)
 
-			# Side faces wherever the neighbour column is lower.
-			_sides(verts, normals, colors, x, z, h, shore, x + 1, z,
-				Vector3(x + 1, 0, z), Vector3(0, 0, 1), Vector3(0, 1, 0), Vector3.RIGHT)
-			_sides(verts, normals, colors, x, z, h, shore, x - 1, z,
-				Vector3(x, 0, z), Vector3(0, 1, 0), Vector3(0, 0, 1), Vector3.LEFT)
-			_sides(verts, normals, colors, x, z, h, shore, x, z + 1,
-				Vector3(x, 0, z + 1), Vector3(0, 1, 0), Vector3(1, 0, 0), Vector3.BACK)
-			_sides(verts, normals, colors, x, z, h, shore, x, z - 1,
-				Vector3(x, 0, z), Vector3(1, 0, 0), Vector3(0, 1, 0), Vector3.FORWARD)
-
-	var arrays := []
-	arrays.resize(Mesh.ARRAY_MAX)
-	arrays[Mesh.ARRAY_VERTEX] = verts
-	arrays[Mesh.ARRAY_NORMAL] = normals
-	arrays[Mesh.ARRAY_COLOR] = colors
-	var mesh := ArrayMesh.new()
-	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
-	return mesh
+	return VoxelMesh.build_mesh(verts, normals, colors)
 
 
-## Stack of 1-block side quads from the neighbour's height up to ours.
-## `base` is the face origin at y=0; u/v are chosen so v x u == normal
-## (Godot treats clockwise triangles as front-facing).
-func _sides(verts: PackedVector3Array, normals: PackedVector3Array, colors: PackedColorArray,
-		x: int, z: int, h: int, shore: bool, nx: int, nz: int,
-		base: Vector3, u: Vector3, v: Vector3, n: Vector3) -> void:
-	var nh := 0
-	if nx >= 0 and nx < size and nz >= 0 and nz < size:
-		nh = heights[nz * size + nx]
+## Splits the exposed side of a column (blocks nh..h-1) into soil-layer runs,
+## appending face(y0, length * 8 + kind) entries for VoxelMesh.merge_rows().
+func _side_segments(x: int, z: int, h: int, nh: int) -> Array:
+	var row := []
+	var shore := _shore[z * size + x] == 1
+	var cur := -1
+	var start := nh
 	for y in range(nh, h):
-		var col := _side_color(x, y, z, h, shore)
-		_quad(verts, normals, colors, base + Vector3(0, y, 0), u, v, n, col)
+		var k := _side_kind((h - y) * block_size, shore)
+		if k != cur:
+			if cur >= 0:
+				row.append(VoxelMesh.face(start, (y - start) * 8 + cur))
+			cur = k
+			start = y
+	row.append(VoxelMesh.face(start, (h - start) * 8 + cur))
+	return row
 
 
-func _quad(verts: PackedVector3Array, normals: PackedVector3Array, colors: PackedColorArray,
-		o: Vector3, u: Vector3, v: Vector3, n: Vector3, col: Color) -> void:
-	verts.append(o)
-	verts.append(o + u)
-	verts.append(o + v)
-	verts.append(o + u)
-	verts.append(o + u + v)
-	verts.append(o + v)
-	for i in 6:
-		normals.append(n)
-		colors.append(col)
+## Top kinds: 0 grass, 1 sand, 2 mud (underwater shore).
+func _top_kind(x: int, z: int, h: int) -> int:
+	if _shore[z * size + x] == 1:
+		return 2 if _is_underwater(x, z, h) else 1
+	return 0
 
 
-func _top_color(x: int, z: int, h: int, shore: bool) -> Color:
-	var j := _jitter(x, h, z)
-	if shore:
-		var wet := _is_underwater(x, z, h)
-		return (COLOR_MUD if wet else COLOR_SAND).darkened(j * 0.08)
-	var dry := clampf((h * block_size - base_height - 4.0) / 10.0, 0.0, 1.0)
-	return COLOR_GRASS.lerp(COLOR_GRASS_DRY, dry).darkened(j * 0.12)
+## Base colour (rgb) + jitter strength (alpha) for a top face.
+func _top_color(h: int, kind: int) -> Color:
+	var c: Color
+	if kind == 1:
+		c = COLOR_SAND
+		c.a = 0.08
+	elif kind == 2:
+		c = COLOR_MUD
+		c.a = 0.08
+	else:
+		var dry := clampf((h * block_size - base_height - 4.0) / 10.0, 0.0, 1.0)
+		c = COLOR_GRASS.lerp(COLOR_GRASS_DRY, dry)
+		c.a = 0.12
+	return c
 
 
-## Soil layers are measured in metres below the surface: ~2m of sand on
-## shores, 1m of grassy turf, dirt down to 4m, then stone.
-func _side_color(x: int, y: int, z: int, h: int, shore: bool) -> Color:
-	var j := _jitter(x, y, z)
-	var depth := (h - y) * block_size     # metres below the surface (top block = 1 block)
+## Side kinds by metres below the surface: ~2m of sand on shores, 1m of grassy
+## turf, dirt down to 4m, then stone.  0 sand, 1 turf, 2 dirt, 3 stone.
+func _side_kind(depth: float, shore: bool) -> int:
 	if shore and depth <= 2.0:
-		return COLOR_SAND.darkened(0.1 + j * 0.08)
+		return 0
 	if depth <= 1.0:
-		return COLOR_GRASS_SIDE.darkened(j * 0.1)
+		return 1
 	if depth <= 4.0:
-		return COLOR_DIRT.darkened(j * 0.12)
-	return COLOR_STONE.darkened(j * 0.15)
+		return 2
+	return 3
+
+
+func _side_color(kind: int) -> Color:
+	var c: Color
+	match kind:
+		0:
+			c = COLOR_SAND.darkened(0.1)
+			c.a = 0.08
+		1:
+			c = COLOR_GRASS_SIDE
+			c.a = 0.10
+		2:
+			c = COLOR_DIRT
+			c.a = 0.12
+		_:
+			c = COLOR_STONE
+			c.a = 0.15
+	return c
 
 
 func _is_underwater(x: int, z: int, h: int) -> bool:
@@ -369,12 +429,6 @@ func _is_underwater(x: int, z: int, h: int) -> bool:
 				< lake.radius and h * block_size < lake.water_y:
 			return true
 	return false
-
-
-## Cheap per-block hash in [0, 1] for colour variation.
-func _jitter(x: int, y: int, z: int) -> float:
-	var n := (x * 73856093) ^ (y * 19349663) ^ (z * 83492791)
-	return float(n & 1023) / 1023.0
 
 
 # --- water + collision -------------------------------------------------------

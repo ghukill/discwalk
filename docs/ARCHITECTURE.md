@@ -10,7 +10,9 @@ scenes/main.tscn         The one scene: sky/environment, sun, Terrain, Player, H
 scripts/main.gd          Glue: spawns the player, HUD text, N = new world, --debug-keys
 scripts/terrain.gd       Height field, kettle lakes, chunk meshes, water, collision
 scripts/flora.gd         Oaks (voxel trees) and wildflowers (MultiMesh)
+scripts/voxel_mesh.gd    Greedy face merging + quad/mesh helpers (shared)
 scripts/player.gd        First-person walker: input bindings, movement, head bob
+shaders/voxel.gdshader   Terrain + tree shading: base colour + per-block jitter
 shaders/sway.gdshader    Wind sway for flowers (and grass, later)
 tools/smoke_test.gd      Headless PASS/FAIL check
 tools/screenshot.gd      Renders PNG views (needs a display/GPU)
@@ -63,7 +65,10 @@ Noise is always sampled at **metre** coordinates, which is why the same seed loo
 2. **Kettles**: up to `lake_count` round bowls, kept off the moraine, away from spawn and from each other. Each one subtracts a smooth bowl from the height field.
 3. **Quantise**: metres → whole blocks (`heights`).
 4. **Fill lakes**: water level = lowest rim block (sampled on a ring at 92% of the radius) − 0.35 block. Columns at or below waterline + 1 block become shore (sand above water, mud below).
-5. **Chunk meshes**: for each column, emit a top quad and side quads down to each lower neighbour. Hidden faces are never emitted. Colours come from layer depth (turf, dirt, stone, sand) plus a per-block hash jitter.
+5. **Chunk meshes** (greedy, see below):
+   - Tops: one row per z. Faces with the same height and kind (grass, sand, mud) merge into rectangles.
+   - Sides: for each direction and each column line, a column's exposed side is split into soil-layer runs (sand, turf, dirt, stone, by metres below the surface). Identical runs on neighbouring columns merge.
+   - Hidden faces are never emitted.
 6. **Water**: one thin transparent cylinder per lake.
 7. **Collision**: a `HeightMapShape3D` with one sample per column at block centres, plus 4 invisible boundary walls. Smooth collision means one-block steps behave like 45° ramps (the player allows 50°), and two-block steps are walls.
 8. **Flora**: `flora.build(terrain)`, described next.
@@ -79,7 +84,7 @@ Noise is always sampled at **metre** coordinates, which is why the same seed loo
 - Trunk: a footprint 1 m wide (2 m for big/giant oaks). Each column fills from its own ground up to a shared top.
 - Limbs: 2–5 random walks outward and upward from near the trunk top in 0.5 m steps, stamping bark cubes about 1 m thick that taper at fine block sizes.
 - Crown: a central blob plus one at each limb tip. Each is a squashed ellipsoid (height 0.62 × radius) with a noisy edge threshold, so the edges look bitten. Leaves are lighter on top and darker underneath.
-- Voxels go into a `Dictionary` keyed by `Vector3i`, then get meshed per chunk with face culling against other tree voxels and the ground.
+- Voxels go into a `Dictionary` keyed by `Vector3i`. Each chunk is then greedy-meshed: visible faces (culled against other tree voxels and the ground) are grouped by direction and plane and merged by colour. Leaf shading is quantised into 5 bands so neighbouring leaves can merge.
 
 **Flowers**
 - One pass over all columns. Habitat is chosen by distance to the lake edge (shore band), shade (column under any leaf voxel), or meadow.
@@ -87,6 +92,25 @@ Noise is always sampled at **metre** coordinates, which is why the same seed loo
 - Density is per m² (`roll / block_area`), so it doesn't depend on block size.
 - Each species mesh is a few small boxes built in code. Instances are batched per species per 64 m region into `MultiMesh`, with visibility-range fade.
 - `sway.gdshader` bends vertices by `y²` with a per-instance phase and slow rolling gusts. It also converts sRGB vertex colours to linear.
+
+## Greedy meshing + the voxel shader
+
+Without merging, every visible block face is its own quad. At 0.25 m blocks that's about 4M terrain triangles. With greedy meshing (`voxel_mesh.gd`), coplanar neighbouring faces facing the same way with the same base colour become one rectangle:
+
+1. Faces in a plane are grouped into rows (by their `v` coordinate) and packed as ints `(u << 20) | colour_id`.
+2. `merge_rows()` sorts each row and joins adjacent same-colour faces into runs `(u0, u1, colour)`.
+3. A run that appears identically on the next row extends a rectangle; otherwise the rectangle is closed.
+
+It's linear in the number of faces, and close to optimal for terrain and leaves. Result at 1 m blocks: terrain 246k → 50k triangles, trees 96k → 54k. At 0.25: 3.9M → 737k and 1.6M → 712k.
+
+**Colour jitter moved to the GPU.** A merged quad spans many blocks, so per-block colour variation can't live in vertex colours any more. Instead:
+- vertex colour rgb = the block's base colour (sRGB)
+- vertex colour alpha = jitter strength (turf 0.10, grass 0.12, stone 0.15, leaves 0.14, bark 0.25, …)
+- `voxel.gdshader` steps half a block back along the normal to find which block each pixel belongs to, hashes that block's integer coordinates, and darkens the colour by `hash × strength`.
+
+Meshes are in block units, so this works at any block size.
+
+Caveat: greedy meshes have T-junctions (a big quad's edge meeting several small ones). On some GPUs that can show as rare single-pixel sparkles along seams. It hasn't been visible so far.
 
 ## Player (`player.gd`)
 
@@ -100,7 +124,7 @@ Everything is driven by `world_seed`: `RandomNumberGenerator` seeds and `FastNoi
 
 ## Known limits / ideas
 
-- No greedy meshing yet: every visible block face is its own quad. Merging flat runs would cut triangles 3–5× and make small block sizes cheap.
+- World build time at small block sizes is dominated by GDScript tree voxel growth and meshing (about 6 s + 12 s on the T480 at 0.25). Options: PackedArray voxel storage instead of a Dictionary, building on a thread, or building chunks lazily.
 - The whole world is built at once (no streaming); 256 m is comfortable.
 - Tree crowns are walk-through; a disc hitting leaves is future work (phase 4).
 - Over some VNC setups, held keys arrive as instant taps, so WASD won't move you (N still works). An auto-walk toggle is a candidate fix.

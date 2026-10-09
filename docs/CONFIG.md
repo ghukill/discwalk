@@ -41,14 +41,17 @@ $G --path . --script res://tools/screenshot.gd -- /tmp/shots --block-size=0.5
 
 `block_size` only changes **how finely** the world is chopped into blocks. It does not change the world itself. Hills, lakes, tree positions and flower patches all come from the seed in metres, so the same seed gives the same landscape at any block size, just chunkier or finer.
 
-| | 1.0 (default) | 0.5 |
-|---|---|---|
-| Grid | 256 × 256 columns | 512 × 512 columns |
-| Terrain triangles | ~250k | ~1M |
-| Tree voxels | ~27k | ~220k |
-| World build (T480) | ~1.4 s | ~5.8 s |
-| World build (M1 Pro) | ~0.8 s | ~3.3 s |
-| Walking | 1 m steps walkable, 2 m+ are walls | 0.5 m steps walkable, 1 m+ are walls |
+Measured on seed 1848 with greedy meshing:
+
+| | 1.0 (default) | 0.5 | 0.25 |
+|---|---|---|---|
+| Grid | 256² columns | 512² | 1024² |
+| Terrain triangles | 50k | 190k | 737k |
+| Tree voxels / triangles | 27k / 54k | 218k / 192k | 1.7M / 712k |
+| World build (T480) | ~1.1 s | ~5 s | ~18 s |
+| World build (M1 Pro) | ~0.7 s | ~3 s | ~11 s |
+| Frame rate (M1 Pro, uncapped) | ~500 fps | | ~250 fps |
+| Walls (2 blocks) | 2 m | 1 m | 0.5 m |
 
 Notes:
 
@@ -56,7 +59,7 @@ Notes:
 - **Oaks** are measured in metres (trunk height, crown radius, 2 m trunks for big oaks), so they keep their size and gain detail. At 0.5 the limbs taper towards the tips.
 - **Flowers** are already smaller than a block and their density is per square metre, so the meadow looks about the same at any block size.
 - **Water level** sits 0.35 blocks below the lowest rim block, so lakes come out a little different at different sizes.
-- Values below ~0.5 get expensive quickly (cost grows roughly with 1/size²). Greedy meshing (on the roadmap) would make small sizes much cheaper.
+- Small sizes cost mostly **build time** now, not frame rate. Greedy meshing keeps triangle counts low, but growing and meshing ~1.7M tree voxels in GDScript takes a while at 0.25. Below 0.25 is untested.
 
 ## Terrain knobs (`scripts/terrain.gd`)
 
@@ -65,7 +68,7 @@ Notes:
 | `world_seed` | 1848 | Starting seed. Press **N** in-game for a random new one. |
 | `block_size` | 1.0 | See above. |
 | `world_size` | 256 | World edge length (m). Rounded to whole chunks. |
-| `chunk_size` | 32 | Blocks per chunk side (one mesh per chunk). |
+| `chunk_metres` | 32 | Chunk edge (m). One terrain mesh + one tree mesh per chunk, so the chunk count (64) stays the same at every block size. |
 | `base_height` | 14 | Average ground height (m). |
 | `hill_height` | 9 | Amplitude of the rolling hills (m). |
 | `lake_count` | 7 | Kettle lakes to try to place. |
