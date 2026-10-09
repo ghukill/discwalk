@@ -89,6 +89,13 @@ static func _ensure_input_actions() -> void:
 			continue
 		InputMap.add_action(action)
 		for key in bindings[action]:
-			var ev := InputEventKey.new()
-			ev.physical_keycode = key  # layout-independent (works on any keyboard)
-			InputMap.action_add_event(action, ev)
+			# Physical keycode: layout-independent (WASD stays put on AZERTY etc.).
+			var phys := InputEventKey.new()
+			phys.physical_keycode = key
+			InputMap.action_add_event(action, phys)
+			# Logical keycode too: remote/injected input (VNC, Screen Sharing)
+			# often arrives without a physical scancode, so physical-only
+			# bindings silently ignore it.
+			var logical := InputEventKey.new()
+			logical.keycode = key
+			InputMap.action_add_event(action, logical)
