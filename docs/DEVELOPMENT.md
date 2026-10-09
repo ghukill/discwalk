@@ -39,6 +39,20 @@ Throwing has its own headless check. It throws 4 discs across open ground at pow
 $G --headless --path . --script res://tools/throw_test.gd [-- --block-size=0.5]
 ```
 
+Disc flight has one. It throws real flying discs over an empty flat floor and compares carry and drift with shotshaper's own numbers for the same throws (within 10% carry, 4 m drift). It also checks that the overstable `cd1` fades left, the understable `cd5` turns right, a forehand mirrors a backhand, and more hyzer bends the flight further. Last, it throws from spawn in the real world and waits for the disc to land and rest.
+
+```sh
+$G --headless --path . --script res://tools/flight_test.gd [-- --block-size=0.5]
+DISPLAY=:0 $G --path . --resolution 1280x720 --script res://tools/flight_shots.gd -- /tmp/flight_shots   # panel, chase cam, side view, landed disc
+```
+
+Reference numbers come from shotshaper itself (Python, run as an outside tool):
+
+```sh
+git clone https://github.com/kegiljarhus/shotshaper /tmp/shotshaper
+uv run --with numpy --with scipy --with pyyaml --with matplotlib python tools/discs/shotshaper_reference.py /tmp/shotshaper
+```
+
 Collecting has one too. It scatters 8 discs around spawn, presses C, and passes if at least 6 make it home and they start slow (under 3 m/s in the first second):
 
 ```sh

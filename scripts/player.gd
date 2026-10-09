@@ -37,8 +37,17 @@ func _unhandled_input(event: InputEvent) -> void:
 	elif event.is_action_pressed("ui_cancel"):
 		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	elif event is InputEventMouseButton and event.pressed \
-			and Input.mouse_mode != Input.MOUSE_MODE_CAPTURED:
+			and Input.mouse_mode != Input.MOUSE_MODE_CAPTURED \
+			and not _mouse_ui_open():
 		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+
+
+## True while a panel that needs the mouse (group "mouse_ui") is showing.
+func _mouse_ui_open() -> bool:
+	for n in get_tree().get_nodes_in_group("mouse_ui"):
+		if n is CanvasItem and n.visible:
+			return true
+	return false
 
 
 func _physics_process(delta: float) -> void:
@@ -106,7 +115,7 @@ static func _ensure_input_actions() -> void:
 		"sprint": [KEY_SHIFT],
 		"new_world": [KEY_N],
 		"fetch": [KEY_F],
-		"throw": [KEY_T],
+		"throw_panel": [KEY_T],
 		"beams": [KEY_B],
 		"collect": [KEY_C],
 		"throw_1": [KEY_1, KEY_KP_1], "throw_2": [KEY_2, KEY_KP_2],

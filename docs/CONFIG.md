@@ -81,7 +81,11 @@ Notes:
 | Setting | Where | Default | Meaning |
 |---|---|---|---|
 | `speed_per_level` | `thrower.gd` | 4.0 | m/s per power level (power 10 = 40 m/s). |
-| `max_discs` | `thrower.gd` | 12 | Older discs get cleared away. |
+| `max_discs` | `thrower.gd` | 12 | Older discs get cleared away (blocks and flying discs together). |
+| `VISUAL_SPIN_MAX` | `flying_disc.gd` | 14 rad/s | How fast the disc *looks* like it spins (real spin would strobe). |
+| `LANDED_SPIN_MAX` | `flying_disc.gd` | 25 rad/s | Real spin handed to the physics on landing (roll-on-edge flavour). |
+| panel sliders | `throw_panel.gd` `ROWS` | | Ranges and defaults for speed, launch angle, nose, hyzer, spin. |
+| disc tables | `data/discs/*/*.json` | | One file per disc; see `data/discs/README.md`. |
 | `leaf_keep_per_metre` | `disc.gd` | 0.72 | Fraction of speed kept per metre of leaves. |
 | `bark_bounce` | `disc.gd` | 0.4 | Speed kept along the hit axis when bouncing off bark. |
 | `SIZE` | `disc.gd` | 0.22 | Disc block edge (m). |

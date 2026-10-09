@@ -66,6 +66,7 @@ func _setup_throwing() -> void:
 	thrower.camera = $Player/Head/Camera3D
 	thrower.label = status
 	thrower.status_label = corner
+	thrower.hud = $HUD
 	add_child(thrower)
 
 

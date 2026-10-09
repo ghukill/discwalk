@@ -1,8 +1,11 @@
 extends Node
-## Throwing discs (step 1: a block out of a cannon).
+## Throwing discs.
 ##
-##   1-9, 0   set power 1..10 (0 = 10)
-##   click/T  throw at the current power, along where you're looking
+##   T        show/hide the throw panel (lower right): pick a disc, set speed,
+##            launch angle, nose, hyzer/anhyzer, spin, press Throw. A real
+##            flying disc (flying_disc.gd) leaves along where you're looking.
+##   1-9, 0   set power 1..10 (0 = 10) for the orange blocks
+##   click    fire an orange block at the current power (step 1, kept as-is)
 ##   F        fetch: teleport to your last disc. If it's still flying, you
 ##            take over its speed and direction and fly on with it.
 ##   B        toggle the beams of light over resting discs
@@ -12,6 +15,9 @@ extends Node
 ## 0 = 40 m/s, about a strong disc golf drive). Aim is your view direction.
 
 const DISC_SCRIPT := preload("res://scripts/disc.gd")
+const FLYING_DISC_SCRIPT := preload("res://scripts/flying_disc.gd")
+const DiscModel := preload("res://scripts/disc_model.gd")
+const ThrowPanel := preload("res://scripts/throw_panel.gd")
 
 @export var speed_per_level := 4.0
 @export var max_discs := 12          ## Older discs are cleared away.
@@ -21,6 +27,9 @@ var player: CharacterBody3D
 var camera: Camera3D
 var label: Label
 var status_label: Label                  ## Upper-right: power + beams.
+var hud: CanvasLayer                     ## Where the throw panel goes.
+var panel: PanelContainer
+var disc_models: Array = []
 
 var power := 5
 var beams := true
@@ -32,6 +41,13 @@ var _collected := 0
 
 
 func _ready() -> void:
+	disc_models = DiscModel.load_all()
+	panel = ThrowPanel.new()
+	panel.name = "ThrowPanel"
+	panel.discs = disc_models
+	panel.throw_requested.connect(func(p: Dictionary) -> void: throw_disc(p))
+	if hud != null:
+		hud.add_child(panel)
 	_update_label()
 
 
@@ -45,8 +61,9 @@ func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("fetch"):
 		fetch()
 		get_viewport().set_input_as_handled()
-	elif event.is_action_pressed("throw"):
-		throw(power)
+	elif event.is_action_pressed("throw_panel"):
+		if panel.is_inside_tree():
+			panel.toggle()
 		get_viewport().set_input_as_handled()
 	elif event.is_action_pressed("collect"):
 		collect()
@@ -76,6 +93,39 @@ func throw(level: int) -> Node:
 	var vel := fwd * level * speed_per_level + player.velocity
 	var spin := Vector3(randf_range(-1, 1), randf_range(-1, 1), randf_range(-1, 1)) * 8.0
 	disc.launch(origin, vel, spin)
+	disc.came_to_rest.connect(_on_rest)
+	disc.tree_exited.connect(func() -> void: discs.erase(disc))
+	discs.append(disc)
+	_last = disc
+	_collected = 0
+	while discs.size() > max_discs:
+		var old: Node = discs.pop_front()
+		if is_instance_valid(old):
+			old.queue_free()
+	_result_text = ""
+	return disc
+
+
+## Throws a real flying disc. p: {disc, speed, pitch, nose, roll, spin,
+## hand?}; aim is the flat direction you're looking.
+func throw_disc(p: Dictionary) -> Node:
+	var look := -camera.global_transform.basis.z
+	var fwd := Vector3(look.x, 0, look.z)
+	fwd = fwd.normalized() if fwd.length() > 0.01 else Vector3.FORWARD
+	var hand: float = p.get("hand", 1.0)
+	var ls := DiscModel.launch_state(fwd, p.speed, p.pitch, p.nose, p.roll, hand)
+	# Release about shoulder height, a little ahead of you.
+	var origin := player.global_position + Vector3(0, 1.3, 0) + fwd * 0.6
+	var disc: RigidBody3D = RigidBody3D.new()
+	disc.set_script(FLYING_DISC_SCRIPT)
+	disc.name = "FlyingDisc"
+	disc.terrain = terrain
+	disc.model = p.disc
+	disc.color = Color(0.2, 0.75, 1.0) if p.disc.id != "cd1" else Color(0.95, 0.3, 0.75)
+	disc.beam_on = beams
+	get_parent().add_child(disc)
+	disc.add_collision_exception_with(player)
+	disc.launch_disc(origin, ls[0] + Vector3(player.velocity.x, 0, player.velocity.z), ls[1], p.spin, hand)
 	disc.came_to_rest.connect(_on_rest)
 	disc.tree_exited.connect(func() -> void: discs.erase(disc))
 	discs.append(disc)
@@ -155,6 +205,8 @@ func _process(_delta: float) -> void:
 	if rolling > 0:
 		_flying_text = "collecting: %d rolling home…%s" % [rolling,
 			("  (%d in)" % _collected) if _collected > 0 else ""]
+	elif is_instance_valid(_last) and "flying" in _last and _last.flying:
+		_flying_text = "disc in flight: %.1f m  ·  %.0f m/s" % [_last.distance(), _last.linear_velocity.length()]
 	elif is_instance_valid(_last) and not _last.resting:
 		_flying_text = "in flight: %.1f m" % _last.distance()
 	else:
@@ -172,6 +224,11 @@ func _on_rest(disc: Node) -> void:
 		notes.append("through leaves")
 	if disc.splashed:
 		notes.append("splash!")
+	if "model" in disc:
+		_result_text = "last disc (%s): carry %.1f m, rest %.1f m, peak %.1f m, %.1f s in the air%s" % [
+			disc.model.id, disc.flight_dist, disc.distance(), disc.max_height, disc.flight_time,
+			("  ·  " + ", ".join(notes)) if notes.size() > 0 else ""]
+		return
 	_result_text = "last throw: %.1f m at power %d (peak %.1f m)%s" % [
 		disc.distance(), disc.power, disc.max_height,
 		("  ·  " + ", ".join(notes)) if notes.size() > 0 else ""]
@@ -183,7 +240,7 @@ func _update_label() -> void:
 	if status_label != null:
 		status_label.text = "Velocity: %d  (%d m/s)\nBeams: %s" % [
 			power, int(power * speed_per_level), "on" if beams else "off"]
-	var lines := ["1-9, 0 set power  ·  click or T throw  ·  F fetch  ·  C collect  ·  B beams"]
+	var lines := ["T throw panel  ·  1-9, 0 block power  ·  click block  ·  F fetch  ·  C collect  ·  B beams"]
 	if _flying_text != "":
 		lines.append(_flying_text)
 	elif _result_text != "":

@@ -12,14 +12,21 @@ scripts/terrain.gd       Height field, kettle lakes, chunk meshes, water, collis
 scripts/flora.gd         Oaks (voxel trees) and wildflowers (MultiMesh)
 scripts/voxel_mesh.gd    Greedy face merging + quad/mesh helpers (shared)
 scripts/player.gd        First-person walker: input bindings, movement, head bob
-scripts/thrower.gd       Throw input (1-0, click), fetch (F), throw HUD line
-scripts/disc.gd          The thrown "disc" (RigidBody3D): physics + tree/water interaction
+scripts/thrower.gd       Throw input (T panel, 1-0 + click for blocks), fetch (F), throw HUD line
+scripts/disc.gd          The thrown block (RigidBody3D): physics + tree/water interaction
+scripts/flying_disc.gd   A real disc (extends disc.gd): flat collider, pixel-circle mesh, flight
+scripts/disc_model.gd    Disc aerodynamics: coefficient tables, lift/drag, gyroscopic roll
+scripts/throw_panel.gd   Lower-right throw panel (sliders + Throw button)
+data/discs/              Disc coefficient tables (JSON); see data/discs/README.md
 shaders/voxel.gdshader   Terrain + tree shading: base colour + per-block jitter
 shaders/sway.gdshader    Wind sway for flowers (and grass, later)
 tools/smoke_test.gd      Headless PASS/FAIL check
 tools/screenshot.gd      Renders PNG views incl. one portrait per oak form (needs a display/GPU)
 tools/tree_gallery.gd    Flat-ground lineup of every oak form, for tuning trees
 tools/throw_test.gd      Headless throws (open ground, into an oak, into a lake): PASS/FAIL
+tools/flight_test.gd     Headless disc flights vs shotshaper + turn/fade sanity: PASS/FAIL
+tools/flight_shots.gd    Screenshots: panel, chase cam, side view, landed disc
+tools/discs/             Python helpers: shotshaper tables -> JSON, shotshaper reference flights
 tools/collect_test.gd    Headless collect: 8 scattered discs roll home, speed ramps up
 docs/                    These docs + screenshots
 ```
@@ -41,8 +48,8 @@ Main (main.gd)
 │     └─ Flowers/<species>_x_z   MultiMeshInstance3D per species per 64 m region
 ├─ Player (player.gd)            CharacterBody3D + capsule + Head/Camera3D
 ├─ Thrower (thrower.gd)
-├─ Disc …  (disc.gd)             RigidBody3D per thrown disc (up to 12 kept)
-└─ HUD/Help, HUD/Crosshair, HUD/Throw
+├─ Disc / FlyingDisc …           RigidBody3D per throw (up to 12 kept)
+└─ HUD/Help, HUD/Crosshair, HUD/Throw, HUD/ThrowPanel
 ```
 
 ## Units: metres vs blocks
@@ -142,7 +149,7 @@ Caveat: greedy meshes have T-junctions (a big quad's edge meeting several small 
 
 Step 1 is deliberately simple: the disc is a 22 cm bright-orange block fired out of your face like a cannonball.
 
-- **Launch**: keys 1–9 and 0 *set* power 1–10 (top-right HUD: `Velocity: #` and the m/s). Left click or T throws. The speed is `power × speed_per_level` (4 m/s per level, so 0 = 40 m/s, a strong drive), along the camera's forward direction, plus your walking velocity. It gets a random tumble spin, and it never collides with you.
+- **Launch (blocks)**: keys 1–9 and 0 *set* power 1–10 (top-right HUD: `Velocity: #` and the m/s). Left click throws. The speed is `power × speed_per_level` (4 m/s per level, so 0 = 40 m/s, a strong drive), along the camera's forward direction, plus your walking velocity. It gets a random tumble spin, and it never collides with you.
 - **Ground and trunks**: plain Godot rigid-body physics. The terrain heightmap and trunk boxes are real collision shapes, so it bounces (0.35), slides and rolls downhill on its own. Continuous collision detection stops it tunnelling through the ground at speed.
 - **Branches and leaves**: tree voxels aren't physics bodies (there are millions), so each physics tick `_integrate_forces()` walks the disc's path through the tree voxel grid (`flora.voxel_at()`) in steps smaller than a block:
   - **Bark**: reflect the velocity on the axis it crossed (×0.4) and put the disc back just outside the bark. That's how it clatters off limbs.
@@ -167,3 +174,18 @@ Everything is driven by `world_seed`: `RandomNumberGenerator` seeds and `FastNoi
 - Tree crowns are walk-through; a disc hitting leaves is future work (phase 4).
 - Discs don't land *on* leaves or branches. They pass through leaves (slowing) and bounce off bark, but can't rest in a tree.
 - Over some VNC setups, held keys arrive as instant taps, so WASD won't move you (N still works). An auto-walk toggle is a candidate fix.
+
+## Flying discs (`flying_disc.gd`, `disc_model.gd`, `throw_panel.gd`)
+
+Step 2 of throwing. `flying_disc.gd` extends `disc.gd`, so trees, lakes, beams, fetch and collect all work the same; what changes is the shape and the flight. Design notes: [DISC-FLIGHT-PLAN.md](DISC-FLIGHT-PLAN.md).
+
+- **Panel (T)**: lower right, frees the mouse while open. Disc, speed, launch angle, nose (disc tilt relative to the flight path), hyzer (+) / anhyzer (−), spin (auto = 5.2 rad/s per m/s, about 1200 rpm at 24 m/s), Throw. Aim is your flat look direction; release is 1.3 m up, 0.6 m ahead. Right-hand backhand for now (`hand = +1`; forehand is `hand = -1`, which mirrors everything).
+- **Body**: a 21 cm × 3 cm cylinder collider, drawn as a 7×7 pixel circle with a darker rim and a white stamp so you can see it spin. Blue, except the overstable `cd1` which is pink.
+- **Flight** (`DiscModel.step()`), every physics tick while `flying`:
+  - Angle of attack from the velocity (minus wind) and the disc's normal.
+  - Lift ⟂ airflow, drag against it: `C × ½ρv² × area`, coefficients interpolated from the disc's table.
+  - Pitching moment `M = C_m × ½ρv² × area × diameter` is not applied as a torque. A spinning disc precesses instead: the normal rolls about the line of flight at `M / (ω (I_z − I_xy))`. Early in the flight (low α) M is negative → it turns right (RH backhand); as it slows and α grows, M goes positive → it fades left.
+  - The body's orientation is set from `normal` each tick; real angular velocity stays zero. Spin is just a number; the mesh spins at a capped, watchable rate.
+  - Godot's default linear damping is replaced with 0 while flying (the model does drag).
+- **Landing**: first touch of anything (ground/trunk contact, bark, leaves, water) switches the aerodynamics off for good. Ordinary physics takes over with up to 25 rad/s of real spin, so it can skid, roll and flop. `flight_dist` is the carry at first contact; the HUD shows carry, rest distance, peak and airtime.
+- **Disc data**: JSON tables under `data/discs/` (four shotshaper CFD tables for now, GPL-3.0; see `data/discs/README.md` for swapping them out).

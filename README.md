@@ -34,8 +34,9 @@ Or from a terminal:
 | Mouse | look |
 | Shift | stroll faster |
 | Space | hop |
-| 1–9, 0 | set throw power 1–10 (0 = 10), shown top-right as `Velocity: #` |
-| Left click / T | **throw a disc** at the current power, where you're looking |
+| T | **throw panel** (lower right): pick a disc, set speed, launch angle, nose, hyzer/anhyzer and spin, press **Throw**. A real flying disc leaves along where you're looking (right-hand backhand). T again closes it |
+| 1–9, 0 | set block power 1–10 (0 = 10), shown top-right as `Velocity: #` |
+| Left click | fire an orange **block** at the current power (the original cannon, kept for fun) |
 | F | fetch: jump to your last disc. **If it's still flying, you fly with it** (you take on its speed and direction until you land) |
 | B | toggle the beams of light over resting discs (status top-right) |
 | C | **collect**: every disc rolls home to you, slow at first and then faster and faster. Trunks and cliffs block them unless they have the momentum |
@@ -86,14 +87,18 @@ Done:
 - [x] **Configurable voxel size** (`--block-size`) + docs
 - [x] **Greedy meshing** (about 5× fewer triangles; 0.25 m blocks are comfortable)
 - [x] **Disc throwing, step 1**: a block fired from you that bounces off ground and trunks, clatters through branches, gets swallowed by leaves, and floats in lakes. Power keys, fetch (ride a flying disc!), beam toggle, collect (discs roll home).
+- [x] **Disc flight, step 2**: flat pixel discs with lift, drag and gyroscopic turn/fade (`disc_model.gd`), four disc tables, a lower-right throw panel (T). Checked against shotshaper (`tools/flight_test.gd`).
 
 Next (pick any):
-- [ ] **Disc flight physics**: flat disc, lift/drag/spin/fade in `disc.gd`'s `apply_aero()`; discs resting in trees; baskets
+- [ ] **Follow flight**: camera hovering along with the disc + a voxel trail of its path
+- [ ] Wind (static vector to start), forehand toggle in the panel, more discs / our own coefficient tables (replace the GPL shotshaper ones, see `data/discs/README.md`)
+- [ ] Discs resting in trees; baskets
 - [ ] **Wind grass**: instanced voxel tufts, reusing the flower sway shader
 - [ ] More tree variety (tuning, species, autumn)
 - [ ] Auto-walk toggle (helps over VNC, where held keys arrive as taps)
 
 Explore later:
+- [ ] **Distance throwing zone**: a field marked with distance lines in the ground, either near one edge of every world (e.g. the west edge) or, better, its own pre-made world (which opens the door to hand-made/pre-made worlds generally)
 - [ ] Background/threaded tree building with a grow-in animation
 - [ ] Bigger worlds; infinite streaming world (region-local lakes/trees, chunks built as you walk)
 - [ ] Polish: day cycle, ambient sound

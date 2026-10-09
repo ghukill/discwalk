@@ -40,6 +40,7 @@ const COLOR := Color(1.0, 0.36, 0.1) ## Safety orange, easy to spot.
 @export var collect_timeout := 40.0     ## Give up (and rest) after this long.
 
 var terrain: Node3D
+var color := COLOR                   ## Body + beam colour.
 var power := 0
 var start := Vector3.ZERO            ## Release point (m).
 var bark_hits := 0
@@ -75,9 +76,19 @@ func _ready() -> void:
 	body_entered.connect(_on_body_entered)
 
 	_shape = CollisionShape3D.new()
-	_shape.shape = _box_shape()
+	_shape.shape = _make_shape()
 	add_child(_shape)
+	_build_visual()
+	_rng.randomize()
 
+
+## Collision shape while flying/resting. Subclasses (flying_disc.gd) override.
+func _make_shape() -> Shape3D:
+	return _box_shape()
+
+
+## What it looks like. Subclasses (flying_disc.gd) override.
+func _build_visual() -> void:
 	var mesh := MeshInstance3D.new()
 	var bm := BoxMesh.new()
 	bm.size = Vector3.ONE * SIZE
@@ -89,7 +100,6 @@ func _ready() -> void:
 	bm.material = sm
 	mesh.mesh = bm
 	add_child(mesh)
-	_rng.randomize()
 
 
 ## Release from `pos` with velocity `vel` (m/s) and a tumbling spin.
@@ -190,7 +200,7 @@ func start_collect(target: Node3D) -> void:
 func _stop_collect() -> void:
 	collecting = false
 	can_sleep = true
-	_shape.shape = _box_shape()
+	_shape.shape = _make_shape()
 
 
 ## Steers the horizontal velocity toward the player, with a speed target that
@@ -272,7 +282,7 @@ func _come_to_rest() -> void:
 	var bm := BoxMesh.new()
 	bm.size = Vector3(0.06, 8.0, 0.06)
 	var sm := StandardMaterial3D.new()
-	sm.albedo_color = Color(COLOR, 0.35)
+	sm.albedo_color = Color(color, 0.35)
 	sm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	sm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	bm.material = sm
