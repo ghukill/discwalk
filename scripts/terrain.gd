@@ -9,6 +9,8 @@ extends Node3D
 
 signal generated
 
+const FLORA_SCRIPT := preload("res://scripts/flora.gd")
+
 @export var world_seed: int = 1848
 @export var size_chunks: int = 8          ## World is size_chunks x size_chunks chunks.
 @export var chunk_size: int = 32          ## Blocks per chunk side.
@@ -34,6 +36,8 @@ const COLOR_WATER := Color(0.22, 0.45, 0.62, 0.78)
 var size: int = 0                          ## World size in blocks (per side).
 var heights := PackedInt32Array()          ## Top surface y of each column.
 var lakes: Array[Dictionary] = []          ## {center: Vector2, radius: float, water_y: float}
+
+var flora: Node3D                          ## Oaks + wildflowers (scripts/flora.gd).
 
 var _shore := PackedByteArray()            ## 1 = sandy shore / lake bed.
 var _rng := RandomNumberGenerator.new()
@@ -73,8 +77,18 @@ func generate() -> void:
 	_build_chunks()
 	_build_water()
 	_build_collision()
-	print("discwalk: world seed %d generated in %d ms (%d lakes)" % [
-		world_seed, Time.get_ticks_msec() - t0, lakes.size()])
+	var t1 := Time.get_ticks_msec()
+	flora = Node3D.new()
+	flora.set_script(FLORA_SCRIPT)
+	flora.name = "Flora"
+	add_child(flora)
+	flora.build(self)
+	var flowers := 0
+	for n in flora.flower_counts.values():
+		flowers += n
+	print("discwalk: world seed %d generated in %d ms (%d lakes; flora %d ms: %d oaks, %d flowers)" % [
+		world_seed, Time.get_ticks_msec() - t0, lakes.size(), Time.get_ticks_msec() - t1,
+		flora.trees.size(), flowers])
 	generated.emit()
 
 
@@ -83,6 +97,27 @@ func height_at(x: float, z: float) -> int:
 	var ix := clampi(int(floor(x)), 0, size - 1)
 	var iz := clampi(int(floor(z)), 0, size - 1)
 	return heights[iz * size + ix]
+
+
+## True for sandy shore / lake-bed columns.
+func is_shore(x: int, z: int) -> bool:
+	if x < 0 or z < 0 or x >= size or z >= size:
+		return false
+	return _shore[z * size + x] == 1
+
+
+## True if the top of this column sits below a lake's waterline.
+func is_underwater(x: int, z: int) -> bool:
+	return _is_underwater(x, z, heights[z * size + x])
+
+
+## Distance from (x, z) to the nearest lake's edge (negative = inside a lake).
+func lake_edge_distance(x: float, z: float) -> float:
+	var best := 1e9
+	var p := Vector2(x, z)
+	for lake in lakes:
+		best = minf(best, p.distance_to(lake.center) - lake.radius)
+	return best
 
 
 func spawn_point() -> Vector3:

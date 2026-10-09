@@ -64,8 +64,45 @@ func _plan_views() -> void:
 	var to_spawn := (Vector3(spawn.x, 0, spawn.z) - Vector3(lc.x, 0, lc.z)).normalized()
 	var shore: Vector3 = lc + to_spawn * (lake.radius + 3.0)
 	shore.y = t.height_at(shore.x, shore.z) + 0.05
+	# A tree to admire, and a flowery meadow patch.
+	var flora = t.flora
+	var oak: Dictionary = flora.trees[0]
+	for tr in flora.trees:
+		if tr.kind == "giant" or (tr.kind == "big" and oak.kind != "giant"):
+			oak = tr
+			if tr.kind == "giant":
+				break
+	var op := Vector3(oak.pos.x + 0.5, 0, oak.pos.y + 0.5)
+	var oak_eye := op + Vector3(oak.crown * 2.2, 0, oak.crown * 1.4)
+	oak_eye.y = t.height_at(oak_eye.x, oak_eye.z) + 0.05
+	op.y = oak_eye.y + 1.0
+	var meadow := _flowery_spot(t)
 	_views = [
+		{"name": "oak", "pos": oak_eye, "look": op, "pitch": 0.12},
+		{"name": "meadow", "pos": meadow[0], "look": meadow[1], "pitch": -0.32},
 		{"name": "spawn_eye", "pos": spawn + Vector3(0, -0.95, 0), "look": lc, "pitch": -0.05},
 		{"name": "lakeshore", "pos": shore, "look": lc, "pitch": -0.25},
 		{"name": "overview", "pos": Vector3(s * 0.12, 60, s * 0.12), "look": Vector3(s * 0.55, 0, s * 0.55), "pitch": -0.55},
 	]
+
+
+## Finds the densest meadow-flower spot; returns [eye position, look target].
+func _flowery_spot(t) -> Array:
+	var best := Vector3(t.size / 2.0, 0, t.size / 2.0)
+	var best_n := -1
+	var grid := {}
+	for mmi in t.flora.get_node("Flowers").get_children():
+		if mmi.name.begins_with("trillium") or mmi.name.begins_with("marsh") or mmi.name.begins_with("blue"):
+			continue
+		var mm: MultiMesh = mmi.multimesh
+		for k in mm.instance_count:
+			var p: Vector3 = mm.get_instance_transform(k).origin
+			var key := Vector2i(int(p.x / 8), int(p.z / 8))
+			grid[key] = grid.get(key, 0) + 1
+			if grid[key] > best_n:
+				best_n = grid[key]
+				best = Vector3(key.x * 8 + 4, 0, key.y * 8 + 4)
+	var eye := best + Vector3(-5, 0, -5)
+	eye.y = t.height_at(eye.x, eye.z) + 0.05
+	best.y = eye.y
+	return [eye, best]

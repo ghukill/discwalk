@@ -30,10 +30,17 @@ func _process(_delta: float) -> bool:
 
 	print("SMOKE size=%d chunks=%d triangles=%d lakes=%d water_y=%s" % [
 		terrain.size, chunks, verts / 3, terrain.lakes.size(), str(water_ys)])
+	var flora = terrain.flora
+	var kinds := {}
+	for tr in flora.trees:
+		kinds[tr.kind] = kinds.get(tr.kind, 0) + 1
+	print("SMOKE oaks=%d %s voxels=%d flowers=%s" % [
+		flora.trees.size(), str(kinds), flora.voxel_count, str(flora.flower_counts)])
 	print("SMOKE player=%s on_floor=%s" % [player.global_position, player.is_on_floor()])
 
 	var ok: bool = chunks == terrain.size_chunks * terrain.size_chunks \
-		and terrain.lakes.size() > 0 and player.is_on_floor()
+		and terrain.lakes.size() > 0 and player.is_on_floor() \
+		and flora.trees.size() > 10 and flora.flower_counts.size() >= 5
 	print("SMOKE " + ("PASS" if ok else "FAIL"))
 	quit(0 if ok else 1)
 	return true

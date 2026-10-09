@@ -6,6 +6,8 @@ Built with **Godot 4.7** in plain GDScript. There are no native plugins or C#, s
 
 Design + roadmap: Henon ticket `0002` (`zippychirps/tickets/0002-discwalk-voxel-godot-game.md`).
 
+![Oak grove with lupine and coneflowers](docs/screenshot-oak.png)
+
 ## Play
 
 1. Install Godot 4.7.x (standard build, not .NET): <https://godotengine.org/download>
@@ -42,7 +44,9 @@ Or from a terminal:
 3. **Kettles:** a few round bowls are pressed into the ground (kept clear of spawn and of each other).
 4. **Blocks:** heights snap to whole 1 m blocks. Each 32×32 chunk becomes one mesh that only has the visible faces.
 5. **Lakes:** each kettle fills with water up to just below its lowest rim, with sandy shores and a muddy bed.
-6. **Collision:** a smooth heightmap runs through the block centres. One-block steps feel like gentle ramps, and cliffs of two or more blocks act as walls.
+6. **Oaks** (`scripts/flora.gd`): each tree is grown voxel by voxel from its own seed: a stout trunk (2×2 for big ones), 2–4 crooked limbs reaching outward, and a broad crown of squashed, noise-bitten leaf blobs. Low-frequency noise splits the land into groves and open meadows (Michigan oak openings), with the odd giant lone oak out in a field. No trees in lakes, on shores, on steep ground, or at spawn. Trunks are solid and crowns are walk-through.
+7. **Wildflowers:** little voxel plants, drawn with MultiMesh and swaying in a wind shader (`shaders/sway.gdshader`). The species depends on habitat: blue flag iris and marsh marigold by the water, trillium in oak shade, and patches of black-eyed Susan, purple coneflower, wild lupine and butterfly weed in the meadows.
+8. **Collision:** a smooth heightmap runs through the block centres. One-block steps feel like gentle ramps, and cliffs of two or more blocks act as walls.
 
 ## Dev tools
 
@@ -55,7 +59,7 @@ $G --path . --script res://tools/screenshot.gd -- /tmp/shots    # renders a few 
 ## Roadmap
 
 - [x] **1. Walker + generated voxel terrain + kettle lakes**
-- [ ] 2. Trees (rule-based scatter: not in water, not on steep slopes)
-- [ ] 3. Wind grass (instanced voxel tufts + sway shader)
+- [x] **2. Oaks + wildflowers** (flowers pulled forward from phase 3)
+- [ ] 3. Wind grass (instanced voxel tufts, reusing the flower sway shader)
 - [ ] 4. Disc golf 🥏 (rigid-body disc, lift/drag/fade, throw gesture)
 - [ ] 5. Polish: day cycle, ambient sound, chunk streaming for bigger worlds
