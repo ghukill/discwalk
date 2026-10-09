@@ -47,7 +47,7 @@ $G --path . --script res://tools/screenshot.gd -- /tmp/shots --block-size=0.5
 | Terrain triangles | ~250k | ~1M |
 | Tree voxels | ~27k | ~220k |
 | World build (T480) | ~1.4 s | ~5.8 s |
-| World build (M1 Pro) | ~0.8 s | ~2–3 s (est.) |
+| World build (M1 Pro) | ~0.8 s | ~3.3 s |
 | Walking | 1 m steps walkable, 2 m+ are walls | 0.5 m steps walkable, 1 m+ are walls |
 
 Notes:
