@@ -6,6 +6,7 @@ extends Node
 ##   F        fetch: teleport to your last disc. If it's still flying, you
 ##            take over its speed and direction and fly on with it.
 ##   B        toggle the beams of light over resting discs
+##   C        collect: every disc rolls home to you, building up speed
 ##
 ## Power p launches at p x speed_per_level m/s (default 4 m/s per level, so
 ## 0 = 40 m/s, about a strong disc golf drive). Aim is your view direction.
@@ -27,6 +28,7 @@ var discs: Array = []
 var _last: Node = null
 var _flying_text := ""
 var _result_text := ""
+var _collected := 0
 
 
 func _ready() -> void:
@@ -45,6 +47,9 @@ func _unhandled_input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 	elif event.is_action_pressed("throw"):
 		throw(power)
+		get_viewport().set_input_as_handled()
+	elif event.is_action_pressed("collect"):
+		collect()
 		get_viewport().set_input_as_handled()
 	elif event.is_action_pressed("beams"):
 		set_beams(not beams)
@@ -75,12 +80,32 @@ func throw(level: int) -> Node:
 	disc.tree_exited.connect(func() -> void: discs.erase(disc))
 	discs.append(disc)
 	_last = disc
+	_collected = 0
 	while discs.size() > max_discs:
 		var old: Node = discs.pop_front()
 		if is_instance_valid(old):
 			old.queue_free()
 	_result_text = ""
 	return disc
+
+
+## Sends every disc rolling home to the player.
+func collect() -> void:
+	var n := 0
+	for d in discs:
+		if is_instance_valid(d) and not d.collecting:
+			d.start_collect(player)
+			if not d.collected.is_connected(_on_collected):
+				d.collected.connect(_on_collected)
+			n += 1
+	if n > 0:
+		_collected = 0
+		_result_text = ""
+
+
+func _on_collected(_disc: Node) -> void:
+	_collected += 1
+	_result_text = "collected %d disc%s" % [_collected, "" if _collected == 1 else "s"]
 
 
 ## Turns every disc's beam of light on or off (and future ones too).
@@ -118,11 +143,19 @@ func clear() -> void:
 	discs.clear()
 	_last = null
 	_result_text = ""
+	_collected = 0
 	_update_label()
 
 
 func _process(_delta: float) -> void:
-	if is_instance_valid(_last) and not _last.resting:
+	var rolling := 0
+	for d in discs:
+		if is_instance_valid(d) and d.collecting:
+			rolling += 1
+	if rolling > 0:
+		_flying_text = "collecting: %d rolling home…%s" % [rolling,
+			("  (%d in)" % _collected) if _collected > 0 else ""]
+	elif is_instance_valid(_last) and not _last.resting:
 		_flying_text = "in flight: %.1f m" % _last.distance()
 	else:
 		_flying_text = ""
@@ -130,7 +163,7 @@ func _process(_delta: float) -> void:
 
 
 func _on_rest(disc: Node) -> void:
-	if disc != _last:
+	if disc != _last or _collected > 0:
 		return
 	var notes := []
 	if disc.bark_hits > 0:
@@ -150,7 +183,7 @@ func _update_label() -> void:
 	if status_label != null:
 		status_label.text = "Velocity: %d  (%d m/s)\nBeams: %s" % [
 			power, int(power * speed_per_level), "on" if beams else "off"]
-	var lines := ["1-9, 0 set power  ·  click or T throw  ·  F fetch  ·  B beams"]
+	var lines := ["1-9, 0 set power  ·  click or T throw  ·  F fetch  ·  C collect  ·  B beams"]
 	if _flying_text != "":
 		lines.append(_flying_text)
 	elif _result_text != "":

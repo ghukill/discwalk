@@ -85,6 +85,11 @@ Notes:
 | `leaf_keep_per_metre` | `disc.gd` | 0.72 | Fraction of speed kept per metre of leaves. |
 | `bark_bounce` | `disc.gd` | 0.4 | Speed kept along the hit axis when bouncing off bark. |
 | `SIZE` | `disc.gd` | 0.22 | Disc block edge (m). |
+| `collect_speed0` | `disc.gd` | 1.0 | Collect: starting roll speed (m/s), about ¼ walking pace. |
+| `collect_ramp` | `disc.gd` | (0.6, 0.35) | Collect: speed target grows by a·t + b·t². |
+| `collect_max_speed` | `disc.gd` | 25 | Collect: top speed (m/s). |
+| `collect_accel` | `disc.gd` | 14 | Collect: max push (m/s²). Lower = more easily stuck behind ledges. |
+| `collect_timeout` | `disc.gd` | 40 | Collect: seconds before a stuck disc gives up. |
 | bounce / friction | `disc.gd` `_ready()` | 0.35 / 0.7 | Against ground and trunks. |
 
 ## Flora knobs (`scripts/flora.gd`)

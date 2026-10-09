@@ -11,8 +11,13 @@ extends RigidBody3D
 ##   through the tree voxel grid: bark bounces it back, leaves bleed off speed
 ##   and knock it about ("tree kick"), so a disc can get swallowed by a crown.
 ## - Lakes: water drags it to a crawl and floats it at the surface.
+## - Collecting (C): the disc turns into a rolling ball and rolls home to
+##   you, starting at a quarter of walking pace and building speed. It's
+##   still a physics body, so trunks, steep ledges and lakes get in its way;
+##   only momentum gets it up a step.
 
 signal came_to_rest(disc)
+signal collected(disc)
 
 const FLORA := preload("res://scripts/flora.gd")
 
@@ -23,6 +28,16 @@ const COLOR := Color(1.0, 0.36, 0.1) ## Safety orange, easy to spot.
 @export var leaf_keep_per_metre := 0.72
 ## Bounciness when hitting bark (fraction of speed kept along the hit axis).
 @export var bark_bounce := 0.4
+## Collecting: starting speed (m/s, a quarter of walking pace) ...
+@export var collect_speed0 := 1.0
+## ... speed target grows as speed0 + a*t + b*t^2 (passes sprint speed after ~3.5 s) ...
+@export var collect_ramp := Vector2(0.6, 0.35)
+@export var collect_max_speed := 25.0
+## ... but it can only push itself this hard (m/s^2): enough to roll up the
+## 45-degree one-block steps you can walk up, but 2-block cliffs (63 deg+) stop
+## it unless it has built up the momentum to roll over them.
+@export var collect_accel := 14.0
+@export var collect_timeout := 40.0     ## Give up (and rest) after this long.
 
 var terrain: Node3D
 var power := 0
@@ -32,6 +47,10 @@ var leaf_cells := 0                  ## Leaf voxels flown through.
 var splashed := false
 var resting := false
 var max_height := 0.0                ## Peak height above release (m).
+var collecting := false
+var collect_target: Node3D
+var _collect_t := 0.0
+var _shape: CollisionShape3D
 
 var beam_on := true                  ## Show the rest beacon (toggled with B).
 var _still := 0.0
@@ -55,11 +74,9 @@ func _ready() -> void:
 	max_contacts_reported = 4
 	body_entered.connect(_on_body_entered)
 
-	var shape := CollisionShape3D.new()
-	var box := BoxShape3D.new()
-	box.size = Vector3.ONE * SIZE
-	shape.shape = box
-	add_child(shape)
+	_shape = CollisionShape3D.new()
+	_shape.shape = _box_shape()
+	add_child(_shape)
 
 	var mesh := MeshInstance3D.new()
 	var bm := BoxMesh.new()
@@ -146,9 +163,77 @@ func _integrate_forces(state: PhysicsDirectBodyState3D) -> void:
 			_in_water = true
 			break
 
+	if collecting:
+		v = _roll_home(state, v, p, dt)
 	v = apply_aero(state, v)
 	state.linear_velocity = v
 	max_height = maxf(max_height, p.y - start.y)
+
+
+## Start rolling home to `target` (the player).
+func start_collect(target: Node3D) -> void:
+	collecting = true
+	collect_target = target
+	_collect_t = 0.0
+	resting = false
+	_still = 0.0
+	if _beacon != null:
+		_beacon.queue_free()
+		_beacon = null
+	can_sleep = false
+	sleeping = false
+	var ball := SphereShape3D.new()      # rolls like a ball, still looks like a block
+	ball.radius = SIZE * 0.5
+	_shape.shape = ball
+
+
+func _stop_collect() -> void:
+	collecting = false
+	can_sleep = true
+	_shape.shape = _box_shape()
+
+
+## Steers the horizontal velocity toward the player, with a speed target that
+## keeps growing and a limited push, then spins the ball to match.
+func _roll_home(state: PhysicsDirectBodyState3D, v: Vector3, p: Vector3, dt: float) -> Vector3:
+	if not is_instance_valid(collect_target):
+		_stop_collect.call_deferred()
+		return v
+	var goal := collect_target.global_position + Vector3(0, 0.9, 0)
+	var to := goal - p
+	if to.length() < 1.0:
+		_arrive.call_deferred()
+		return v
+	_collect_t += dt
+	if _collect_t > collect_timeout:
+		_stop_collect.call_deferred()
+		return v
+	var t := _collect_t
+	var cap := minf(collect_speed0 + collect_ramp.x * t + collect_ramp.y * t * t, collect_max_speed)
+	var flat := Vector3(to.x, 0, to.z)
+	var want := flat.normalized() * cap if flat.length() > 0.01 else Vector3.ZERO
+	var vh := Vector3(v.x, 0, v.z)
+	var dv := want - vh
+	var max_dv := collect_accel * dt
+	if dv.length() > max_dv:
+		dv = dv.normalized() * max_dv
+	v += dv
+	state.angular_velocity = Vector3.UP.cross(Vector3(v.x, 0, v.z)) / (SIZE * 0.5)
+	return v
+
+
+func _arrive() -> void:
+	if not collecting:
+		return
+	collecting = false
+	collected.emit(self)
+	queue_free()
+
+
+func _box_shape() -> BoxShape3D:
+	var box := BoxShape3D.new()
+	box.size = Vector3.ONE * SIZE
+	return box
 
 
 func _on_body_entered(body: Node) -> void:
@@ -166,7 +251,7 @@ func _physics_process(delta: float) -> void:
 	if global_position.y < -30.0:
 		queue_free()
 		return
-	if resting:
+	if resting or collecting:
 		return
 	var moving := linear_velocity.length()
 	if _in_water:

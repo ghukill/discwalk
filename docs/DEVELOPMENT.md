@@ -39,6 +39,12 @@ Throwing has its own headless check. It throws 4 discs across open ground at pow
 $G --headless --path . --script res://tools/throw_test.gd [-- --block-size=0.5]
 ```
 
+Collecting has one too. It scatters 8 discs around spawn, presses C, and passes if at least 6 make it home and they start slow (under 3 m/s in the first second):
+
+```sh
+$G --headless --path . --script res://tools/collect_test.gd [-- --block-size=0.5]
+```
+
 The smoke test passes when:
 - all chunks are built
 - at least one lake exists

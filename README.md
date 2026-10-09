@@ -38,6 +38,7 @@ Or from a terminal:
 | Left click / T | **throw a disc** at the current power, where you're looking |
 | F | fetch: jump to your last disc. **If it's still flying, you fly with it** (you take on its speed and direction until you land) |
 | B | toggle the beams of light over resting discs (status top-right) |
+| C | **collect**: every disc rolls home to you, slow at first and then faster and faster. Trunks and cliffs block them unless they have the momentum |
 | N | roll a brand-new world |
 | Esc | free the mouse (click to grab it again) |
 

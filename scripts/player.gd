@@ -108,6 +108,7 @@ static func _ensure_input_actions() -> void:
 		"fetch": [KEY_F],
 		"throw": [KEY_T],
 		"beams": [KEY_B],
+		"collect": [KEY_C],
 		"throw_1": [KEY_1, KEY_KP_1], "throw_2": [KEY_2, KEY_KP_2],
 		"throw_3": [KEY_3, KEY_KP_3], "throw_4": [KEY_4, KEY_KP_4],
 		"throw_5": [KEY_5, KEY_KP_5], "throw_6": [KEY_6, KEY_KP_6],

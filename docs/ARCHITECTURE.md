@@ -20,6 +20,7 @@ tools/smoke_test.gd      Headless PASS/FAIL check
 tools/screenshot.gd      Renders PNG views incl. one portrait per oak form (needs a display/GPU)
 tools/tree_gallery.gd    Flat-ground lineup of every oak form, for tuning trees
 tools/throw_test.gd      Headless throws (open ground, into an oak, into a lake): PASS/FAIL
+tools/collect_test.gd    Headless collect: 8 scattered discs roll home, speed ramps up
 docs/                    These docs + screenshots
 ```
 
@@ -149,6 +150,10 @@ Step 1 is deliberately simple: the disc is a 22 cm bright-orange block fired out
 - **Water**: on entry, speed ×0.35 (splash). After that, heavy drag and buoyancy float it at the surface.
 - **Coming to rest**: when it's barely moving (horizontally, if floating) for 0.6 s, it plants a faint orange beam so you can find it, and the HUD shows distance, peak height and what it hit. **B** toggles all beams (`thrower.set_beams()`, remembered for new discs).
 - **Fetch (F)**: if the disc is resting, you appear beside it. If it's still flying, `player.fling()` puts your eyes where the disc is and gives you its exact velocity. While flung, the player keeps momentum (gravity, a whisper of drag, a little air steering) instead of the usual walk-speed lerp, until you land. So you ride the throw's arc.
+- **Collect (C)**: `disc.start_collect(player)` swaps the box collider for a ball, drops the beam, and each tick `_roll_home()` steers the horizontal velocity toward you:
+  - The target speed grows as `1 + 0.6t + 0.35t²` m/s. That's a quarter of walking pace at first, passing sprint speed after ~3.5 s, capped at 25.
+  - Acceleration is limited (`collect_accel`, 14 m/s²), so it can't just teleport through the world. It rolls up one-block steps, but two-block cliffs, trunks and lakes stop it unless it has built up the momentum to get over them.
+  - It spins to match its rolling. Within 1 m of you it's absorbed (no effect yet). After 40 s stuck it gives up.
 - **Future flight physics** goes in `disc.apply_aero(state, v)`, which runs every physics tick with the current velocity. Lift, drag, spin and fade would be forces added there, with the block swapped for a flat disc mesh + cylinder collider.
 
 ## Determinism
