@@ -93,12 +93,19 @@ Done:
 - [x] **Greedy meshing** (about 5× fewer triangles; 0.25 m blocks are comfortable)
 - [x] **Disc throwing, step 1**: a block fired from you that bounces off ground and trunks, clatters through branches, gets swallowed by leaves, and floats in lakes. Power keys, fetch (ride a flying disc!), beam toggle, collect (discs roll home).
 - [x] **Disc flight, step 2**: flat pixel discs with lift, drag and gyroscopic turn/fade (`disc_model.gd`), four disc tables, a lower-right throw panel (T). Checked against shotshaper (`tools/flight_test.gd`).
-
-Next (pick any):
 - [x] **Follow cam (V)**: chase camera behind the disc, hands back once it stops
 - [x] **Flight paths**: voxel trail per throw, own colour, dimmer on the ground; P toggles; off = they fall and poof
+- [x] **Aim with your view**: launch angle = view pitch + panel offset; heading + horizon dials (H/J)
+- [x] **Landings**: Jolt physics (no more discs through the ground), slicker ground play so discs skip
+- [x] **Clouds**: fluffy voxel clouds, a few low puffs just over the trees (K)
+- [x] **Warp (Z)**: go to your disc once it stops, ready for the next shot
+
+Next (pick any):
+- [ ] **Menu** (Esc?): Resume, Help (screen of key bindings), New world, Quit
+- [ ] **Wind**: static vector to start (the flight model already subtracts it), maybe gusts; a wind arrow on the dials; drives cloud drift
+- [ ] Throw panel rework (it freezes the view while open); forehand toggle
+- [ ] More discs / our own coefficient tables (replace the GPL shotshaper ones, see `data/discs/README.md`)
 - [ ] Picture-in-picture follow cam
-- [ ] Wind (static vector to start), forehand toggle in the panel, more discs / our own coefficient tables (replace the GPL shotshaper ones, see `data/discs/README.md`)
 - [ ] Discs resting in trees; baskets
 - [ ] **Wind grass**: instanced voxel tufts, reusing the flower sway shader
 - [ ] More tree variety (tuning, species, autumn)
@@ -106,7 +113,8 @@ Next (pick any):
 
 Explore later:
 - [ ] **Export + import worlds**: write a world to a file (seed + settings, plus anything hand-edited or placed, e.g. discs, baskets) and load it back. That's the foundation for **pre-made worlds** shipped as files you pick at startup, e.g. a **flat distance world**: long and narrow, no plants, no lakes, distance markings in the ground
-- [ ] **Game controller support**: left stick walk, right stick look, triggers/buttons for throw, follow cam, paths, fetch; the throw panel navigable with the d-pad
+- [ ] **Game controller support** (Graham has ideas): left stick walk, right stick look, triggers/buttons for throw, follow cam, paths, warp; the throw panel navigable with the d-pad
+- [ ] **Disc golf mechanics**: baskets, holes/tees, stroke counting (warp is the first piece)
 - [ ] **Single-file builds**: Godot export for Linux (one binary with the game data embedded) and macOS (a universal .app, zipped), built headless on the T480
 - [ ] **Distance throwing zone**: a field marked with distance lines in the ground, either near one edge of every world (e.g. the west edge) or, better, its own pre-made world (which opens the door to hand-made/pre-made worlds generally)
 - [ ] Background/threaded tree building with a grow-in animation

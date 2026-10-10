@@ -57,9 +57,13 @@ Main (main.gd)
 │     ├─ Trunks (StaticBody3D)   one box collider per trunk
 │     └─ Flowers/<species>_x_z   MultiMeshInstance3D per species per 64 m region
 ├─ Player (player.gd)            CharacterBody3D + capsule + Head/Camera3D
+├─ Clouds (clouds.gd)            one MeshInstance3D per cloud, drifting
 ├─ Thrower (thrower.gd)
+│  ├─ FollowCam (follow_cam.gd)  chase camera (V)
+│  └─ Paths (paths.gd)           one MultiMeshInstance3D per flight path
 ├─ Disc / FlyingDisc …           RigidBody3D per throw (up to 12 kept)
-└─ HUD/Help, HUD/Crosshair, HUD/Throw, HUD/ThrowPanel
+└─ HUD/Help, Crosshair, Throw, ThrowStatus, ThrowPanel, LaunchAngle,
+       WarpFlash, Warp, Dials (dials.gd)
 ```
 
 ## Units: metres vs blocks

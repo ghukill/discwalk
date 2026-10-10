@@ -1,6 +1,6 @@
 # Disc Flight: Design Notes
 
-> **Status:** step 2 landed (flat disc, lift/drag/gyroscopic roll, throw panel, four shotshaper tables). See [ARCHITECTURE.md](ARCHITECTURE.md#flying-discs-flying_discgd-disc_modelgd-throw_panelgd). Next up: follow flight + trail, wind, forehand, our own tables.
+> **Status:** step 2 landed (flat disc, lift/drag/gyroscopic roll, throw panel, four shotshaper tables). See [ARCHITECTURE.md](ARCHITECTURE.md#flying-discs-flying_discgd-disc_modelgd-throw_panelgd). Since then: follow cam (V), flight paths (P), launch angle from your view, Jolt physics for landings, slicker ground play, warp (Z). Still to do from this plan: wind, forehand, our own coefficient tables.
 
 High-level plan for adding realistic disc golf disc flight to the voxel game (Godot).
 
