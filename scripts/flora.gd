@@ -201,6 +201,14 @@ func voxel_at(c: Vector3i) -> int:
 	return _vox.get(c, 0)
 
 
+## Height (m) of the highest tree voxel in the world (top of the canopy).
+func canopy_top() -> float:
+	var top := 0
+	for c: Vector3i in _vox:
+		top = maxi(top, c.y)
+	return (top + 1) * _bs
+
+
 func _col_centre(ix: int, iz: int) -> Vector2:
 	return Vector2((ix + 0.5) * _bs, (iz + 0.5) * _bs)
 

@@ -22,7 +22,7 @@ func _ready() -> void:
 	add_child(clouds)
 	if "--no-clouds" in OS.get_cmdline_user_args():
 		clouds.visible = false
-	clouds.generate(terrain.world_seed, terrain.world_size)
+	clouds.generate(terrain.world_seed, terrain.world_size, terrain.flora.canopy_top())
 	_setup_throwing()
 	_place_player()
 	_update_hud()
@@ -127,7 +127,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		terrain.world_seed = randi() % 100000
 		thrower.clear()
 		terrain.generate()
-		clouds.generate(terrain.world_seed, terrain.world_size)
+		clouds.generate(terrain.world_seed, terrain.world_size, terrain.flora.canopy_top())
 		_place_player()
 		_update_hud()
 

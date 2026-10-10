@@ -219,4 +219,6 @@ Two faint 84 px instruments under the top-right status lines, drawn with `_draw`
 
 ### Clouds (`clouds.gd`)
 
-Eleven clouds at 70–95 m, each a heap of 3–6 squashed overlapping blobs voxelised into 2 m blocks (only exposed faces are meshed): white tops, slightly cooler sides, blue-grey bellies, with a little emission so the shady side never goes grey. They drift at `drift` (1.1, 0.35) m/s and wrap around a box 120 m bigger than the world on each side. Built from the world seed in `main.gd`, rebuilt on N. **K** toggles; `-- --no-clouds` starts with them off. No measurable frame cost on the T480.
+Eleven clouds, each a heap of 3–6 round overlapping blobs voxelised into 2 m blocks (only exposed faces meshed): rounded bellies a little flatter than the tops, white tops, slightly cooler sides, blue-grey undersides, with a little emission so the shady side never goes grey.
+
+Altitudes: the 3 lowest (`low_count`) are smaller puffs (0.6×) 18–30 m above the tallest treetop (`flora.canopy_top()`, ~37 m on seed 1848, so ~55–65 m), placed over the world so you meet them; the rest step up evenly (±4 m jitter) from just above those to `height_max` (110 m). They drift at `drift` (1.1, 0.35) m/s and wrap around a box 120 m bigger than the world. Built from the world seed in `main.gd`, rebuilt on N. **K** toggles; `-- --no-clouds` starts with them off. No measurable frame cost on the T480.
