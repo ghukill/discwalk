@@ -1,29 +1,30 @@
 # discwalk
 
-A voxel walking sim through a generated glacial landscape (kettle lakes, rolling till, a moraine at the world's edge), with disc golf eventually. A playful nod to Discworld.
+A voxel walking sim through a generated glacial landscape (kettle lakes, rolling till, a moraine at the world's edge), with disc golf eventually.
 
 Built with **Godot 4.7** in plain GDScript. There are no native plugins or C#, so the same project runs on Linux, macOS and Windows.
 
 Design + roadmap: Henon ticket `0002` (`zippychirps/tickets/0002-discwalk-voxel-godot-game.md`).
 
-**Docs:** [Configuration](docs/CONFIG.md) · [Architecture](docs/ARCHITECTURE.md) · [Development](docs/DEVELOPMENT.md) · [Disc flight plan](docs/DISC-FLIGHT-PLAN.md)
+**Docs:** [Screenshots](#screenshots) · [Configuration](docs/CONFIG.md) · [Architecture](docs/ARCHITECTURE.md) · [Development](docs/DEVELOPMENT.md) · [Disc flight plan](docs/DISC-FLIGHT-PLAN.md)
 
 ![Oak grove with lupine and coneflowers](docs/screenshot-oak.png)
 
-## Play
+## Quick start
 
-1. Install Godot 4.7.x (standard build, not .NET): <https://godotengine.org/download>
+1. Get the code: `git clone https://github.com/ghukill/discwalk.git`
+2. Install Godot 4.7.x (standard build, not .NET): <https://godotengine.org/download>
    - **macOS:** download, unzip, drag `Godot.app` to Applications.
-   - **Linux (this box):** already at `../tools/godot/Godot_v4.7.2-stable_linux.x86_64`.
-2. Open Godot → **Import** → pick this folder's `project.godot` → **Run** (F5).
+   - **Linux:** download and unzip; it's a single executable (on the T480 it's already at `../tools/godot/Godot_v4.7.2-stable_linux.x86_64`).
+3. Open Godot → **Import** → pick `discwalk/project.godot` → **Run** (F5). The first open takes a moment while Godot imports assets, and each world takes ~5 s to generate.
 
 Or from a terminal:
 
 ```sh
 # macOS
 /Applications/Godot.app/Contents/MacOS/Godot --path /path/to/discwalk
-# this Linux box
-../tools/godot/Godot_v4.7.2-stable_linux.x86_64 --path .
+# Linux (from inside the repo)
+/path/to/Godot_v4.7.2-stable_linux.x86_64 --path .
 ```
 
 ### Controls
@@ -58,6 +59,26 @@ Voxel size is configurable. The default is 1 m blocks. For a finer, smoother wor
 ![1 m blocks (left) vs 0.5 m blocks (right), same seed](docs/screenshot-blocksize-compare.png)
 
 See [docs/CONFIG.md](docs/CONFIG.md) for every knob and the cost trade-offs.
+
+## Screenshots
+
+All shot at `--block-size=0.25` with the `tools/*_shots.gd` scripts (see [Development](docs/DEVELOPMENT.md)).
+
+**Oaks:** a grove, the view up from under a giant, a lone spreading oak on a rise, a leaning oak in the meadow.
+
+![Oaks](docs/screenshots/oaks.jpg)
+
+**The world:** clouds over spawn, a kettle lake, a wildflower hollow, the whole world from above.
+
+![The world](docs/screenshots/world.jpg)
+
+**Flight paths:** three throws (hyzer, flat, anhyzer) from the tee and from the side, a beam over a resting disc, and paths falling after P.
+
+![Flight paths](docs/screenshots/paths.jpg)
+
+**Throw panel, chase cam (V) and warp (Z):** setting up a throw, the camera chasing the disc, threading the trees, and warped to where it landed.
+
+![Chase cam and warp](docs/screenshots/chase.jpg)
 
 ## How the world works
 
