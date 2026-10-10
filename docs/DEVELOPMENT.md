@@ -23,8 +23,8 @@ Over SSH, macOS won't allow `screencapture` (no Screen Recording permission), so
 
 ```sh
 G=../tools/godot/Godot_v4.7.2-stable_linux.x86_64
-$G --headless --path . --script res://tools/smoke_test.gd                      # default world
-$G --headless --path . --script res://tools/smoke_test.gd -- --block-size=0.5  # fine blocks
+$G --headless --path . --script res://tools/smoke_test.gd                      # default world (0.25 m blocks, ~1 min)
+$G --headless --path . --script res://tools/smoke_test.gd -- --block-size=1    # chunky blocks, quick
 DISPLAY=:0 $G --path . --resolution 1280x720 --script res://tools/screenshot.gd -- /tmp/shots
 ```
 
@@ -85,7 +85,7 @@ The smoke test passes when:
 - there are more than 10 oaks
 - at least 5 flower species appear
 
-It prints counts (terrain/tree triangles, oaks by size, voxels, flowers per species) and flora build timings, which are handy for spotting regressions. At the default settings, seed 1848 gives 50,208 terrain triangles, 54,380 tree triangles, 295 oaks and 27,345 tree voxels.
+It prints counts (terrain/tree triangles, oaks by size, voxels, flowers per species) and flora build timings, which are handy for spotting regressions. At `--block-size=1`, seed 1848 gives 50,208 terrain triangles, 54,380 tree triangles, 295 oaks and 27,345 tree voxels.
 
 Screenshot views: oak, meadow, spawn, lakeshore, overview, plus one portrait per oak form (`form_spreading`, `form_tall`, …).
 

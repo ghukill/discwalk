@@ -10,11 +10,11 @@ There are three ways, from quickest to most permanent:
 
    ```sh
    # macOS
-   /Applications/Godot.app/Contents/MacOS/Godot --path . -- --block-size=0.5
+   /Applications/Godot.app/Contents/MacOS/Godot --path . -- --block-size=1
    # or via `open`
-   open -n ~/Applications/Godot.app --args --path ~/projects/discwalk -- --block-size=0.5
+   open -n ~/Applications/Godot.app --args --path ~/projects/discwalk -- --block-size=1
    # Linux (T480)
-   ../tools/godot/Godot_v4.7.2-stable_linux.x86_64 --path . -- --block-size=0.5
+   ../tools/godot/Godot_v4.7.2-stable_linux.x86_64 --path . -- --block-size=1
    ```
 
 2. **Godot editor**: open `scenes/main.tscn`, select the `Terrain` (or `Terrain/Flora`) node, and change values in the Inspector. Those values are saved into the scene.
@@ -27,14 +27,14 @@ Command-line flags override the scene and the code defaults.
 
 | Flag | Default | What it does |
 |---|---|---|
-| `--block-size=<m>` | `1.0` | Edge length of one voxel. `0.5` = twice as fine. Valid range: 0.125 to 4. |
+| `--block-size=<m>` | `0.25` | Edge length of one voxel. Bigger = chunkier but faster to build and lighter on memory (`0.5`, `1`). Valid range: 0.125 to 4. |
 | `--debug-keys` | off | Prints every key press/release to stdout. Useful for diagnosing remote input (VNC). |
 
 The dev tools accept the same flags, e.g.
 
 ```sh
-$G --headless --path . --script res://tools/smoke_test.gd -- --block-size=0.5
-$G --path . --script res://tools/screenshot.gd -- /tmp/shots --block-size=0.5
+$G --headless --path . --script res://tools/smoke_test.gd -- --block-size=1
+$G --path . --script res://tools/screenshot.gd -- /tmp/shots --block-size=1
 ```
 
 ## Block size
@@ -43,7 +43,7 @@ $G --path . --script res://tools/screenshot.gd -- /tmp/shots --block-size=0.5
 
 Measured on seed 1848 (greedy meshing, branching oaks):
 
-| | 1.0 (default) | 0.5 | 0.25 |
+| | 1.0 | 0.5 | 0.25 (default) |
 |---|---|---|---|
 | Grid | 256² columns | 512² | 1024² |
 | Terrain triangles | 50k | 190k | 737k |
@@ -65,7 +65,7 @@ Notes:
 | Setting | Default | Meaning |
 |---|---|---|
 | `world_seed` | 1848 | Starting seed. Press **N** in-game for a random new one. |
-| `block_size` | 1.0 | See above. |
+| `block_size` | 0.25 | See above. |
 | `world_size` | 256 | World edge length (m). Rounded to whole chunks. |
 | `chunk_metres` | 32 | Chunk edge (m). One terrain mesh + one tree mesh per chunk, so the chunk count (64) stays the same at every block size. |
 | `base_height` | 14 | Average ground height (m). |

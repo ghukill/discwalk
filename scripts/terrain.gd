@@ -19,10 +19,10 @@ const FLORA_SCRIPT := preload("res://scripts/flora.gd")
 const VoxelMesh := preload("res://scripts/voxel_mesh.gd")
 
 @export var world_seed: int = 1848
-## Edge length of one voxel in metres. 1.0 is the classic look; 0.5 is twice
-## as fine (about 4x the triangles). Override at launch with
-## `-- --block-size=0.5`. See docs/CONFIG.md.
-@export_range(0.25, 2.0, 0.25) var block_size: float = 1.0
+## Edge length of one voxel in metres. 0.25 (default) is the detailed look;
+## 0.5 or 1.0 (the original chunky look) build much faster and use less
+## memory. Override at launch with `-- --block-size=1`. See docs/CONFIG.md.
+@export_range(0.25, 2.0, 0.25) var block_size: float = 0.25
 @export var world_size: float = 256.0     ## World edge length (m).
 @export var chunk_metres: float = 32.0    ## Chunk edge (m); one mesh per chunk.
 @export var base_height: float = 14.0
@@ -109,7 +109,7 @@ func generate() -> void:
 	generated.emit()
 
 
-## `--block-size=0.5` (after `--` on the command line) overrides the export.
+## `--block-size=1` (after `--` on the command line) overrides the export.
 func _apply_cmdline_overrides() -> void:
 	for arg in OS.get_cmdline_user_args():
 		if arg.begins_with("--block-size="):

@@ -16,7 +16,7 @@ Design + roadmap: Henon ticket `0002` (`zippychirps/tickets/0002-discwalk-voxel-
 2. Install Godot 4.7.x (standard build, not .NET): <https://godotengine.org/download>
    - **macOS:** download, unzip, drag `Godot.app` to Applications.
    - **Linux:** download and unzip; it's a single executable (on the T480 it's already at `../tools/godot/Godot_v4.7.2-stable_linux.x86_64`).
-3. Open Godot → **Import** → pick `discwalk/project.godot` → **Run** (F5). The first open takes a moment while Godot imports assets, and each world takes ~5 s to generate.
+3. Open Godot → **Import** → pick `discwalk/project.godot` → **Run** (F5). The first open takes a moment while Godot imports assets, and each world takes a little while to generate (see [Block size](#block-size-performance)).
 
 Or from a terminal:
 
@@ -48,21 +48,24 @@ Or from a terminal:
 | K | clouds on/off (launch with `-- --no-clouds` to start without them) |
 | Esc | free the mouse (click to grab it again) |
 
-### Finer blocks (optional)
+### Block size (performance)
 
-Voxel size is configurable. The default is 1 m blocks. For a finer, smoother world (same landscape, more detail). 0.25 looks great on a Mac but takes ~11 s to build:
+The default voxel size is **0.25 m**: a fine, detailed world, which is what the screenshots below show. It's also the heaviest: a world takes ~11 s to build on an M1 Mac and about a minute on an older laptop like the T480, and needs ~1.7 GB of memory (pressing **N** for a new world rebuilds at the same size).
+
+If it's slow to build or the frame rate suffers, launch with bigger blocks. You get the same landscape, just chunkier:
 
 ```sh
-/Applications/Godot.app/Contents/MacOS/Godot --path /path/to/discwalk -- --block-size=0.25
+/Applications/Godot.app/Contents/MacOS/Godot --path /path/to/discwalk -- --block-size=0.5   # ~4x lighter
+/Applications/Godot.app/Contents/MacOS/Godot --path /path/to/discwalk -- --block-size=1     # the original chunky look, ~5 s even on the T480
 ```
 
 ![1 m blocks (left) vs 0.5 m blocks (right), same seed](docs/screenshot-blocksize-compare.png)
 
-See [docs/CONFIG.md](docs/CONFIG.md) for every knob and the cost trade-offs.
+See [docs/CONFIG.md](docs/CONFIG.md#block-size) for every knob and the cost trade-offs.
 
 ## Screenshots
 
-All shot at `--block-size=0.25` with the `tools/*_shots.gd` scripts (see [Development](docs/DEVELOPMENT.md)).
+All shot at the default 0.25 m blocks with the `tools/*_shots.gd` scripts (see [Development](docs/DEVELOPMENT.md)).
 
 **Oaks:** a grove, the view up from under a giant, a lone spreading oak on a rise, a leaning oak in the meadow.
 
@@ -87,7 +90,7 @@ All shot at `--block-size=0.25` with the `tools/*_shots.gd` scripts (see [Develo
 1. **Till plain:** two layers of simplex noise (hills + long drumlin-ish swells) make a height grid.
 2. **Moraine:** the edge of the world rises into a ridge so it feels enclosed.
 3. **Kettles:** a few round bowls are pressed into the ground (kept clear of spawn and of each other).
-4. **Blocks:** heights snap to whole blocks (1 m by default, see `block_size`). Each 32 m chunk becomes one **greedy-meshed** mesh: only visible faces, with flat same-coloured stretches merged into big rectangles. Per-block colour variation is added in a shader.
+4. **Blocks:** heights snap to whole blocks (0.25 m by default, see `block_size`). Each 32 m chunk becomes one **greedy-meshed** mesh: only visible faces, with flat same-coloured stretches merged into big rectangles. Per-block colour variation is added in a shader.
 5. **Lakes:** each kettle fills with water up to just below its lowest rim, with sandy shores and a muddy bed.
 6. **Oaks** (`scripts/flora.gd`): each tree is grown from its own seed as a branching skeleton. A tapering trunk with a root flare carries spiralling limbs, and those recurse into side branches, forks and twigs, with a leaf cluster on every tip. Five forms: wide **spreading** lone oaks, **tall** grove oaks reaching for light, **forked**, **leaning**, and **saplings**. There are occasional bare dead limbs, and every tree mixes its own shade of green. Low-frequency noise splits the land into groves and open meadows (Michigan oak openings), with the odd giant lone oak out in a field. No trees in lakes, on shores, on steep ground, or at spawn. Trunks are solid and crowns are walk-through.
 7. **Wildflowers:** little voxel plants, drawn with MultiMesh and swaying in a wind shader (`shaders/sway.gdshader`). The species depends on habitat: blue flag iris and marsh marigold by the water, trillium in oak shade, and patches of black-eyed Susan, purple coneflower, wild lupine and butterfly weed in the meadows.
@@ -97,9 +100,9 @@ All shot at `--block-size=0.25` with the `tools/*_shots.gd` scripts (see [Develo
 
 ```sh
 G=../tools/godot/Godot_v4.7.2-stable_linux.x86_64
-$G --headless --path . --script res://tools/smoke_test.gd      # world builds, walker lands: PASS/FAIL
+$G --headless --path . --script res://tools/smoke_test.gd      # world builds, walker lands: PASS/FAIL (0.25 m, ~1 min on the T480)
+$G --headless --path . --script res://tools/smoke_test.gd -- --block-size=1   # same, quick (~5 s)
 $G --path . --script res://tools/screenshot.gd -- /tmp/shots    # renders a few PNG views (needs a display)
-$G --headless --path . --script res://tools/smoke_test.gd -- --block-size=0.5   # same, finer blocks
 ```
 
 More in [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md).
@@ -109,7 +112,7 @@ More in [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md).
 Done:
 - [x] **1. Walker + generated voxel terrain + kettle lakes**
 - [x] **2. Oaks + wildflowers**: branching oaks in 5 forms, habitat-based wildflowers with wind sway
-- [x] **Configurable voxel size** (`--block-size`) + docs
+- [x] **Configurable voxel size** (`--block-size`, 0.25 m by default) + docs
 - [x] **Greedy meshing** (about 5× fewer triangles; 0.25 m blocks are comfortable)
 - [x] **Disc throwing, step 1**: a block fired from you that bounces off ground and trunks, clatters through branches, gets swallowed by leaves, and floats in lakes. Power keys, fetch (ride a flying disc!), beam toggle, collect (discs roll home).
 - [x] **Disc flight, step 2**: flat pixel discs with lift, drag and gyroscopic turn/fade (`disc_model.gd`), four disc tables, a lower-right throw panel (T). Checked against shotshaper (`tools/flight_test.gd`).
