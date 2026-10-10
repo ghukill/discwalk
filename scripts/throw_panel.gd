@@ -90,7 +90,7 @@ func _ready() -> void:
 	box.add_child(_auto_spin)
 
 	_paths = CheckBox.new()
-	_paths.text = "leave flight paths  (P)"
+	_paths.text = "flight paths + beams  (P)"
 	_paths.button_pressed = true
 	_paths.focus_mode = Control.FOCUS_NONE
 	_paths.toggled.connect(func(on: bool) -> void: paths_toggled.emit(on))

@@ -1,6 +1,7 @@
 extends SceneTree
-## Screenshots of warp (needs a display): throw, V + Z, the "preparing to
-## warp" flag over the follow cam, then the view after arriving.
+## Screenshots of VIEW + WARP (needs a display): both lamps on, a throw, the
+## view chasing it (warp lamp breathing in the corner), then the view after
+## arriving.
 ##
 ##   godot --path . --resolution 1280x720 --script res://tools/warp_shots.gd -- <out_dir>
 
@@ -26,9 +27,9 @@ func _process(_dt: float) -> bool:
 	if _f == 10:
 		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 		_main.get_node("Player/Head").rotation.x = deg_to_rad(12)
+		th.set_view(true)
+		th.set_warp(true)
 		_d = th.throw_disc(th.panel.params())
-		th.toggle_follow()
-		th.request_warp()
 	if _f == 100:
 		_grab("1_waiting")
 	if _arrived < 0 and _f > 20 and not th.warp_pending():

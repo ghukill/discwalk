@@ -53,7 +53,7 @@ var collect_target: Node3D
 var _collect_t := 0.0
 var _shape: CollisionShape3D
 
-var beam_on := true                  ## Show the rest beacon (toggled with B).
+var beam_on := true                  ## Show the rest beacon (P, with the paths).
 var _still := 0.0
 var _in_water := false
 var _beacon: MeshInstance3D

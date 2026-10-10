@@ -4,7 +4,7 @@ extends SceneTree
 ##   godot --path . --resolution 1280x720 --script res://tools/flight_shots.gd -- <out_dir>
 ##
 ## 1 panel:   throw panel open, looking out from spawn.
-## 2 follow:  follow cam (V) half a second into the flight.
+## 2 follow:  VIEW (V) half a second into the flight.
 ## 3 late:    follow cam a few seconds in (watch the fade).
 ## 4 ground:  follow cam during ground play, just after landing.
 ## 5 back:    view handed back to the walker once the disc stopped.
@@ -41,10 +41,10 @@ func _process(_delta: float) -> bool:
 		player.get_node("Head").rotation.x = deg_to_rad(12)   # launch angle = view
 	if _frames == 40:
 		_grab("1_panel")
+		thrower.set_view(true)
 		_disc = thrower.throw_disc(thrower.panel.params())
 		thrower.panel.toggle()
 		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
-		thrower.toggle_follow()
 	if _frames == 70:
 		_grab("2_follow")
 	if _frames == 220:

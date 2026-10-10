@@ -12,7 +12,8 @@ scripts/terrain.gd       Height field, kettle lakes, chunk meshes, water, collis
 scripts/flora.gd         Oaks (voxel trees) and wildflowers (MultiMesh)
 scripts/voxel_mesh.gd    Greedy face merging + quad/mesh helpers (shared)
 scripts/player.gd        First-person walker: input bindings, movement, head bob
-scripts/thrower.gd       Throw input (T panel, 1-0 + click for blocks), fetch (F), throw HUD line
+scripts/thrower.gd       Throw input (T panel, 1-0 + click for blocks), VIEW/WARP/PATH toggles, launch (L), throw HUD line
+scripts/lamps.gd         Warm toggle lamps top right: VIEW, WARP, PATH
 scripts/disc.gd          The thrown block (RigidBody3D): physics + tree/water interaction
 scripts/flying_disc.gd   A real disc (extends disc.gd): flat collider, pixel-circle mesh, flight
 scripts/disc_model.gd    Disc aerodynamics: coefficient tables, lift/drag, gyroscopic roll
@@ -38,6 +39,7 @@ tools/paths_shots.gd     Screenshots: three paths from behind/side/close, then P
 tools/flight_shots.gd    Screenshots: panel, follow cam in flight + on the ground, view handed back
 tools/discs/             Python helpers: shotshaper tables -> JSON, shotshaper reference flights
 tools/collect_test.gd    Headless collect: 8 scattered discs roll home, speed ramps up
+tools/toggles_test.gd    Headless VIEW/WARP/launch/PATH behaviour, scene by scene
 docs/                    These docs + screenshots
 ```
 
@@ -169,8 +171,8 @@ Step 1 is deliberately simple: the disc is a 22 cm bright-orange block fired out
   - **Bark**: reflect the velocity on the axis it crossed (×0.4) and put the disc back just outside the bark. That's how it clatters off limbs.
   - **Leaves**: keep 72% of speed per metre of leaves, plus a small random knock. A hard throw punches through a crown; a soft one gets swallowed and drops out underneath.
 - **Water**: on entry, speed ×0.35 (splash). After that, heavy drag and buoyancy float it at the surface.
-- **Coming to rest**: when it's barely moving (horizontally, if floating) for 0.6 s, it plants a faint orange beam so you can find it, and the HUD shows distance, peak height and what it hit. **B** toggles all beams (`thrower.set_beams()`, remembered for new discs).
-- **Fetch (F)**: if the disc is resting, you appear beside it. If it's still flying, `player.fling()` puts your eyes where the disc is and gives you its exact velocity. While flung, the player keeps momentum (gravity, a whisper of drag, a little air steering) instead of the usual walk-speed lerp, until you land. So you ride the throw's arc.
+- **Coming to rest**: when it's barely moving (horizontally, if floating) for 0.6 s, it plants a faint beam (in its colour) so you can find it, and the HUD shows distance, peak height and what it hit. Beams go with the paths: **P** (`thrower.set_paths()`) turns both on/off, remembered for new discs.
+- **Launch (L, `thrower.launch_self()`)**: only while the last throw is still moving (flying, skipping or rolling; not resting or being collected). `player.fling()` puts your eyes where it is and gives you its exact velocity. While flung, the player keeps momentum (gravity, a whisper of drag, a little air steering) instead of the usual walk-speed lerp, until you land. So you ride the throw's arc. That throw is remembered as `_launched`: the VIEW camera lets go, its pending warp is dropped, and turning V/Z on again won't pick it back up.
 - **Collect (C)**: `disc.start_collect(player)` swaps the box collider for a ball, drops the beam, and each tick `_roll_home()` steers the horizontal velocity toward you:
   - The target speed grows as `1 + 0.6t + 0.35t²` m/s. That's a quarter of walking pace at first, passing sprint speed after ~3.5 s, capped at 25.
   - Acceleration is limited (`collect_accel`, 14 m/s²), so it can't just teleport through the world. It rolls up one-block steps, but two-block cliffs, trunks and lakes stop it unless it has built up the momentum to get over them.
@@ -204,15 +206,21 @@ Step 2 of throwing. `flying_disc.gd` extends `disc.gd`, so trees, lakes, beams, 
 - **Landing**: first touch of anything (ground/trunk contact, bark, leaves, water) switches the aerodynamics off for good. Ordinary physics takes over with up to 25 rad/s of real spin, so it can skid, roll and flop, with a slicker material than the block (friction 0.3 vs 0.7) so it skips on instead of digging in. `flight_dist` is the carry at first contact; the HUD shows carry, rest distance, peak and airtime.
 - **Disc data**: JSON tables under `data/discs/` (four shotshaper CFD tables for now, GPL-3.0; see `data/discs/README.md` for swapping them out).
 
+### Toggles: VIEW, WARP, PATH (`thrower.gd`, `lamps.gd`)
+
+Throw behaviour is set by toggles rather than per throw. Every throw (disc or block) goes through `thrower._track()`, which makes it `_last` and, if **VIEW** (`view_on`, V) is on, starts the follow cam on it; if **WARP** (`warp_on`, Z) is on, sets it as `_warp_target`. Only the latest throw counts: a new throw takes over the camera and the warp. `set_view()` / `set_warp()` turned on mid-flight pick up the throw already moving (unless you launched with it); turned off, they hand the camera back now / drop the pending warp. **C** collect stops the camera and drops any warp, so rolling discs home never steals the view. **N** keeps the toggles as they are. Both start off; PATH (`paths_on`) starts on.
+
+The state shows as three lamps under the `Velocity` line (`lamps.gd`, drawn with `_draw`): a dark bezel with a faint brass edge, a lens that warms from dark brown to amber with a soft halo over ~0.1 s, and a small label. While a warp is armed for a moving throw, the WARP lamp breathes gently (`pulse_warp`).
+
 ### Follow cam (`follow_cam.gd`)
 
-**V** switches the view to a Camera3D (child of the Thrower, `top_level`) that trails the last disc: 1.8 m behind its horizontal direction of travel and 0.5 m above, looking a few metres ahead, smoothed. It never dips below the terrain. While the disc is barely moving the heading is held, so rolling to a stop doesn't spin the view. It hands back to the walker's camera when the disc is `resting` (still for 0.6 s, so skips and rolls are included), when it disappears (collected, cleared), or on V again. The walker keeps standing (and can still be moved) where you threw from. Knobs (`back`, `up`, `lead`, `follow_rate`, `aim_rate`) are exports on the script.
+With **VIEW** on, the view switches to a Camera3D (child of the Thrower, `top_level`) that trails the last disc: 1.8 m behind its horizontal direction of travel and 0.5 m above, looking a few metres ahead, smoothed. It never dips below the terrain. While the disc is barely moving the heading is held, so rolling to a stop doesn't spin the view. It hands back to the walker's camera when the disc is `resting` (still for 0.6 s, so skips and rolls are included), when it disappears (collected, cleared), on V off, or when you launch with it (L). The walker keeps standing (and can still be moved) where you threw from. Knobs (`back`, `up`, `lead`, `follow_rate`, `aim_rate`) are exports on the script.
 
 ### Flight paths (`paths.gd`)
 
 Every real disc throw (not blocks) is tracked from release: a cube every 0.5 m in the air (8 cm, full colour) and every 0.25 m on the ground (5 cm, darkened by half). Each throw gets the next colour on a golden-ratio hue walk, and the disc and its beam share it. One `MultiMeshInstance3D` per path, unshaded, no fog, no shadows, no collision; it doubles its capacity as needed. Recording stops when the disc rests, is collected, or disappears; the path stays.
 
-**P** toggles paths (`thrower.set_paths()`, starts on; mirrored by a "leave flight paths" checkbox in the throw panel and `Paths: on/off` top-right). Off: existing paths `clear(true)` and new throws aren't tracked until it's back on. On clearing, each cube lets go after a random 0–0.6 s, drifts down at 3.5 m/s² with a little sideways breeze and a slow tumble, and when it reaches the ground (or the lake surface) it swells to 1.8×, whitens and fades out over 0.35 s. **N** (new world) clears paths instantly.
+**P** toggles paths and rest beams together (`thrower.set_paths()`, starts on; mirrored by a "flight paths + beams" checkbox in the throw panel and the PATH lamp top right). Off: existing paths `clear(true)` and new throws aren't tracked until it's back on. On clearing, each cube lets go after a random 0–0.6 s, drifts down at 3.5 m/s² with a little sideways breeze and a slow tumble, and when it reaches the ground (or the lake surface) it swells to 1.8×, whitens and fades out over 0.35 s. **N** (new world) clears paths instantly.
 
 ## Physics engine
 
@@ -228,6 +236,6 @@ Eleven clouds, each a heap of 3–6 round overlapping blobs voxelised into 2 m b
 
 Altitudes: the 3 lowest (`low_count`) are smaller puffs (0.6×) 18–30 m above the tallest treetop (`flora.canopy_top()`, ~37 m on seed 1848, so ~55–65 m), placed over the world so you meet them; the rest step up evenly (±4 m jitter) from just above those to `height_max` (110 m). They drift at `drift` (1.1, 0.35) m/s and wrap around a box 120 m bigger than the world. Built from the world seed in `main.gd`, rebuilt on N. **K** toggles; `-- --no-clouds` starts with them off. No measurable frame cost on the T480.
 
-### Warp (Z, `thrower.request_warp()`)
+### Warp (Z toggle, `thrower.set_warp()`)
 
-The first piece of "walk to your lie". Z targets the last disc. If it's already `resting` you warp at once; otherwise `_warp_target` is held and a pulsing "◇ preparing to warp… (Z to cancel)" label sits top centre while everything else (V follow cam, walking, throwing) carries on. When the disc rests, `_do_warp()` stands you 1.2 m behind it on the line back to where it was thrown from, facing down that line, with a brief soft white flash and a "warped N m" note. A disc floating in a lake puts you on the nearest dry ground back along that line. Z while waiting cancels; the disc being collected or removed also cancels. If the follow cam is on, it hands back on rest in the same frame, so you see the arrival from the walker's eyes.
+The first piece of "walk to your lie". With WARP on, each throw becomes `_warp_target` and the WARP lamp breathes while everything else (VIEW, walking, throwing) carries on. When it rests, `_do_warp()` stands you 1.2 m behind it on the line back to where it was thrown from, facing down that line, with a brief soft white flash and a "warped N m" note. A disc floating in a lake puts you on the nearest dry ground back along that line. Z off while waiting cancels; the disc being collected or removed, or launching with it (L), also cancels. If VIEW is on, the camera hands back on rest in the same frame, so you see the arrival from the walker's eyes.

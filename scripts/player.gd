@@ -14,7 +14,7 @@ extends CharacterBody3D
 
 var _gravity: float = ProjectSettings.get_setting("physics/3d/default_gravity")
 var _bob_time := 0.0
-var _flung := false              ## Carrying momentum from a mid-air fetch.
+var _flung := false              ## Carrying momentum from a launch (L).
 var _fling_t := 0.0
 var _head_base_y := 0.0
 
@@ -87,7 +87,7 @@ func respawn(at: Vector3) -> void:
 
 
 ## Teleport to `at` already moving at `vel` (m/s); momentum is kept until
-## you land. Used by fetching a disc that's still in flight.
+## you land. Used by launching yourself (L) with a disc that's still moving.
 func fling(at: Vector3, vel: Vector3) -> void:
 	global_position = at
 	velocity = vel
@@ -114,12 +114,11 @@ static func _ensure_input_actions() -> void:
 		"jump": [KEY_SPACE],
 		"sprint": [KEY_SHIFT],
 		"new_world": [KEY_N],
-		"fetch": [KEY_F],
+		"launch": [KEY_L],
 		"throw_panel": [KEY_T],
-		"beams": [KEY_B],
 		"collect": [KEY_C],
-		"follow_cam": [KEY_V],
-		"clear_paths": [KEY_P],
+		"view": [KEY_V],
+		"paths": [KEY_P],
 		"dial_heading": [KEY_H],
 		"dial_horizon": [KEY_J],
 		"clouds": [KEY_K],

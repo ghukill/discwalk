@@ -1,6 +1,6 @@
 extends "res://scripts/disc.gd"
 ## A real flying disc (step 2). Same body as the block (trees, lakes, beams,
-## fetch, collect all come from disc.gd), but:
+## launch, collect all come from disc.gd), but:
 ##
 ## - It's flat: a 21 cm x 3 cm cylinder collider, drawn as a little pixel
 ##   circle of voxels.

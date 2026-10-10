@@ -5,6 +5,7 @@ extends Node3D
 const THROWER_SCRIPT := preload("res://scripts/thrower.gd")
 const DIALS_SCRIPT := preload("res://scripts/dials.gd")
 const CLOUDS_SCRIPT := preload("res://scripts/clouds.gd")
+const LAMPS_SCRIPT := preload("res://scripts/lamps.gd")
 
 @onready var terrain: Node3D = $Terrain
 @onready var player: CharacterBody3D = $Player
@@ -64,7 +65,7 @@ func _setup_throwing() -> void:
 	corner.offset_left = -260
 	corner.offset_right = -16
 	corner.offset_top = 12
-	corner.offset_bottom = 88
+	corner.offset_bottom = 36
 	corner.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	$HUD.add_child(corner)
 
@@ -120,7 +121,20 @@ func _setup_throwing() -> void:
 	$HUD.add_child(warp)
 	thrower.warp_label = warp
 
-	# Heading + horizon dials, top right under the status lines.
+	# Warm toggle lamps (VIEW, WARP, PATH), top right under the power line.
+	var lamps := Control.new()
+	lamps.set_script(LAMPS_SCRIPT)
+	lamps.name = "Lamps"
+	lamps.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
+	lamps.offset_left = -200
+	lamps.offset_right = -16
+	lamps.offset_top = 40
+	lamps.offset_bottom = 76
+	$HUD.add_child(lamps)
+	thrower.lamps = lamps
+	thrower._update_lamps()
+
+	# Heading + horizon dials, top right under the lamps.
 	var dials := Control.new()
 	dials.set_script(DIALS_SCRIPT)
 	dials.name = "Dials"
@@ -129,8 +143,8 @@ func _setup_throwing() -> void:
 	dials.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
 	dials.offset_left = -200
 	dials.offset_right = -16
-	dials.offset_top = 92
-	dials.offset_bottom = 200
+	dials.offset_top = 84
+	dials.offset_bottom = 192
 	$HUD.add_child(dials)
 	thrower.dials = dials
 

@@ -32,8 +32,8 @@ Throwing has its own headless check. It throws 4 discs across open ground at pow
 - they all come to rest
 - the oak throw touches bark or leaves
 - the lake throw splashes
-- a sky-high throw fetched mid-flight hands its velocity to the player, who then keeps pace with it
-- the beam toggle hides every beam
+- a sky-high throw you launch yourself with (L) mid-flight hands its velocity to the player, who then keeps pace with it
+- P (paths off) hides every beam
 
 ```sh
 $G --headless --path . --script res://tools/throw_test.gd [-- --block-size=0.5]
@@ -64,6 +64,12 @@ Ground play (skips and skids) has a tuning check: 48 throws over flat ground, re
 
 ```sh
 $G --headless --path . --script res://tools/skip_test.gd
+```
+
+The VIEW / WARP toggles and launch (L) have their own, run as a string of little scenes from spawn: view only, warp only, both, launch mid-flight (overrides both, no warp after), L after the throw stopped (does nothing), L while a disc skids/rolls (still works), toggles off mid-flight, a second throw taking over, collect ignoring the toggles, and P putting beams out with the paths:
+
+```sh
+$G --headless --path . --script res://tools/toggles_test.gd [-- --block-size=0.5]
 ```
 
 Collecting has one too. It scatters 8 discs around spawn, presses C, and passes if at least 6 make it home and they start slow (under 3 m/s in the first second):

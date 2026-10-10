@@ -6,20 +6,29 @@ extends Node
 ##            flying disc (flying_disc.gd) leaves along where you're looking.
 ##   1-9, 0   set power 1..10 (0 = 10) for the orange blocks
 ##   click    fire an orange block at the current power (step 1, kept as-is)
-##   F        fetch: teleport to your last disc. If it's still flying, you
-##            take over its speed and direction and fly on with it.
-##   V        follow cam: chase your last disc until it fully stops (V again
-##            to come back early)
-##   Z        warp: go to your last disc once it has fully stopped. Pressed
-##            while it's still moving, a "preparing to warp" flag waits at
-##            the top of the screen (V etc. still work); Z again cancels.
+##
+## Two toggles (warm lamps top right, both start off) decide what happens
+## with every throw, discs and blocks alike:
+##   V        VIEW: the camera chases each throw through its flight and
+##            ground play, then snaps back to you (you never moved) once it
+##            fully stops. Off mid-flight = back to you now.
+##   Z        WARP: once each throw fully stops, you're moved to it, standing
+##            behind it facing down the fairway. Off mid-flight = no warp.
+##            VIEW + WARP: watch the flight, then end up there.
+## And one quick action:
+##   L        LAUNCH: while your last throw is still moving (flying, skipping
+##            or rolling), you take on its position and velocity and fly on
+##            with it until you land. For that throw only, VIEW and WARP
+##            stand down. Does nothing once it has stopped.
+##
+##   P        PATH lamp: flight paths + rest beams on/off (starts on). On:
+##            every disc throw leaves a path (bright cubes in the air,
+##            dimmer for skips and rolls) and resting discs get a beam. Off:
+##            paths drift down and go poof, beams go out, new throws leave
+##            none. Also a checkbox in the throw panel.
 ##   H / J    heading / horizon dials on or off (top right)
-##   P        paths on/off (starts on). On: every disc throw leaves a path,
-##            bright cubes in the air, dimmer ones for skips and rolls. Off:
-##            existing paths drift down and go poof, and new throws leave
-##            none until you turn them back on. Also a checkbox in the panel.
-##   B        toggle the beams of light over resting discs
 ##   C        collect: every disc rolls home to you, building up speed
+##            (ignores VIEW and WARP)
 ##
 ## Power p launches at p x speed_per_level m/s (default 4 m/s per level, so
 ## 0 = 40 m/s, about a strong disc golf drive). Aim is your view direction.
@@ -38,7 +47,7 @@ var terrain: Node3D
 var player: CharacterBody3D
 var camera: Camera3D
 var label: Label
-var status_label: Label                  ## Upper-right: power + beams.
+var status_label: Label                  ## Upper-right: block power.
 var hud: CanvasLayer                     ## Where the throw panel goes.
 var panel: PanelContainer
 var follow_cam: Camera3D
@@ -46,12 +55,16 @@ var paths: Node3D
 var disc_models: Array = []
 
 var power := 5
-var beams := true
-var paths_on := true                     ## New disc throws leave a path.
+var paths_on := true                     ## Paths + rest beams (P).
+var view_on := false                     ## VIEW toggle (V).
+var warp_on := false                     ## WARP toggle (Z).
+var lamps: Control                       ## Top-right warm lamps (lamps.gd).
 var launch_label: Label                  ## Under the crosshair: "launch 12°".
-var warp_label: Label                    ## Top centre: "preparing to warp…".
+var warp_label: Label                    ## Top centre: brief notes ("warped 42 m").
 var warp_flash: ColorRect                ## Soft white fade when you arrive.
-var _warp_target: Node = null            ## Disc we're waiting on (Z).
+var _warp_target: Node = null            ## Throw we'll warp to when it stops.
+var _launched: Node = null               ## Throw you launched with (L): no view/warp.
+var warps := 0                           ## Warps so far (tests count them).
 var _warp_t := 0.0
 var _warp_note := ""                     ## Brief "warp cancelled" etc.
 var _warp_note_t := 0.0
@@ -94,11 +107,11 @@ func _unhandled_input(event: InputEvent) -> void:
 			_update_label()
 			get_viewport().set_input_as_handled()
 			return
-	if event.is_action_pressed("fetch"):
-		fetch()
+	if event.is_action_pressed("launch"):
+		launch_self()
 		get_viewport().set_input_as_handled()
 	elif event.is_action_pressed("warp"):
-		request_warp()
+		set_warp(not warp_on)
 		get_viewport().set_input_as_handled()
 	elif event.is_action_pressed("dial_heading") and dials != null:
 		dials.show_heading = not dials.show_heading
@@ -106,11 +119,11 @@ func _unhandled_input(event: InputEvent) -> void:
 	elif event.is_action_pressed("dial_horizon") and dials != null:
 		dials.show_horizon = not dials.show_horizon
 		get_viewport().set_input_as_handled()
-	elif event.is_action_pressed("clear_paths"):
+	elif event.is_action_pressed("paths"):
 		set_paths(not paths_on)
 		get_viewport().set_input_as_handled()
-	elif event.is_action_pressed("follow_cam"):
-		toggle_follow()
+	elif event.is_action_pressed("view"):
+		set_view(not view_on)
 		get_viewport().set_input_as_handled()
 	elif event.is_action_pressed("throw_panel"):
 		if panel.is_inside_tree():
@@ -118,9 +131,6 @@ func _unhandled_input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 	elif event.is_action_pressed("collect"):
 		collect()
-		get_viewport().set_input_as_handled()
-	elif event.is_action_pressed("beams"):
-		set_beams(not beams)
 		get_viewport().set_input_as_handled()
 	elif event is InputEventMouseButton and event.pressed \
 			and event.button_index == MOUSE_BUTTON_LEFT \
@@ -138,22 +148,13 @@ func throw(level: int) -> Node:
 	disc.name = "Disc"
 	disc.terrain = terrain
 	disc.power = level
-	disc.beam_on = beams
+	disc.beam_on = paths_on
 	get_parent().add_child(disc)
 	disc.add_collision_exception_with(player)   # don't bonk yourself
 	var vel := fwd * level * speed_per_level + player.velocity
 	var spin := Vector3(randf_range(-1, 1), randf_range(-1, 1), randf_range(-1, 1)) * 8.0
 	disc.launch(origin, vel, spin)
-	disc.came_to_rest.connect(_on_rest)
-	disc.tree_exited.connect(func() -> void: discs.erase(disc))
-	discs.append(disc)
-	_last = disc
-	_collected = 0
-	while discs.size() > max_discs:
-		var old: Node = discs.pop_front()
-		if is_instance_valid(old):
-			old.queue_free()
-	_result_text = ""
+	_track(disc)
 	return disc
 
 
@@ -183,27 +184,42 @@ func throw_disc(p: Dictionary) -> Node:
 	disc.terrain = terrain
 	disc.model = p.disc
 	disc.color = paths.next_color()      # disc, beam and path share a colour
-	disc.beam_on = beams
+	disc.beam_on = paths_on
 	get_parent().add_child(disc)
 	disc.add_collision_exception_with(player)
 	disc.launch_disc(origin, ls[0] + Vector3(player.velocity.x, 0, player.velocity.z), ls[1], p.spin, hand)
 	if paths_on:
 		paths.track(disc, disc.color)
+	_track(disc)
+	return disc
+
+
+## Bookkeeping shared by blocks and discs: this is now the last throw, and
+## the VIEW / WARP toggles pick it up (only the latest throw counts).
+func _track(disc: Node) -> void:
 	disc.came_to_rest.connect(_on_rest)
 	disc.tree_exited.connect(func() -> void: discs.erase(disc))
 	discs.append(disc)
 	_last = disc
+	_launched = null
 	_collected = 0
 	while discs.size() > max_discs:
 		var old: Node = discs.pop_front()
 		if is_instance_valid(old):
 			old.queue_free()
 	_result_text = ""
-	return disc
+	_warp_target = disc if warp_on else null
+	if view_on:
+		follow_cam.follow(disc)
+	elif follow_cam.active():
+		follow_cam.stop()               # was still watching an older throw
 
 
-## Sends every disc rolling home to the player.
+## Sends every disc rolling home to the player. Ignores VIEW and WARP: the
+## camera stays with you and nobody warps anywhere.
 func collect() -> void:
+	follow_cam.stop()
+	_warp_target = null
 	var n := 0
 	for d in discs:
 		if is_instance_valid(d) and not d.collecting:
@@ -221,67 +237,68 @@ func _on_collected(_disc: Node) -> void:
 	_result_text = "collected %d disc%s" % [_collected, "" if _collected == 1 else "s"]
 
 
-## Turns every disc's beam of light on or off (and future ones too).
-## P / panel checkbox. Turning paths off lets every existing path fall and
-## poof; turning them on just means the next throws leave paths again.
+## P / panel checkbox: flight paths and rest beams together. Off: every
+## existing path falls and poofs and the beams go out. On: beams come back
+## on resting discs and the next throws leave paths again.
 func set_paths(on: bool) -> void:
 	paths_on = on
 	if not on:
 		paths.clear(true)
-	panel.set_paths_shown(on)
-	_update_label()
-
-
-func set_beams(on: bool) -> void:
-	beams = on
 	for d in discs:
 		if is_instance_valid(d):
 			d.set_beam(on)
+	panel.set_paths_shown(on)
+	_update_lamps()
 	_update_label()
 
 
-## Teleports the walker to the last disc. A resting disc: stand beside it,
-## facing the same way. A flying disc: your eyes go where it is and you
-## inherit its velocity, so you fly on alongside it until you land.
-## V: chase the last disc, or come back if already chasing.
-func toggle_follow() -> void:
+## True while the last throw is still going (flying, skipping, rolling).
+func _moving(d: Node) -> bool:
+	return is_instance_valid(d) and not d.resting and not d.collecting
+
+
+## V: VIEW toggle. On mid-flight picks up the throw already in the air
+## (unless you launched with it); off mid-flight snaps back to you now.
+func set_view(on: bool) -> void:
+	view_on = on
+	if on:
+		if _moving(_last) and _last != _launched:
+			follow_cam.follow(_last)
+	else:
+		follow_cam.stop()
+	_update_lamps()
+	_update_label()
+
+
+## Z: WARP toggle. On mid-flight applies to the throw already in the air
+## (unless you launched with it); off mid-flight cancels that warp.
+func set_warp(on: bool) -> void:
+	warp_on = on
+	if on:
+		if _moving(_last) and _last != _launched:
+			_warp_target = _last
+			_warp_t = 0.0
+	else:
+		_warp_target = null
+	_update_lamps()
+
+
+## L: launch yourself with your last throw, while it's still moving (in the
+## air, skipping or rolling). Your eyes go where it is and you take on its
+## exact velocity, flying on with it until you land. For that throw only,
+## VIEW lets go of the camera and WARP stands down. Does nothing once the
+## throw has stopped.
+func launch_self() -> bool:
+	if not _moving(_last):
+		return false
+	var at: Vector3 = _last.global_position - Vector3(0, 1.6, 0)    # eyes at the disc
+	at.y = maxf(at.y, terrain.height_at(at.x, at.z) + 0.1)
+	player.fling(at, _last.linear_velocity)
+	_launched = _last
 	if follow_cam.active():
 		follow_cam.stop()
-	elif is_instance_valid(_last):
-		follow_cam.follow(_last)
-
-
-func fetch() -> void:
-	if not is_instance_valid(_last):
-		return
-	var p: Vector3 = _last.global_position
-	if not _last.resting:
-		var at := p - Vector3(0, 1.6, 0)                     # eyes at the disc
-		at.y = maxf(at.y, terrain.height_at(at.x, at.z) + 0.1)
-		player.fling(at, _last.linear_velocity)
-		return
-	var back := Vector3(camera.global_transform.basis.z.x, 0, camera.global_transform.basis.z.z)
-	back = back.normalized() if back.length() > 0.01 else Vector3.BACK
-	var at := p + back * 1.2
-	at.y = maxf(terrain.height_at(at.x, at.z), p.y) + 0.2
-	player.respawn(at)
-
-
-## Z: warp to the last disc once it has fully stopped (resting). Already
-## stopped: go now. Still moving: wait (flag at the top). Z while waiting
-## cancels.
-func request_warp() -> void:
-	if _warp_target != null:
-		_warp_target = null
-		_note("warp cancelled")
-		return
-	if not is_instance_valid(_last):
-		_note("nothing to warp to")
-		return
-	_warp_target = _last
-	_warp_t = 0.0
-	if _last.resting:
-		_do_warp()
+	_warp_target = null
+	return true
 
 
 func warp_pending() -> bool:
@@ -310,6 +327,7 @@ func _do_warp() -> void:
 		at.y = maxf(at.y, p.y - 0.5)
 	player.respawn(at)
 	player.rotation.y = atan2(-dir.x, -dir.z)
+	warps += 1
 	if warp_flash != null:
 		warp_flash.color.a = 0.55
 	_note("warped %.0f m" % Vector2(at.x - d.start.x, at.z - d.start.z).length(), 1.2)
@@ -337,14 +355,11 @@ func _update_warp(delta: float) -> void:
 			_warp_t += delta
 	if warp_flash != null and warp_flash.color.a > 0.0:
 		warp_flash.color.a = maxf(warp_flash.color.a - delta * 1.6, 0.0)
+	if lamps != null:
+		lamps.pulse_warp = _warp_target != null     # WARP lamp breathes while armed
 	if warp_label == null:
 		return
-	if _warp_target != null:
-		var dots := ".".repeat(1 + int(_warp_t * 2.5) % 3)
-		warp_label.text = "◇ preparing to warp" + dots + "   (Z to cancel)"
-		warp_label.modulate.a = 0.65 + 0.3 * sin(_warp_t * 4.0)
-		warp_label.visible = true
-	elif _warp_note_t > 0.0:
+	if _warp_note_t > 0.0:
 		_warp_note_t -= delta
 		warp_label.text = _warp_note
 		warp_label.modulate.a = clampf(_warp_note_t / 0.5, 0.0, 0.9)
@@ -362,9 +377,15 @@ func clear() -> void:
 			d.queue_free()
 	discs.clear()
 	_last = null
+	_launched = null
 	_result_text = ""
 	_collected = 0
 	_update_label()
+
+
+func _update_lamps() -> void:
+	if lamps != null:
+		lamps.set_lamps(view_on, warp_on, paths_on)
 
 
 func _process(_delta: float) -> void:
@@ -415,12 +436,10 @@ func _update_label() -> void:
 	if label == null:
 		return
 	if status_label != null:
-		status_label.text = "Velocity: %d  (%d m/s)\nBeams: %s\nPaths: %s" % [
-			power, int(power * speed_per_level), "on" if beams else "off",
-			"on" if paths_on else "off"]
-	var lines := ["T throw panel  ·  1-9, 0 block power  ·  click block  ·  V follow cam  ·  Z warp  ·  P paths on/off  ·  H/J dials  ·  F fetch  ·  C collect  ·  B beams"]
+		status_label.text = "Velocity: %d  (%d m/s)" % [power, int(power * speed_per_level)]
+	var lines := ["T throw panel  ·  1-9, 0 block power  ·  click block  ·  V view  ·  Z warp  ·  L launch yourself  ·  P path  ·  H/J dials  ·  C collect"]
 	if follow_cam != null and follow_cam.active():
-		lines[0] = "following your disc  ·  V to come back"
+		lines[0] = "watching your throw  ·  L launch with it  ·  V view off"
 	if _flying_text != "":
 		lines.append(_flying_text)
 	elif _result_text != "":

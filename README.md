@@ -38,11 +38,10 @@ Or from a terminal:
 | H / J | heading (compass) / horizon (attitude) dials on or off, top right. The orange chevron on the horizon dial is your launch angle (view + offset) |
 | 1–9, 0 | set block power 1–10 (0 = 10), shown top-right as `Velocity: #` |
 | Left click | fire an orange **block** at the current power (the original cannon, kept for fun) |
-| V | **follow cam**: chase your last disc through its flight and ground play. Snaps back to you once it fully stops (or press V again) |
-| P | **flight paths on/off** (starts on; also a checkbox in the throw panel, state shown top-right). On: every disc throw leaves a trail of little cubes in its own colour (bright in the air, smaller and dimmer for skips and rolls). Off: they all drift down and go *poof* on the ground, and new throws leave none until P again |
-| Z | **warp** to your last disc once it has fully stopped, standing just behind it facing down the fairway. Pressed while it's still moving, a "preparing to warp…" flag waits at the top of the screen (V and everything else still work) and you go when it stops. Z again cancels |
-| F | fetch: jump to your last disc. **If it's still flying, you fly with it** (you take on its speed and direction until you land) |
-| B | toggle the beams of light over resting discs (status top-right) |
+| V | **VIEW toggle** (warm lamp top right, starts off): the camera chases every throw (disc or block) through its flight and ground play, then snaps back to you, unmoved, once it fully stops. Off mid-flight snaps back now |
+| Z | **WARP toggle** (lamp, starts off): once every throw fully stops, you're moved to it, standing just behind it facing down the fairway (a lake puts you on the shore). Off mid-flight cancels that warp. **VIEW + WARP**: watch the flight, then end up there |
+| L | **launch yourself** (one-shot): while your last throw is still moving (flying, skipping or rolling), you take on its position and velocity and fly on with it until you land. For that throw only, VIEW and WARP stand down. Does nothing once it has stopped |
+| P | **PATH toggle** (lamp, starts on; also a checkbox in the throw panel): flight paths *and* the beams over resting discs. On: every disc throw leaves a trail of little cubes in its own colour (bright in the air, smaller and dimmer for skips and rolls). Off: the beams go out, the paths drift down and go *poof*, and new throws leave none until P again |
 | C | **collect**: every disc rolls home to you, slow at first and then faster and faster. Trunks and cliffs block them unless they have the momentum |
 | N | roll a brand-new world |
 | K | clouds on/off (launch with `-- --no-clouds` to start without them) |
@@ -99,9 +98,10 @@ Done:
 - [x] **Landings**: Jolt physics (no more discs through the ground), slicker ground play so discs skip
 - [x] **Clouds**: fluffy voxel clouds, a few low puffs just over the trees (K)
 - [x] **Warp (Z)**: go to your disc once it stops, ready for the next shot
+- [x] **Toggles + launch**: V (view) and Z (warp) are toggles with warm cockpit lamps top right, P covers paths + beams, L launches you with your last throw (replaces F fetch and B beams)
 
 Next (pick any):
-- [ ] **Menu** (Esc?): Resume, Help (screen of key bindings), New world, Quit
+- [ ] **Menu** (Esc?): Resume, Help (screen of key bindings), New world, **Display** sub-menu (fullscreen toggle to start), Quit
 - [ ] **Wind**: static vector to start (the flight model already subtracts it), maybe gusts; a wind arrow on the dials; drives cloud drift
 - [ ] Throw panel rework (it freezes the view while open); forehand toggle
 - [ ] More discs / our own coefficient tables (replace the GPL shotshaper ones, see `data/discs/README.md`)

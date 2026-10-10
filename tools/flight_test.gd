@@ -117,12 +117,11 @@ func _process(_delta: float) -> bool:
 		var p := {"disc": _models["fd2"], "speed": 20.0, "pitch": 12.0, "nose": 0.0,
 			"roll": 10.0, "spin": DiscModel.auto_spin(20.0)}
 		_world_disc = thrower.throw_disc(p)
-		thrower.toggle_follow()                    # V
+		thrower.set_view(true)                     # V lamp on mid-flight
 	if _main != null and _frames == 8:
-		_main.thrower.request_warp()               # Z while it's flying
+		_main.thrower.set_warp(true)               # Z lamp on while it's flying
 	if _main != null and _frames == 12:              # flag is up while it flies
-		_warp_waiting = _main.thrower.warp_pending() and _main.thrower.warp_label.visible \
-			and _main.thrower.warp_label.text.begins_with("◇ preparing to warp")
+		_warp_waiting = _main.thrower.warp_pending() and _main.thrower.lamps.pulse_warp
 	if _main != null and _frames > 20 and is_instance_valid(_world_disc) \
 			and not _world_disc.resting and _main.thrower.follow_cam.active():
 		var fc: Camera3D = _main.thrower.follow_cam
@@ -181,6 +180,8 @@ func _report() -> void:
 		air, expect_air, ground],
 		paths.count() == 1 and air >= expect_air * 0.9 and ground > 0 \
 		and is_instance_valid(wd) and pd.color == wd.color])
+	_main.thrower.set_view(false)                       # the rest of these throws:
+	_main.thrower.set_warp(false)                       # no camera, no warping
 	var block = _main.thrower.throw(5)
 	checks.append(["blocks leave no path", paths.count() == 1 and is_instance_valid(block)])
 	var th = _main.thrower
@@ -199,7 +200,7 @@ func _report() -> void:
 		th.paths_on and paths.count() == 1])
 	var pl: Node3D = _main.get_node("Player")
 	var gap := Vector2(pl.global_position.x - wd.global_position.x, pl.global_position.z - wd.global_position.z).length() if is_instance_valid(wd) else 1e9
-	checks.append(["warp (Z mid-flight): waits with flag, then lands you %.1f m from the rested disc" % gap,
+	checks.append(["warp (Z on mid-flight): waits (lamp breathing), then lands you %.1f m from the rested disc" % gap,
 		_warp_waiting and not _main.thrower.warp_pending() and gap < 2.5])
 	# Launch angle = view angle + panel offset (no pitch in the params).
 	var head: Node3D = _main.get_node("Player/Head")
@@ -214,7 +215,7 @@ func _report() -> void:
 	head.rotation.x = 0.0
 	checks.append(["launch angle = view + offset (12+0, -5+8, 30-10 -> %.1f, %.1f, %.1f)" % angles,
 		absf(angles[0] - 12.0) < 0.5 and absf(angles[1] - 3.0) < 0.5 and absf(angles[2] - 20.0) < 0.5])
-	checks.append(["follow cam (V) chases the disc (%d frames, max %.1f m away), hands back at rest" % [
+	checks.append(["view (V on mid-flight) chases the disc (%d frames, max %.1f m away), hands back at rest" % [
 		_follow_seen, _follow_far], _follow_seen > 60 and _follow_far < 8.0 and back_home])
 	for ch in checks:
 		print("FLIGHT check %-70s %s" % [ch[0], "ok" if ch[1] else "BAD"])

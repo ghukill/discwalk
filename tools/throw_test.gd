@@ -1,8 +1,8 @@
 extends SceneTree
 ## Headless disc-throw check: throws at a few powers across open ground, one
 ## straight into an oak, one into a lake, and reports where each came to rest.
-## Also: a sky-high throw that gets fetched mid-flight (the player should
-## inherit its velocity), and the beam toggle.
+## Also: a sky-high throw you launch yourself with mid-flight (L: the player
+## should inherit its velocity), and P turning the rest beams off.
 ##
 ##   godot --headless --path . --script res://tools/throw_test.gd [-- --block-size=0.5]
 
@@ -26,7 +26,7 @@ func _process(_delta: float) -> bool:
 	if _frames == 5:
 		_launch_all()
 	if _frames == 25:
-		_fetch_mid_flight()
+		_launch_mid_flight()
 	if _frames == 55:
 		# Half a second later we should still be soaring upward with it.
 		var player: CharacterBody3D = _main.get_node("Player")
@@ -49,16 +49,16 @@ func _process(_delta: float) -> bool:
 		print("THROW %-10s power=%2d dist=%5.1f m peak=%4.1f m rest=%s bark=%d leaves=%d splash=%s" % [
 			name, d.power, d.distance(), d.max_height, d.resting, d.bark_hits, d.leaf_cells, d.splashed])
 		ok = ok and d.resting
-	print("THROW fetch_mid_flight %s %s" % ["ok" if _fling_ok else "BAD", _fling_msg])
+	print("THROW launch_mid_flight %s %s" % ["ok" if _fling_ok else "BAD", _fling_msg])
 	ok = ok and _fling_ok
 	var thrower = _main.thrower
-	thrower.set_beams(false)
+	thrower.set_paths(false)
 	var beams_off := true
 	for d in _discs:
 		if is_instance_valid(d) and d.resting and d._beacon != null and d._beacon.visible:
 			beams_off = false
-	thrower.set_beams(true)
-	print("THROW beams_toggle %s" % ("ok" if beams_off else "BAD"))
+	thrower.set_paths(true)
+	print("THROW P_beams_off %s" % ("ok" if beams_off else "BAD"))
 	ok = ok and beams_off
 	var tree_d = _discs[_plan.size() - 2]
 	var lake_d = _discs[_plan.size() - 1]
@@ -124,15 +124,15 @@ func _launch_all() -> void:
 		d.launch(pl.from, pl.dir * speed, Vector3(3, 5, 2))
 		_discs.append(d)
 	thrower.max_discs = 100
-	# Straight up and a bit forward, to be fetched mid-flight.
+	# Straight up and a bit forward, to launch yourself with mid-flight (L).
 	_sky = thrower.throw(8)
 	_sky.launch(spawn + Vector3(0, 1.0, 0), Vector3(3, 30, 0), Vector3.ZERO)
 
 
-func _fetch_mid_flight() -> void:
+func _launch_mid_flight() -> void:
 	var player: CharacterBody3D = _main.get_node("Player")
 	var v0: Vector3 = _sky.linear_velocity
-	_main.thrower.fetch()
+	_main.thrower.launch_self()
 	var dv := player.velocity.distance_to(v0)
 	var dp := (player.global_position + Vector3(0, 1.6, 0)).distance_to(_sky.global_position)
 	_fling_y0 = player.global_position.y
