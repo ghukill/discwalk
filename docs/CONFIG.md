@@ -86,6 +86,10 @@ Notes:
 | `LANDED_SPIN_MAX` | `flying_disc.gd` | 25 rad/s | Real spin handed to the physics on landing (roll-on-edge flavour). |
 | `back`, `up`, `lead` | `follow_cam.gd` | 1.8, 0.5, 4.0 m | Follow cam: distance behind, height above, look-ahead. |
 | `follow_rate`, `aim_rate` | `follow_cam.gd` | 14, 8 /s | Follow cam smoothing (higher = snappier). |
+| `AIR_SIZE`, `GROUND_SIZE` | `paths.gd` | 0.08, 0.05 m | Path cube sizes. |
+| `AIR_SPACING`, `GROUND_SPACING` | `paths.gd` | 0.5, 0.25 m | A path cube every this many metres. |
+| `GROUND_DIM` | `paths.gd` | 0.5 | How much darker ground cubes are. |
+| `FALL_GRAVITY`, `POOF_TIME`, `POOF_SWELL` | `paths.gd` | 3.5 m/s², 0.35 s, 1.8× | The P fall-and-poof. |
 | panel sliders | `throw_panel.gd` `ROWS` | | Ranges and defaults for speed, launch angle, nose, hyzer, spin. |
 | disc tables | `data/discs/*/*.json` | | One file per disc; see `data/discs/README.md`. |
 | `leaf_keep_per_metre` | `disc.gd` | 0.72 | Fraction of speed kept per metre of leaves. |

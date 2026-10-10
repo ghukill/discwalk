@@ -53,6 +53,13 @@ git clone https://github.com/kegiljarhus/shotshaper /tmp/shotshaper
 uv run --with numpy --with scipy --with pyyaml --with matplotlib python tools/discs/shotshaper_reference.py /tmp/shotshaper
 ```
 
+Landing has a stress test: 48 discs from spawn in every direction, mixed discs, speeds, angles and hyzer. It fails if any ends up under the ground or lost:
+
+```sh
+$G --headless --path . --script res://tools/landing_test.gd [-- --block-size=0.5]
+DISPLAY=:0 $G --path . --resolution 1280x720 --script res://tools/paths_shots.gd -- /tmp/paths_shots   # flight paths + the P fall/poof
+```
+
 Collecting has one too. It scatters 8 discs around spawn, presses C, and passes if at least 6 make it home and they start slow (under 3 m/s in the first second):
 
 ```sh

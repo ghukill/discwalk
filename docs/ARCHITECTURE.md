@@ -18,6 +18,7 @@ scripts/flying_disc.gd   A real disc (extends disc.gd): flat collider, pixel-cir
 scripts/disc_model.gd    Disc aerodynamics: coefficient tables, lift/drag, gyroscopic roll
 scripts/throw_panel.gd   Lower-right throw panel (sliders + Throw button)
 scripts/follow_cam.gd    Follow cam (V): chase camera for the last disc
+scripts/paths.gd         Flight paths: voxel trail per disc throw; P = fall + poof
 data/discs/              Disc coefficient tables (JSON); see data/discs/README.md
 shaders/voxel.gdshader   Terrain + tree shading: base colour + per-block jitter
 shaders/sway.gdshader    Wind sway for flowers (and grass, later)
@@ -26,6 +27,8 @@ tools/screenshot.gd      Renders PNG views incl. one portrait per oak form (need
 tools/tree_gallery.gd    Flat-ground lineup of every oak form, for tuning trees
 tools/throw_test.gd      Headless throws (open ground, into an oak, into a lake): PASS/FAIL
 tools/flight_test.gd     Headless disc flights vs shotshaper + turn/fade sanity: PASS/FAIL
+tools/landing_test.gd    48 discs all round spawn: none may end up under the ground
+tools/paths_shots.gd     Screenshots: three paths from behind/side/close, then P falling
 tools/flight_shots.gd    Screenshots: panel, follow cam in flight + on the ground, view handed back
 tools/discs/             Python helpers: shotshaper tables -> JSON, shotshaper reference flights
 tools/collect_test.gd    Headless collect: 8 scattered discs roll home, speed ramps up
@@ -194,3 +197,13 @@ Step 2 of throwing. `flying_disc.gd` extends `disc.gd`, so trees, lakes, beams, 
 ### Follow cam (`follow_cam.gd`)
 
 **V** switches the view to a Camera3D (child of the Thrower, `top_level`) that trails the last disc: 1.8 m behind its horizontal direction of travel and 0.5 m above, looking a few metres ahead, smoothed. It never dips below the terrain. While the disc is barely moving the heading is held, so rolling to a stop doesn't spin the view. It hands back to the walker's camera when the disc is `resting` (still for 0.6 s, so skips and rolls are included), when it disappears (collected, cleared), or on V again. The walker keeps standing (and can still be moved) where you threw from. Knobs (`back`, `up`, `lead`, `follow_rate`, `aim_rate`) are exports on the script.
+
+### Flight paths (`paths.gd`)
+
+Every real disc throw (not blocks) is tracked from release: a cube every 0.5 m in the air (8 cm, full colour) and every 0.25 m on the ground (5 cm, darkened by half). Each throw gets the next colour on a golden-ratio hue walk, and the disc and its beam share it. One `MultiMeshInstance3D` per path, unshaded, no fog, no shadows, no collision; it doubles its capacity as needed. Recording stops when the disc rests, is collected, or disappears; the path stays.
+
+**P** (`clear(true)`): each cube lets go after a random 0–0.6 s, drifts down at 3.5 m/s² with a little sideways breeze and a slow tumble, and when it reaches the ground (or the lake surface) it swells to 1.8×, whitens and fades out over 0.35 s. **N** (new world) clears paths instantly.
+
+## Physics engine
+
+The project uses **Jolt** (`physics/3d/physics_engine`). With Godot's default engine, about 40% of thin (3 cm) discs tunnelled through the heightmap on landing; with Jolt, none in `tools/landing_test.gd`. As a last-resort safety net, `disc.gd` pops any disc that ends up clearly below the ground back onto it (`rescues`; about 1 in 50 throws at 0.5 m blocks, after a slow tumble out of a tree).

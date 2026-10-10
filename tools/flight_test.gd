@@ -166,6 +166,23 @@ func _report() -> void:
 		checks.append(["world throw exists", false])
 	var fc: Camera3D = _main.thrower.follow_cam
 	var back_home: bool = not fc.active() and _main.get_node("Player/Head/Camera3D").current
+	var paths = _main.thrower.paths
+	var pd: Dictionary = paths._paths[0] if paths.count() > 0 else {}
+	var air: int = pd.get("air", 0)
+	var ground: int = pd.get("ground", 0)
+	var expect_air := int(wd.flight_dist / paths.AIR_SPACING) if is_instance_valid(wd) else 0
+	checks.append(["path: %d air cubes (expect ~%d), %d ground cubes, colour = disc colour" % [
+		air, expect_air, ground],
+		paths.count() == 1 and air >= expect_air * 0.9 and ground > 0 \
+		and is_instance_valid(wd) and pd.color == wd.color])
+	var block = _main.thrower.throw(5)
+	checks.append(["blocks leave no path", paths.count() == 1 and is_instance_valid(block)])
+	paths.clear(true)                                   # P
+	var falling: int = paths.fading()
+	for i in 200:                                       # 10 s of falling, 20 fps
+		paths._process(0.05)
+	checks.append(["P clears paths: %d cubes fall + poof, then gone (%d left)" % [falling, paths.fading()],
+		paths.count() == 0 and falling == air + ground and paths.fading() == 0])
 	checks.append(["follow cam (V) chases the disc (%d frames, max %.1f m away), hands back at rest" % [
 		_follow_seen, _follow_far], _follow_seen > 60 and _follow_far < 8.0 and back_home])
 	for ch in checks:
@@ -182,6 +199,8 @@ func _stub_terrain_script() -> GDScript:
 var block_size := 1.0
 var lakes: Array = []
 var flora := Flora.new()
+func height_at(_x: float, _z: float) -> float:
+	return 0.0
 class Flora:
 	func voxel_at(_c: Vector3i) -> int:
 		return 0

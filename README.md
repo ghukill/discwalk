@@ -38,6 +38,7 @@ Or from a terminal:
 | 1–9, 0 | set block power 1–10 (0 = 10), shown top-right as `Velocity: #` |
 | Left click | fire an orange **block** at the current power (the original cannon, kept for fun) |
 | V | **follow cam**: chase your last disc through its flight and ground play. Snaps back to you once it fully stops (or press V again) |
+| P | **clear flight paths**: every disc throw leaves a trail of little cubes in its own colour (bright in the air, smaller and dimmer for skips and rolls). P lets them all drift down and go *poof* on the ground |
 | F | fetch: jump to your last disc. **If it's still flying, you fly with it** (you take on its speed and direction until you land) |
 | B | toggle the beams of light over resting discs (status top-right) |
 | C | **collect**: every disc rolls home to you, slow at first and then faster and faster. Trunks and cliffs block them unless they have the momentum |
@@ -92,7 +93,8 @@ Done:
 
 Next (pick any):
 - [x] **Follow cam (V)**: chase camera behind the disc, hands back once it stops
-- [ ] Flight trail (voxel path that stays in the world); picture-in-picture follow cam
+- [x] **Flight paths**: voxel trail per throw, own colour, dimmer on the ground; P makes them fall and poof
+- [ ] Picture-in-picture follow cam
 - [ ] Wind (static vector to start), forehand toggle in the panel, more discs / our own coefficient tables (replace the GPL shotshaper ones, see `data/discs/README.md`)
 - [ ] Discs resting in trees; baskets
 - [ ] **Wind grass**: instanced voxel tufts, reusing the flower sway shader

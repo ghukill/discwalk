@@ -173,11 +173,33 @@ func _integrate_forces(state: PhysicsDirectBodyState3D) -> void:
 			_in_water = true
 			break
 
+	v = _rescue_if_under(state, v, p, bs)
 	if collecting:
 		v = _roll_home(state, v, p, dt)
 	v = apply_aero(state, v)
 	state.linear_velocity = v
 	max_height = maxf(max_height, p.y - start.y)
+
+
+## Safety net: very rarely (about 1 throw in 50 at fine block sizes, after
+## a slow tumble out of a tree) the physics squeezes a thin disc through the
+## ground collider. If we're clearly below the ground, pop back up onto it.
+var rescues := 0
+func _rescue_if_under(state: PhysicsDirectBodyState3D, v: Vector3, p: Vector3, bs: float) -> Vector3:
+	if p.y > terrain.height_at(p.x, p.z) - bs - 0.3:
+		return v                                   # fine (or on a slope's smooth collider)
+	var q := PhysicsRayQueryParameters3D.create(Vector3(p.x, p.y + 60.0, p.z), Vector3(p.x, p.y - 1.0, p.z))
+	q.exclude = [get_rid()]
+	q.collide_with_areas = false
+	var hit := state.get_space_state().intersect_ray(q)
+	if hit.is_empty() or hit.position.y < p.y + 0.15:
+		return v                                   # nothing above us: not under ground
+	var xf := state.transform
+	xf.origin = hit.position + Vector3.UP * 0.15
+	state.transform = xf
+	state.angular_velocity = Vector3.ZERO
+	rescues += 1
+	return Vector3.ZERO
 
 
 ## Start rolling home to `target` (the player).
