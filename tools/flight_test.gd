@@ -177,12 +177,20 @@ func _report() -> void:
 		and is_instance_valid(wd) and pd.color == wd.color])
 	var block = _main.thrower.throw(5)
 	checks.append(["blocks leave no path", paths.count() == 1 and is_instance_valid(block)])
-	paths.clear(true)                                   # P
+	var th = _main.thrower
+	th.set_paths(false)                                 # P: off
 	var falling: int = paths.fading()
 	for i in 200:                                       # 10 s of falling, 20 fps
 		paths._process(0.05)
-	checks.append(["P clears paths: %d cubes fall + poof, then gone (%d left)" % [falling, paths.fading()],
-		paths.count() == 0 and falling == air + ground and paths.fading() == 0])
+	checks.append(["P off: %d cubes fall + poof, then gone (%d left)" % [falling, paths.fading()],
+		paths.count() == 0 and falling == air + ground and paths.fading() == 0 \
+		and not th.panel._paths.button_pressed])
+	th.throw_disc(th.panel.params())
+	checks.append(["paths off: a new throw leaves no path", paths.count() == 0])
+	th.panel._paths.button_pressed = true               # click the checkbox
+	th.throw_disc(th.panel.params())
+	checks.append(["paths back on (checkbox): next throw leaves a path",
+		th.paths_on and paths.count() == 1])
 	checks.append(["follow cam (V) chases the disc (%d frames, max %.1f m away), hands back at rest" % [
 		_follow_seen, _follow_far], _follow_seen > 60 and _follow_far < 8.0 and back_home])
 	for ch in checks:

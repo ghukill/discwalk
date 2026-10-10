@@ -5,6 +5,7 @@ extends PanelContainer
 ## Opening it frees the mouse; closing it grabs the mouse again.
 
 signal throw_requested(params: Dictionary)
+signal paths_toggled(on: bool)
 
 var discs: Array = []                ## DiscModel list (scripts/disc_model.gd)
 
@@ -12,6 +13,7 @@ var _disc: OptionButton
 var _sliders := {}                   ## name -> HSlider
 var _values := {}                    ## name -> Label
 var _auto_spin: CheckBox
+var _paths: CheckBox
 
 const ROWS := [
 	# name, label, min, max, step, default, unit
@@ -87,6 +89,13 @@ func _ready() -> void:
 	_auto_spin.toggled.connect(func(_on: bool) -> void: _refresh())
 	box.add_child(_auto_spin)
 
+	_paths = CheckBox.new()
+	_paths.text = "leave flight paths  (P)"
+	_paths.button_pressed = true
+	_paths.focus_mode = Control.FOCUS_NONE
+	_paths.toggled.connect(func(on: bool) -> void: paths_toggled.emit(on))
+	box.add_child(_paths)
+
 	var go := Button.new()
 	go.text = "Throw"
 	go.focus_mode = Control.FOCUS_NONE
@@ -94,6 +103,12 @@ func _ready() -> void:
 	go.pressed.connect(func() -> void: throw_requested.emit(params()))
 	box.add_child(go)
 	_refresh()
+
+
+## Mirror the paths state (when P changes it) without re-emitting.
+func set_paths_shown(on: bool) -> void:
+	if _paths != null:
+		_paths.set_pressed_no_signal(on)
 
 
 func toggle() -> void:

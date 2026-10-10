@@ -10,9 +10,10 @@ extends Node
 ##            take over its speed and direction and fly on with it.
 ##   V        follow cam: chase your last disc until it fully stops (V again
 ##            to come back early)
-##   P        clear all flight paths (every disc throw leaves one: bright
-##            cubes in the air, dimmer ones for skips and rolls). They drift
-##            down and go poof on the ground.
+##   P        paths on/off (starts on). On: every disc throw leaves a path,
+##            bright cubes in the air, dimmer ones for skips and rolls. Off:
+##            existing paths drift down and go poof, and new throws leave
+##            none until you turn them back on. Also a checkbox in the panel.
 ##   B        toggle the beams of light over resting discs
 ##   C        collect: every disc rolls home to you, building up speed
 ##
@@ -42,6 +43,7 @@ var disc_models: Array = []
 
 var power := 5
 var beams := true
+var paths_on := true                     ## New disc throws leave a path.
 var discs: Array = []
 var _last: Node = null
 var _flying_text := ""
@@ -55,6 +57,7 @@ func _ready() -> void:
 	panel.name = "ThrowPanel"
 	panel.discs = disc_models
 	panel.throw_requested.connect(func(p: Dictionary) -> void: throw_disc(p))
+	panel.paths_toggled.connect(func(on: bool) -> void: set_paths(on))
 	if hud != null:
 		hud.add_child(panel)
 	follow_cam = FollowCam.new()
@@ -81,8 +84,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		fetch()
 		get_viewport().set_input_as_handled()
 	elif event.is_action_pressed("clear_paths"):
-		paths.clear(true)
-		_update_label()
+		set_paths(not paths_on)
 		get_viewport().set_input_as_handled()
 	elif event.is_action_pressed("follow_cam"):
 		toggle_follow()
@@ -152,7 +154,8 @@ func throw_disc(p: Dictionary) -> Node:
 	get_parent().add_child(disc)
 	disc.add_collision_exception_with(player)
 	disc.launch_disc(origin, ls[0] + Vector3(player.velocity.x, 0, player.velocity.z), ls[1], p.spin, hand)
-	paths.track(disc, disc.color)
+	if paths_on:
+		paths.track(disc, disc.color)
 	disc.came_to_rest.connect(_on_rest)
 	disc.tree_exited.connect(func() -> void: discs.erase(disc))
 	discs.append(disc)
@@ -186,6 +189,16 @@ func _on_collected(_disc: Node) -> void:
 
 
 ## Turns every disc's beam of light on or off (and future ones too).
+## P / panel checkbox. Turning paths off lets every existing path fall and
+## poof; turning them on just means the next throws leave paths again.
+func set_paths(on: bool) -> void:
+	paths_on = on
+	if not on:
+		paths.clear(true)
+	panel.set_paths_shown(on)
+	_update_label()
+
+
 func set_beams(on: bool) -> void:
 	beams = on
 	for d in discs:
@@ -275,9 +288,10 @@ func _update_label() -> void:
 	if label == null:
 		return
 	if status_label != null:
-		status_label.text = "Velocity: %d  (%d m/s)\nBeams: %s" % [
-			power, int(power * speed_per_level), "on" if beams else "off"]
-	var lines := ["T throw panel  ·  1-9, 0 block power  ·  click block  ·  V follow cam  ·  P clear paths  ·  F fetch  ·  C collect  ·  B beams"]
+		status_label.text = "Velocity: %d  (%d m/s)\nBeams: %s\nPaths: %s" % [
+			power, int(power * speed_per_level), "on" if beams else "off",
+			"on" if paths_on else "off"]
+	var lines := ["T throw panel  ·  1-9, 0 block power  ·  click block  ·  V follow cam  ·  P paths on/off  ·  F fetch  ·  C collect  ·  B beams"]
 	if follow_cam != null and follow_cam.active():
 		lines[0] = "following your disc  ·  V to come back"
 	if _flying_text != "":

@@ -18,7 +18,7 @@ scripts/flying_disc.gd   A real disc (extends disc.gd): flat collider, pixel-cir
 scripts/disc_model.gd    Disc aerodynamics: coefficient tables, lift/drag, gyroscopic roll
 scripts/throw_panel.gd   Lower-right throw panel (sliders + Throw button)
 scripts/follow_cam.gd    Follow cam (V): chase camera for the last disc
-scripts/paths.gd         Flight paths: voxel trail per disc throw; P = fall + poof
+scripts/paths.gd         Flight paths: voxel trail per disc throw; P toggles (off = fall + poof)
 data/discs/              Disc coefficient tables (JSON); see data/discs/README.md
 shaders/voxel.gdshader   Terrain + tree shading: base colour + per-block jitter
 shaders/sway.gdshader    Wind sway for flowers (and grass, later)
@@ -202,7 +202,7 @@ Step 2 of throwing. `flying_disc.gd` extends `disc.gd`, so trees, lakes, beams, 
 
 Every real disc throw (not blocks) is tracked from release: a cube every 0.5 m in the air (8 cm, full colour) and every 0.25 m on the ground (5 cm, darkened by half). Each throw gets the next colour on a golden-ratio hue walk, and the disc and its beam share it. One `MultiMeshInstance3D` per path, unshaded, no fog, no shadows, no collision; it doubles its capacity as needed. Recording stops when the disc rests, is collected, or disappears; the path stays.
 
-**P** (`clear(true)`): each cube lets go after a random 0–0.6 s, drifts down at 3.5 m/s² with a little sideways breeze and a slow tumble, and when it reaches the ground (or the lake surface) it swells to 1.8×, whitens and fades out over 0.35 s. **N** (new world) clears paths instantly.
+**P** toggles paths (`thrower.set_paths()`, starts on; mirrored by a "leave flight paths" checkbox in the throw panel and `Paths: on/off` top-right). Off: existing paths `clear(true)` and new throws aren't tracked until it's back on. On clearing, each cube lets go after a random 0–0.6 s, drifts down at 3.5 m/s² with a little sideways breeze and a slow tumble, and when it reaches the ground (or the lake surface) it swells to 1.8×, whitens and fades out over 0.35 s. **N** (new world) clears paths instantly.
 
 ## Physics engine
 
