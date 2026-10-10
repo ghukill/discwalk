@@ -103,7 +103,9 @@ Next (pick any):
 - [ ] Auto-walk toggle (helps over VNC, where held keys arrive as taps)
 
 Explore later:
-- [ ] **Save + reload worlds**: write a world to disk (seed + settings, plus anything hand-edited or placed, e.g. discs, baskets) and load it back. That's the foundation for **pre-made worlds** (hand-built courses, the distance field below) shipped as files you pick at startup
+- [ ] **Export + import worlds**: write a world to a file (seed + settings, plus anything hand-edited or placed, e.g. discs, baskets) and load it back. That's the foundation for **pre-made worlds** shipped as files you pick at startup, e.g. a **flat distance world**: long and narrow, no plants, no lakes, distance markings in the ground
+- [ ] **Game controller support**: left stick walk, right stick look, triggers/buttons for throw, follow cam, paths, fetch; the throw panel navigable with the d-pad
+- [ ] **Single-file builds**: Godot export for Linux (one binary with the game data embedded) and macOS (a universal .app, zipped), built headless on the T480
 - [ ] **Distance throwing zone**: a field marked with distance lines in the ground, either near one edge of every world (e.g. the west edge) or, better, its own pre-made world (which opens the door to hand-made/pre-made worlds generally)
 - [ ] Background/threaded tree building with a grow-in animation
 - [ ] Bigger worlds; infinite streaming world (region-local lakes/trees, chunks built as you walk)
