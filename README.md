@@ -40,6 +40,7 @@ Or from a terminal:
 | Left click | fire an orange **block** at the current power (the original cannon, kept for fun) |
 | V | **follow cam**: chase your last disc through its flight and ground play. Snaps back to you once it fully stops (or press V again) |
 | P | **flight paths on/off** (starts on; also a checkbox in the throw panel, state shown top-right). On: every disc throw leaves a trail of little cubes in its own colour (bright in the air, smaller and dimmer for skips and rolls). Off: they all drift down and go *poof* on the ground, and new throws leave none until P again |
+| Z | **warp** to your last disc once it has fully stopped, standing just behind it facing down the fairway. Pressed while it's still moving, a "preparing to warp…" flag waits at the top of the screen (V and everything else still work) and you go when it stops. Z again cancels |
 | F | fetch: jump to your last disc. **If it's still flying, you fly with it** (you take on its speed and direction until you land) |
 | B | toggle the beams of light over resting discs (status top-right) |
 | C | **collect**: every disc rolls home to you, slow at first and then faster and faster. Trunks and cliffs block them unless they have the momentum |

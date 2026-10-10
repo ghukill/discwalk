@@ -37,6 +37,7 @@ var _world_disc: Node
 var _follow_seen := 0                # frames the follow cam was live + near the disc
 var _follow_far := 0.0               # worst cam-to-disc distance while following
 var _rest_frame := -1
+var _warp_waiting := false
 
 
 func _initialize() -> void:
@@ -117,6 +118,11 @@ func _process(_delta: float) -> bool:
 			"roll": 10.0, "spin": DiscModel.auto_spin(20.0)}
 		_world_disc = thrower.throw_disc(p)
 		thrower.toggle_follow()                    # V
+	if _main != null and _frames == 8:
+		_main.thrower.request_warp()               # Z while it's flying
+	if _main != null and _frames == 12:              # flag is up while it flies
+		_warp_waiting = _main.thrower.warp_pending() and _main.thrower.warp_label.visible \
+			and _main.thrower.warp_label.text.begins_with("◇ preparing to warp")
 	if _main != null and _frames > 20 and is_instance_valid(_world_disc) \
 			and not _world_disc.resting and _main.thrower.follow_cam.active():
 		var fc: Camera3D = _main.thrower.follow_cam
@@ -191,6 +197,10 @@ func _report() -> void:
 	th.throw_disc(th.panel.params())
 	checks.append(["paths back on (checkbox): next throw leaves a path",
 		th.paths_on and paths.count() == 1])
+	var pl: Node3D = _main.get_node("Player")
+	var gap := Vector2(pl.global_position.x - wd.global_position.x, pl.global_position.z - wd.global_position.z).length() if is_instance_valid(wd) else 1e9
+	checks.append(["warp (Z mid-flight): waits with flag, then lands you %.1f m from the rested disc" % gap,
+		_warp_waiting and not _main.thrower.warp_pending() and gap < 2.5])
 	# Launch angle = view angle + panel offset (no pitch in the params).
 	var head: Node3D = _main.get_node("Player/Head")
 	var angles := []

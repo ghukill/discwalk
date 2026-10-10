@@ -10,6 +10,9 @@ extends Node
 ##            take over its speed and direction and fly on with it.
 ##   V        follow cam: chase your last disc until it fully stops (V again
 ##            to come back early)
+##   Z        warp: go to your last disc once it has fully stopped. Pressed
+##            while it's still moving, a "preparing to warp" flag waits at
+##            the top of the screen (V etc. still work); Z again cancels.
 ##   H / J    heading / horizon dials on or off (top right)
 ##   P        paths on/off (starts on). On: every disc throw leaves a path,
 ##            bright cubes in the air, dimmer ones for skips and rolls. Off:
@@ -46,6 +49,12 @@ var power := 5
 var beams := true
 var paths_on := true                     ## New disc throws leave a path.
 var launch_label: Label                  ## Under the crosshair: "launch 12°".
+var warp_label: Label                    ## Top centre: "preparing to warp…".
+var warp_flash: ColorRect                ## Soft white fade when you arrive.
+var _warp_target: Node = null            ## Disc we're waiting on (Z).
+var _warp_t := 0.0
+var _warp_note := ""                     ## Brief "warp cancelled" etc.
+var _warp_note_t := 0.0
 var dials: Control                       ## Heading + horizon (dials.gd).
 @export var launch_min := -45.0          ## Launch angle limits (deg).
 @export var launch_max := 85.0
@@ -87,6 +96,9 @@ func _unhandled_input(event: InputEvent) -> void:
 			return
 	if event.is_action_pressed("fetch"):
 		fetch()
+		get_viewport().set_input_as_handled()
+	elif event.is_action_pressed("warp"):
+		request_warp()
 		get_viewport().set_input_as_handled()
 	elif event.is_action_pressed("dial_heading") and dials != null:
 		dials.show_heading = not dials.show_heading
@@ -255,7 +267,94 @@ func fetch() -> void:
 	player.respawn(at)
 
 
+## Z: warp to the last disc once it has fully stopped (resting). Already
+## stopped: go now. Still moving: wait (flag at the top). Z while waiting
+## cancels.
+func request_warp() -> void:
+	if _warp_target != null:
+		_warp_target = null
+		_note("warp cancelled")
+		return
+	if not is_instance_valid(_last):
+		_note("nothing to warp to")
+		return
+	_warp_target = _last
+	_warp_t = 0.0
+	if _last.resting:
+		_do_warp()
+
+
+func warp_pending() -> bool:
+	return _warp_target != null
+
+
+## Stand just behind the disc, facing the way it was thrown (ready for the
+## next shot). A disc floating in a lake puts you on the nearest shore.
+func _do_warp() -> void:
+	var d = _warp_target
+	_warp_target = null
+	if not is_instance_valid(d):
+		return
+	var p: Vector3 = d.global_position
+	var dir := Vector3(p.x - d.start.x, 0, p.z - d.start.z)
+	dir = dir.normalized() if dir.length() > 0.5 else _flat_forward()
+	var at := p - dir * 1.2
+	if terrain.lake_edge_distance(at.x, at.z) < 1.0:
+		# Walk back toward the throw until we're on dry land.
+		for i in 200:
+			at -= dir * 0.5
+			if terrain.lake_edge_distance(at.x, at.z) >= 1.0:
+				break
+	at.y = terrain.height_at(at.x, at.z) + 0.2
+	if not d.splashed:
+		at.y = maxf(at.y, p.y - 0.5)
+	player.respawn(at)
+	player.rotation.y = atan2(-dir.x, -dir.z)
+	if warp_flash != null:
+		warp_flash.color.a = 0.55
+	_note("warped %.0f m" % Vector2(at.x - d.start.x, at.z - d.start.z).length(), 1.2)
+
+
+func _flat_forward() -> Vector3:
+	var f := -camera.global_transform.basis.z
+	f.y = 0.0
+	return f.normalized() if f.length() > 0.01 else Vector3.FORWARD
+
+
+func _note(text: String, secs := 1.5) -> void:
+	_warp_note = text
+	_warp_note_t = secs
+
+
+func _update_warp(delta: float) -> void:
+	if _warp_target != null:
+		if not is_instance_valid(_warp_target) or _warp_target.collecting:
+			_warp_target = null
+			_note("warp cancelled (disc gone)")
+		elif _warp_target.resting:
+			_do_warp()
+		else:
+			_warp_t += delta
+	if warp_flash != null and warp_flash.color.a > 0.0:
+		warp_flash.color.a = maxf(warp_flash.color.a - delta * 1.6, 0.0)
+	if warp_label == null:
+		return
+	if _warp_target != null:
+		var dots := ".".repeat(1 + int(_warp_t * 2.5) % 3)
+		warp_label.text = "◇ preparing to warp" + dots + "   (Z to cancel)"
+		warp_label.modulate.a = 0.65 + 0.3 * sin(_warp_t * 4.0)
+		warp_label.visible = true
+	elif _warp_note_t > 0.0:
+		_warp_note_t -= delta
+		warp_label.text = _warp_note
+		warp_label.modulate.a = clampf(_warp_note_t / 0.5, 0.0, 0.9)
+		warp_label.visible = true
+	else:
+		warp_label.visible = false
+
+
 func clear() -> void:
+	_warp_target = null
 	follow_cam.stop()
 	paths.clear()
 	for d in discs:
@@ -269,6 +368,7 @@ func clear() -> void:
 
 
 func _process(_delta: float) -> void:
+	_update_warp(_delta)
 	var following: bool = follow_cam != null and follow_cam.active()
 	if launch_label != null:
 		launch_label.visible = not following
@@ -318,7 +418,7 @@ func _update_label() -> void:
 		status_label.text = "Velocity: %d  (%d m/s)\nBeams: %s\nPaths: %s" % [
 			power, int(power * speed_per_level), "on" if beams else "off",
 			"on" if paths_on else "off"]
-	var lines := ["T throw panel  ·  1-9, 0 block power  ·  click block  ·  V follow cam  ·  P paths on/off  ·  H/J dials  ·  F fetch  ·  C collect  ·  B beams"]
+	var lines := ["T throw panel  ·  1-9, 0 block power  ·  click block  ·  V follow cam  ·  Z warp  ·  P paths on/off  ·  H/J dials  ·  F fetch  ·  C collect  ·  B beams"]
 	if follow_cam != null and follow_cam.active():
 		lines[0] = "following your disc  ·  V to come back"
 	if _flying_text != "":

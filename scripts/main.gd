@@ -94,6 +94,32 @@ func _setup_throwing() -> void:
 	$HUD.add_child(launch)
 	thrower.launch_label = launch
 
+	# Warp flag, small, top centre; and a soft flash on arrival.
+	var flash := ColorRect.new()
+	flash.name = "WarpFlash"
+	flash.color = Color(0.92, 0.96, 1.0, 0.0)
+	flash.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	flash.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	$HUD.add_child(flash)
+	$HUD.move_child(flash, 0)
+	thrower.warp_flash = flash
+	var warp := Label.new()
+	warp.name = "Warp"
+	warp.visible = false
+	warp.add_theme_color_override("font_color", Color(0.75, 0.9, 1.0))
+	warp.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.6))
+	warp.add_theme_constant_override("shadow_offset_x", 1)
+	warp.add_theme_constant_override("shadow_offset_y", 1)
+	warp.add_theme_font_size_override("font_size", 15)
+	warp.set_anchors_and_offsets_preset(Control.PRESET_CENTER_TOP)
+	warp.offset_left = -220
+	warp.offset_right = 220
+	warp.offset_top = 10
+	warp.offset_bottom = 34
+	warp.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	$HUD.add_child(warp)
+	thrower.warp_label = warp
+
 	# Heading + horizon dials, top right under the status lines.
 	var dials := Control.new()
 	dials.set_script(DIALS_SCRIPT)

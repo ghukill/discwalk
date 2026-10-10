@@ -30,6 +30,7 @@ tools/tree_gallery.gd    Flat-ground lineup of every oak form, for tuning trees
 tools/throw_test.gd      Headless throws (open ground, into an oak, into a lake): PASS/FAIL
 tools/flight_test.gd     Headless disc flights vs shotshaper + turn/fade sanity: PASS/FAIL
 tools/clouds_shots.gd    Screenshots of the clouds (from spawn, wide view)
+tools/warp_shots.gd      Screenshots: the warp flag over the follow cam, then arrival
 tools/dials_shots.gd     Screenshots of the dials (level, up, down + offset)
 tools/skip_test.gd       48 throws on flat ground: ground play after landing (tunes friction)
 tools/landing_test.gd    48 discs all round spawn: none may end up under the ground
@@ -222,3 +223,7 @@ Two faint 84 px instruments under the top-right status lines, drawn with `_draw`
 Eleven clouds, each a heap of 3–6 round overlapping blobs voxelised into 2 m blocks (only exposed faces meshed): rounded bellies a little flatter than the tops, white tops, slightly cooler sides, blue-grey undersides, with a little emission so the shady side never goes grey.
 
 Altitudes: the 3 lowest (`low_count`) are smaller puffs (0.6×) 18–30 m above the tallest treetop (`flora.canopy_top()`, ~37 m on seed 1848, so ~55–65 m), placed over the world so you meet them; the rest step up evenly (±4 m jitter) from just above those to `height_max` (110 m). They drift at `drift` (1.1, 0.35) m/s and wrap around a box 120 m bigger than the world. Built from the world seed in `main.gd`, rebuilt on N. **K** toggles; `-- --no-clouds` starts with them off. No measurable frame cost on the T480.
+
+### Warp (Z, `thrower.request_warp()`)
+
+The first piece of "walk to your lie". Z targets the last disc. If it's already `resting` you warp at once; otherwise `_warp_target` is held and a pulsing "◇ preparing to warp… (Z to cancel)" label sits top centre while everything else (V follow cam, walking, throwing) carries on. When the disc rests, `_do_warp()` stands you 1.2 m behind it on the line back to where it was thrown from, facing down that line, with a brief soft white flash and a "warped N m" note. A disc floating in a lake puts you on the nearest dry ground back along that line. Z while waiting cancels; the disc being collected or removed also cancels. If the follow cam is on, it hands back on rest in the same frame, so you see the arrival from the walker's eyes.
