@@ -8,6 +8,8 @@ extends Node
 ##   click    fire an orange block at the current power (step 1, kept as-is)
 ##   F        fetch: teleport to your last disc. If it's still flying, you
 ##            take over its speed and direction and fly on with it.
+##   V        follow cam: chase your last disc until it fully stops (V again
+##            to come back early)
 ##   B        toggle the beams of light over resting discs
 ##   C        collect: every disc rolls home to you, building up speed
 ##
@@ -18,6 +20,7 @@ const DISC_SCRIPT := preload("res://scripts/disc.gd")
 const FLYING_DISC_SCRIPT := preload("res://scripts/flying_disc.gd")
 const DiscModel := preload("res://scripts/disc_model.gd")
 const ThrowPanel := preload("res://scripts/throw_panel.gd")
+const FollowCam := preload("res://scripts/follow_cam.gd")
 
 @export var speed_per_level := 4.0
 @export var max_discs := 12          ## Older discs are cleared away.
@@ -29,6 +32,7 @@ var label: Label
 var status_label: Label                  ## Upper-right: power + beams.
 var hud: CanvasLayer                     ## Where the throw panel goes.
 var panel: PanelContainer
+var follow_cam: Camera3D
 var disc_models: Array = []
 
 var power := 5
@@ -48,6 +52,12 @@ func _ready() -> void:
 	panel.throw_requested.connect(func(p: Dictionary) -> void: throw_disc(p))
 	if hud != null:
 		hud.add_child(panel)
+	follow_cam = FollowCam.new()
+	follow_cam.name = "FollowCam"
+	follow_cam.terrain = terrain
+	follow_cam.player_camera = camera
+	add_child(follow_cam)
+	follow_cam.ended.connect(_update_label)
 	_update_label()
 
 
@@ -60,6 +70,9 @@ func _unhandled_input(event: InputEvent) -> void:
 			return
 	if event.is_action_pressed("fetch"):
 		fetch()
+		get_viewport().set_input_as_handled()
+	elif event.is_action_pressed("follow_cam"):
+		toggle_follow()
 		get_viewport().set_input_as_handled()
 	elif event.is_action_pressed("throw_panel"):
 		if panel.is_inside_tree():
@@ -170,6 +183,14 @@ func set_beams(on: bool) -> void:
 ## Teleports the walker to the last disc. A resting disc: stand beside it,
 ## facing the same way. A flying disc: your eyes go where it is and you
 ## inherit its velocity, so you fly on alongside it until you land.
+## V: chase the last disc, or come back if already chasing.
+func toggle_follow() -> void:
+	if follow_cam.active():
+		follow_cam.stop()
+	elif is_instance_valid(_last):
+		follow_cam.follow(_last)
+
+
 func fetch() -> void:
 	if not is_instance_valid(_last):
 		return
@@ -187,6 +208,7 @@ func fetch() -> void:
 
 
 func clear() -> void:
+	follow_cam.stop()
 	for d in discs:
 		if is_instance_valid(d):
 			d.queue_free()
@@ -240,7 +262,9 @@ func _update_label() -> void:
 	if status_label != null:
 		status_label.text = "Velocity: %d  (%d m/s)\nBeams: %s" % [
 			power, int(power * speed_per_level), "on" if beams else "off"]
-	var lines := ["T throw panel  ·  1-9, 0 block power  ·  click block  ·  F fetch  ·  C collect  ·  B beams"]
+	var lines := ["T throw panel  ·  1-9, 0 block power  ·  click block  ·  V follow cam  ·  F fetch  ·  C collect  ·  B beams"]
+	if follow_cam != null and follow_cam.active():
+		lines[0] = "following your disc  ·  V to come back"
 	if _flying_text != "":
 		lines.append(_flying_text)
 	elif _result_text != "":

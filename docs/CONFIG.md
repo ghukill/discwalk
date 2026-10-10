@@ -84,6 +84,8 @@ Notes:
 | `max_discs` | `thrower.gd` | 12 | Older discs get cleared away (blocks and flying discs together). |
 | `VISUAL_SPIN_MAX` | `flying_disc.gd` | 14 rad/s | How fast the disc *looks* like it spins (real spin would strobe). |
 | `LANDED_SPIN_MAX` | `flying_disc.gd` | 25 rad/s | Real spin handed to the physics on landing (roll-on-edge flavour). |
+| `back`, `up`, `lead` | `follow_cam.gd` | 1.8, 0.5, 4.0 m | Follow cam: distance behind, height above, look-ahead. |
+| `follow_rate`, `aim_rate` | `follow_cam.gd` | 14, 8 /s | Follow cam smoothing (higher = snappier). |
 | panel sliders | `throw_panel.gd` `ROWS` | | Ranges and defaults for speed, launch angle, nose, hyzer, spin. |
 | disc tables | `data/discs/*/*.json` | | One file per disc; see `data/discs/README.md`. |
 | `leaf_keep_per_metre` | `disc.gd` | 0.72 | Fraction of speed kept per metre of leaves. |

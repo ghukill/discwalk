@@ -17,6 +17,7 @@ scripts/disc.gd          The thrown block (RigidBody3D): physics + tree/water in
 scripts/flying_disc.gd   A real disc (extends disc.gd): flat collider, pixel-circle mesh, flight
 scripts/disc_model.gd    Disc aerodynamics: coefficient tables, lift/drag, gyroscopic roll
 scripts/throw_panel.gd   Lower-right throw panel (sliders + Throw button)
+scripts/follow_cam.gd    Follow cam (V): chase camera for the last disc
 data/discs/              Disc coefficient tables (JSON); see data/discs/README.md
 shaders/voxel.gdshader   Terrain + tree shading: base colour + per-block jitter
 shaders/sway.gdshader    Wind sway for flowers (and grass, later)
@@ -25,7 +26,7 @@ tools/screenshot.gd      Renders PNG views incl. one portrait per oak form (need
 tools/tree_gallery.gd    Flat-ground lineup of every oak form, for tuning trees
 tools/throw_test.gd      Headless throws (open ground, into an oak, into a lake): PASS/FAIL
 tools/flight_test.gd     Headless disc flights vs shotshaper + turn/fade sanity: PASS/FAIL
-tools/flight_shots.gd    Screenshots: panel, chase cam, side view, landed disc
+tools/flight_shots.gd    Screenshots: panel, follow cam in flight + on the ground, view handed back
 tools/discs/             Python helpers: shotshaper tables -> JSON, shotshaper reference flights
 tools/collect_test.gd    Headless collect: 8 scattered discs roll home, speed ramps up
 docs/                    These docs + screenshots
@@ -189,3 +190,7 @@ Step 2 of throwing. `flying_disc.gd` extends `disc.gd`, so trees, lakes, beams, 
   - Godot's default linear damping is replaced with 0 while flying (the model does drag).
 - **Landing**: first touch of anything (ground/trunk contact, bark, leaves, water) switches the aerodynamics off for good. Ordinary physics takes over with up to 25 rad/s of real spin, so it can skid, roll and flop. `flight_dist` is the carry at first contact; the HUD shows carry, rest distance, peak and airtime.
 - **Disc data**: JSON tables under `data/discs/` (four shotshaper CFD tables for now, GPL-3.0; see `data/discs/README.md` for swapping them out).
+
+### Follow cam (`follow_cam.gd`)
+
+**V** switches the view to a Camera3D (child of the Thrower, `top_level`) that trails the last disc: 1.8 m behind its horizontal direction of travel and 0.5 m above, looking a few metres ahead, smoothed. It never dips below the terrain. While the disc is barely moving the heading is held, so rolling to a stop doesn't spin the view. It hands back to the walker's camera when the disc is `resting` (still for 0.6 s, so skips and rolls are included), when it disappears (collected, cleared), or on V again. The walker keeps standing (and can still be moved) where you threw from. Knobs (`back`, `up`, `lead`, `follow_rate`, `aim_rate`) are exports on the script.

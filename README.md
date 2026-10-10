@@ -37,6 +37,7 @@ Or from a terminal:
 | T | **throw panel** (lower right): pick a disc, set speed, launch angle, nose, hyzer/anhyzer and spin, press **Throw**. A real flying disc leaves along where you're looking (right-hand backhand). T again closes it |
 | 1–9, 0 | set block power 1–10 (0 = 10), shown top-right as `Velocity: #` |
 | Left click | fire an orange **block** at the current power (the original cannon, kept for fun) |
+| V | **follow cam**: chase your last disc through its flight and ground play. Snaps back to you once it fully stops (or press V again) |
 | F | fetch: jump to your last disc. **If it's still flying, you fly with it** (you take on its speed and direction until you land) |
 | B | toggle the beams of light over resting discs (status top-right) |
 | C | **collect**: every disc rolls home to you, slow at first and then faster and faster. Trunks and cliffs block them unless they have the momentum |
@@ -90,7 +91,8 @@ Done:
 - [x] **Disc flight, step 2**: flat pixel discs with lift, drag and gyroscopic turn/fade (`disc_model.gd`), four disc tables, a lower-right throw panel (T). Checked against shotshaper (`tools/flight_test.gd`).
 
 Next (pick any):
-- [ ] **Follow flight**: camera hovering along with the disc + a voxel trail of its path
+- [x] **Follow cam (V)**: chase camera behind the disc, hands back once it stops
+- [ ] Flight trail (voxel path that stays in the world); picture-in-picture follow cam
 - [ ] Wind (static vector to start), forehand toggle in the panel, more discs / our own coefficient tables (replace the GPL shotshaper ones, see `data/discs/README.md`)
 - [ ] Discs resting in trees; baskets
 - [ ] **Wind grass**: instanced voxel tufts, reusing the flower sway shader

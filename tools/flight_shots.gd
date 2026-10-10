@@ -1,21 +1,19 @@
 extends SceneTree
-## Screenshots of the throw panel and a disc in flight (needs a display).
+## Screenshots of the throw panel and the follow cam (needs a display).
 ##
 ##   godot --path . --resolution 1280x720 --script res://tools/flight_shots.gd -- <out_dir>
 ##
-## 1 panel: throw panel open, looking out from spawn.
-## 2 chase: a camera trailing the disc mid-flight.
-## 3 side:  a camera off to the side watching it fade.
-## 4 rest:  the disc lying where it landed.
-
-const DiscModel := preload("res://scripts/disc_model.gd")
+## 1 panel:   throw panel open, looking out from spawn.
+## 2 follow:  follow cam (V) half a second into the flight.
+## 3 late:    follow cam a few seconds in (watch the fade).
+## 4 ground:  follow cam during ground play, just after landing.
+## 5 back:    view handed back to the walker once the disc stopped.
 
 var _main: Node
 var _out := "/tmp/flight_shots"
 var _frames := 0
 var _disc: Node
-var _cam: Camera3D
-var _side_from := Vector3.ZERO
+var _landed_frame := -1
 
 
 func _initialize() -> void:
@@ -43,39 +41,24 @@ func _process(_delta: float) -> bool:
 		player.get_node("Head").rotation.x = deg_to_rad(4)
 	if _frames == 40:
 		_grab("1_panel")
-		var p: Dictionary = thrower.panel.params()
-		_disc = thrower.throw_disc(p)
+		_disc = thrower.throw_disc(thrower.panel.params())
 		thrower.panel.toggle()
 		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
-		_cam = Camera3D.new()
-		_cam.fov = 70
-		_cam.far = 500
-		root.add_child(_cam)
-		_cam.current = true
-		var fwd: Vector3 = _disc.linear_velocity * Vector3(1, 0, 1)
-		_side_from = _disc.global_position + fwd.normalized() * 30.0 \
-			+ fwd.normalized().cross(Vector3.UP) * 22.0 + Vector3(0, 4, 0)
-	if _frames > 40 and _frames < 100 and is_instance_valid(_disc):
-		var v: Vector3 = _disc.linear_velocity
-		var back := -(v * Vector3(1, 0, 1)).normalized()
-		_cam.global_position = _disc.global_position + back * 2.2 + Vector3(0, 0.55, 0)
-		_cam.look_at(_disc.global_position + Vector3(0, 0.1, 0) - back * 6.0, Vector3.UP)
+		thrower.toggle_follow()
 	if _frames == 70:
-		_grab("2_chase")
-	if _frames >= 100 and _frames < 400 and is_instance_valid(_disc):
-		_cam.global_position = _side_from
-		_cam.look_at(_disc.global_position, Vector3.UP)
-	if _frames == 150:
-		_grab("3_side")
-	if is_instance_valid(_disc) and _disc.resting and _frames > 150:
-		var p: Vector3 = _disc.global_position
-		_cam.global_position = p + Vector3(0.7, 0.6, 0.7)
-		_cam.look_at(p, Vector3.UP)
-		if _frames % 10 == 0:
-			_grab("4_rest")
-			print("REST carry %.1f m, rest %.1f m, landed on %s" % [_disc.flight_dist, _disc.distance(), _disc.landed_by])
-			quit(0)
-			return true
+		_grab("2_follow")
+	if _frames == 220:
+		_grab("3_late")
+	if is_instance_valid(_disc) and _landed_frame < 0 and not _disc.flying:
+		_landed_frame = _frames
+	if _landed_frame > 0 and _frames == _landed_frame + 12:
+		_grab("4_ground")
+	if is_instance_valid(_disc) and _disc.resting and not thrower.follow_cam.active() \
+			and _frames > _landed_frame + 20:
+		_grab("5_back")
+		print("REST carry %.1f m, rest %.1f m, landed on %s" % [_disc.flight_dist, _disc.distance(), _disc.landed_by])
+		quit(0)
+		return true
 	if _frames > 60 * 40:
 		quit(1)
 		return true

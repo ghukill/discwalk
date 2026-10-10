@@ -34,6 +34,9 @@ var _cases: Array = []               # {name, disc, ref?, check?}
 var _frames := 0
 var _main: Node
 var _world_disc: Node
+var _follow_seen := 0                # frames the follow cam was live + near the disc
+var _follow_far := 0.0               # worst cam-to-disc distance while following
+var _rest_frame := -1
 
 
 func _initialize() -> void:
@@ -113,7 +116,17 @@ func _process(_delta: float) -> bool:
 		var p := {"disc": _models["fd2"], "speed": 20.0, "pitch": 12.0, "nose": 0.0,
 			"roll": 10.0, "spin": DiscModel.auto_spin(20.0)}
 		_world_disc = thrower.throw_disc(p)
-	if _main != null and _frames > 5 and (_frames > 60 * 30 or _world_disc.resting):
+		thrower.toggle_follow()                    # V
+	if _main != null and _frames > 20 and is_instance_valid(_world_disc) \
+			and not _world_disc.resting and _main.thrower.follow_cam.active():
+		var fc: Camera3D = _main.thrower.follow_cam
+		_follow_far = maxf(_follow_far, fc.global_position.distance_to(_world_disc.global_position))
+		if fc.current:
+			_follow_seen += 1
+	if _main != null and _frames > 5 and _rest_frame < 0 \
+			and (_frames > 60 * 30 or _world_disc.resting):
+		_rest_frame = _frames
+	if _rest_frame > 0 and _frames >= _rest_frame + 3:   # let the cam hand back
 		_report()
 		return true
 	if _frames > 60 * 60:
@@ -151,6 +164,10 @@ func _report() -> void:
 			wd.flight_dist, wd.distance(), wd.landed_by], world_ok])
 	else:
 		checks.append(["world throw exists", false])
+	var fc: Camera3D = _main.thrower.follow_cam
+	var back_home: bool = not fc.active() and _main.get_node("Player/Head/Camera3D").current
+	checks.append(["follow cam (V) chases the disc (%d frames, max %.1f m away), hands back at rest" % [
+		_follow_seen, _follow_far], _follow_seen > 60 and _follow_far < 8.0 and back_home])
 	for ch in checks:
 		print("FLIGHT check %-70s %s" % [ch[0], "ok" if ch[1] else "BAD"])
 		ok = ok and ch[1]
