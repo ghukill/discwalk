@@ -18,6 +18,7 @@ scripts/flying_disc.gd   A real disc (extends disc.gd): flat collider, pixel-cir
 scripts/disc_model.gd    Disc aerodynamics: coefficient tables, lift/drag, gyroscopic roll
 scripts/throw_panel.gd   Lower-right throw panel (sliders + Throw button)
 scripts/follow_cam.gd    Follow cam (V): chase camera for the last disc
+scripts/clouds.gd        Fluffy voxel clouds drifting high overhead (K toggles)
 scripts/dials.gd         Heading + horizon dials (top right; H / J toggle)
 scripts/paths.gd         Flight paths: voxel trail per disc throw; P toggles (off = fall + poof)
 data/discs/              Disc coefficient tables (JSON); see data/discs/README.md
@@ -28,6 +29,7 @@ tools/screenshot.gd      Renders PNG views incl. one portrait per oak form (need
 tools/tree_gallery.gd    Flat-ground lineup of every oak form, for tuning trees
 tools/throw_test.gd      Headless throws (open ground, into an oak, into a lake): PASS/FAIL
 tools/flight_test.gd     Headless disc flights vs shotshaper + turn/fade sanity: PASS/FAIL
+tools/clouds_shots.gd    Screenshots of the clouds (from spawn, wide view)
 tools/dials_shots.gd     Screenshots of the dials (level, up, down + offset)
 tools/skip_test.gd       48 throws on flat ground: ground play after landing (tunes friction)
 tools/landing_test.gd    48 discs all round spawn: none may end up under the ground
@@ -214,3 +216,7 @@ The project uses **Jolt** (`physics/3d/physics_engine`). With Godot's default en
 ### Dials (`dials.gd`)
 
 Two faint 84 px instruments under the top-right status lines, drawn with `_draw` (no textures). **Heading** (H): a compass card turning under a fixed mark, N = −Z, E = +X, with the heading in degrees. **Horizon** (J): sky/ground split that moves 1.6 px per degree of view pitch, a ladder every 10°, fixed yellow wings (your view) and an orange chevron at view + launch offset. Both hide while the follow cam is on, as does the launch readout.
+
+### Clouds (`clouds.gd`)
+
+Eleven clouds at 70–95 m, each a heap of 3–6 squashed overlapping blobs voxelised into 2 m blocks (only exposed faces are meshed): white tops, slightly cooler sides, blue-grey bellies, with a little emission so the shady side never goes grey. They drift at `drift` (1.1, 0.35) m/s and wrap around a box 120 m bigger than the world on each side. Built from the world seed in `main.gd`, rebuilt on N. **K** toggles; `-- --no-clouds` starts with them off. No measurable frame cost on the T480.

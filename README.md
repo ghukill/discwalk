@@ -44,6 +44,7 @@ Or from a terminal:
 | B | toggle the beams of light over resting discs (status top-right) |
 | C | **collect**: every disc rolls home to you, slow at first and then faster and faster. Trunks and cliffs block them unless they have the momentum |
 | N | roll a brand-new world |
+| K | clouds on/off (launch with `-- --no-clouds` to start without them) |
 | Esc | free the mouse (click to grab it again) |
 
 ### Finer blocks (optional)

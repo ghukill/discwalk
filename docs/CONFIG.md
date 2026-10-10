@@ -94,6 +94,9 @@ Notes:
 | `FALL_GRAVITY`, `POOF_TIME`, `POOF_SWELL` | `paths.gd` | 3.5 m/s², 0.35 s, 1.8× | The P fall-and-poof. |
 | `launch_min`, `launch_max` | `thrower.gd` | −45°, 85° | Launch angle limits (view + offset). |
 | `SIZE`, `ALPHA`, `PITCH_PX` | `dials.gd` | 84 px, 0.55, 1.6 px/° | Dial size, faintness, horizon scale. |
+| `count`, `height_min`, `height_max` | `clouds.gd` | 11, 70, 95 m | How many clouds and how high. |
+| `drift` | `clouds.gd` | (1.1, 0.35) m/s | Cloud drift (x, z); wind will drive this later. |
+| `--no-clouds` | command line | | Start with clouds hidden (K shows them). |
 | panel sliders | `throw_panel.gd` `ROWS` | | Ranges and defaults for speed, launch angle, nose, hyzer, spin. |
 | disc tables | `data/discs/*/*.json` | | One file per disc; see `data/discs/README.md`. |
 | `leaf_keep_per_metre` | `disc.gd` | 0.72 | Fraction of speed kept per metre of leaves. |
