@@ -18,6 +18,7 @@ scripts/flying_disc.gd   A real disc (extends disc.gd): flat collider, pixel-cir
 scripts/disc_model.gd    Disc aerodynamics: coefficient tables, lift/drag, gyroscopic roll
 scripts/throw_panel.gd   Lower-right throw panel (sliders + Throw button)
 scripts/follow_cam.gd    Follow cam (V): chase camera for the last disc
+scripts/dials.gd         Heading + horizon dials (top right; H / J toggle)
 scripts/paths.gd         Flight paths: voxel trail per disc throw; P toggles (off = fall + poof)
 data/discs/              Disc coefficient tables (JSON); see data/discs/README.md
 shaders/voxel.gdshader   Terrain + tree shading: base colour + per-block jitter
@@ -27,6 +28,7 @@ tools/screenshot.gd      Renders PNG views incl. one portrait per oak form (need
 tools/tree_gallery.gd    Flat-ground lineup of every oak form, for tuning trees
 tools/throw_test.gd      Headless throws (open ground, into an oak, into a lake): PASS/FAIL
 tools/flight_test.gd     Headless disc flights vs shotshaper + turn/fade sanity: PASS/FAIL
+tools/dials_shots.gd     Screenshots of the dials (level, up, down + offset)
 tools/landing_test.gd    48 discs all round spawn: none may end up under the ground
 tools/paths_shots.gd     Screenshots: three paths from behind/side/close, then P falling
 tools/flight_shots.gd    Screenshots: panel, follow cam in flight + on the ground, view handed back
@@ -183,7 +185,7 @@ Everything is driven by `world_seed`: `RandomNumberGenerator` seeds and `FastNoi
 
 Step 2 of throwing. `flying_disc.gd` extends `disc.gd`, so trees, lakes, beams, fetch and collect all work the same; what changes is the shape and the flight. Design notes: [DISC-FLIGHT-PLAN.md](DISC-FLIGHT-PLAN.md).
 
-- **Panel (T)**: lower right, frees the mouse while open. Disc, speed, launch angle, nose (disc tilt relative to the flight path), hyzer (+) / anhyzer (−), spin (auto = 5.2 rad/s per m/s, about 1200 rpm at 24 m/s), Throw. Aim is your flat look direction; release is 1.3 m up, 0.6 m ahead. Right-hand backhand for now (`hand = +1`; forehand is `hand = -1`, which mirrors everything).
+- **Panel (T)**: lower right, frees the mouse while open. Disc, speed, launch offset, nose (disc tilt relative to the flight path), hyzer (+) / anhyzer (−), spin (auto = 5.2 rad/s per m/s, about 1200 rpm at 24 m/s), Throw. Aim is where you look: left/right sets the direction, up/down sets the launch angle (`thrower.launch_angle()` = view pitch + offset, clamped to −45..85°; shown as `launch +N°` under the crosshair). Tests can pass `pitch` to override; release is 1.3 m up, 0.6 m ahead. Right-hand backhand for now (`hand = +1`; forehand is `hand = -1`, which mirrors everything).
 - **Body**: a 21 cm × 3 cm cylinder collider, drawn as a 7×7 pixel circle with a darker rim and a white stamp so you can see it spin. Blue, except the overstable `cd1` which is pink.
 - **Flight** (`DiscModel.step()`), every physics tick while `flying`:
   - Angle of attack from the velocity (minus wind) and the disc's normal.
@@ -207,3 +209,7 @@ Every real disc throw (not blocks) is tracked from release: a cube every 0.5 m i
 ## Physics engine
 
 The project uses **Jolt** (`physics/3d/physics_engine`). With Godot's default engine, about 40% of thin (3 cm) discs tunnelled through the heightmap on landing; with Jolt, none in `tools/landing_test.gd`. As a last-resort safety net, `disc.gd` pops any disc that ends up clearly below the ground back onto it (`rescues`; about 1 in 50 throws at 0.5 m blocks, after a slow tumble out of a tree).
+
+### Dials (`dials.gd`)
+
+Two faint 84 px instruments under the top-right status lines, drawn with `_draw` (no textures). **Heading** (H): a compass card turning under a fixed mark, N = −Z, E = +X, with the heading in degrees. **Horizon** (J): sky/ground split that moves 1.6 px per degree of view pitch, a ladder every 10°, fixed yellow wings (your view) and an orange chevron at view + launch offset. Both hide while the follow cam is on, as does the launch readout.

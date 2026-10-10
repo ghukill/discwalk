@@ -34,7 +34,8 @@ Or from a terminal:
 | Mouse | look |
 | Shift | stroll faster |
 | Space | hop |
-| T | **throw panel** (lower right): pick a disc, set speed, launch angle, nose, hyzer/anhyzer and spin, press **Throw**. A real flying disc leaves along where you're looking (right-hand backhand). T again closes it |
+| T | **throw panel** (lower right): pick a disc, set speed, launch offset, nose, hyzer/anhyzer and spin, press **Throw**. A real flying disc leaves where you're looking, left/right **and up/down** (right-hand backhand); the launch offset (0° by default) tilts it above or below your view. `launch +12°` under the crosshair shows the angle you'd throw at. T again closes it |
+| H / J | heading (compass) / horizon (attitude) dials on or off, top right. The orange chevron on the horizon dial is your launch angle (view + offset) |
 | 1–9, 0 | set block power 1–10 (0 = 10), shown top-right as `Velocity: #` |
 | Left click | fire an orange **block** at the current power (the original cannon, kept for fun) |
 | V | **follow cam**: chase your last disc through its flight and ground play. Snaps back to you once it fully stops (or press V again) |

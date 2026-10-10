@@ -10,6 +10,7 @@ extends Node
 ##            take over its speed and direction and fly on with it.
 ##   V        follow cam: chase your last disc until it fully stops (V again
 ##            to come back early)
+##   H / J    heading / horizon dials on or off (top right)
 ##   P        paths on/off (starts on). On: every disc throw leaves a path,
 ##            bright cubes in the air, dimmer ones for skips and rolls. Off:
 ##            existing paths drift down and go poof, and new throws leave
@@ -44,6 +45,10 @@ var disc_models: Array = []
 var power := 5
 var beams := true
 var paths_on := true                     ## New disc throws leave a path.
+var launch_label: Label                  ## Under the crosshair: "launch 12°".
+var dials: Control                       ## Heading + horizon (dials.gd).
+@export var launch_min := -45.0          ## Launch angle limits (deg).
+@export var launch_max := 85.0
 var discs: Array = []
 var _last: Node = null
 var _flying_text := ""
@@ -82,6 +87,12 @@ func _unhandled_input(event: InputEvent) -> void:
 			return
 	if event.is_action_pressed("fetch"):
 		fetch()
+		get_viewport().set_input_as_handled()
+	elif event.is_action_pressed("dial_heading") and dials != null:
+		dials.show_heading = not dials.show_heading
+		get_viewport().set_input_as_handled()
+	elif event.is_action_pressed("dial_horizon") and dials != null:
+		dials.show_horizon = not dials.show_horizon
 		get_viewport().set_input_as_handled()
 	elif event.is_action_pressed("clear_paths"):
 		set_paths(not paths_on)
@@ -134,14 +145,24 @@ func throw(level: int) -> Node:
 	return disc
 
 
-## Throws a real flying disc. p: {disc, speed, pitch, nose, roll, spin,
-## hand?}; aim is the flat direction you're looking.
+## Launch angle (deg) for a throw right now: where you're looking, up or
+## down, plus the panel's launch offset.
+func launch_angle() -> float:
+	var look := -camera.global_transform.basis.z
+	var view := rad_to_deg(asin(clampf(look.y, -1.0, 1.0)))
+	return clampf(view + panel.launch_offset(), launch_min, launch_max)
+
+
+## Throws a real flying disc. p: {disc, speed, offset, nose, roll, spin,
+## hand?}. Direction is where you're looking (left/right AND up/down, plus
+## the offset); p.pitch, if given, overrides the angle (tests use it).
 func throw_disc(p: Dictionary) -> Node:
 	var look := -camera.global_transform.basis.z
 	var fwd := Vector3(look.x, 0, look.z)
 	fwd = fwd.normalized() if fwd.length() > 0.01 else Vector3.FORWARD
 	var hand: float = p.get("hand", 1.0)
-	var ls := DiscModel.launch_state(fwd, p.speed, p.pitch, p.nose, p.roll, hand)
+	var pitch: float = p.pitch if p.has("pitch") else launch_angle()
+	var ls := DiscModel.launch_state(fwd, p.speed, pitch, p.nose, p.roll, hand)
 	# Release about shoulder height, a little ahead of you.
 	var origin := player.global_position + Vector3(0, 1.3, 0) + fwd * 0.6
 	var disc: RigidBody3D = RigidBody3D.new()
@@ -248,6 +269,12 @@ func clear() -> void:
 
 
 func _process(_delta: float) -> void:
+	var following: bool = follow_cam != null and follow_cam.active()
+	if launch_label != null:
+		launch_label.visible = not following
+		launch_label.text = "launch %+d°" % int(round(launch_angle()))
+	if dials != null:
+		dials.visible = not following
 	var rolling := 0
 	for d in discs:
 		if is_instance_valid(d) and d.collecting:
@@ -291,7 +318,7 @@ func _update_label() -> void:
 		status_label.text = "Velocity: %d  (%d m/s)\nBeams: %s\nPaths: %s" % [
 			power, int(power * speed_per_level), "on" if beams else "off",
 			"on" if paths_on else "off"]
-	var lines := ["T throw panel  ·  1-9, 0 block power  ·  click block  ·  V follow cam  ·  P paths on/off  ·  F fetch  ·  C collect  ·  B beams"]
+	var lines := ["T throw panel  ·  1-9, 0 block power  ·  click block  ·  V follow cam  ·  P paths on/off  ·  H/J dials  ·  F fetch  ·  C collect  ·  B beams"]
 	if follow_cam != null and follow_cam.active():
 		lines[0] = "following your disc  ·  V to come back"
 	if _flying_text != "":

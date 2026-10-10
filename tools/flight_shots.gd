@@ -38,7 +38,7 @@ func _process(_delta: float) -> bool:
 	var player: CharacterBody3D = _main.get_node("Player")
 	if _frames == 10:
 		thrower.panel.toggle()
-		player.get_node("Head").rotation.x = deg_to_rad(4)
+		player.get_node("Head").rotation.x = deg_to_rad(12)   # launch angle = view
 	if _frames == 40:
 		_grab("1_panel")
 		_disc = thrower.throw_disc(thrower.panel.params())

@@ -18,7 +18,7 @@ var _paths: CheckBox
 const ROWS := [
 	# name, label, min, max, step, default, unit
 	["speed", "Speed", 5.0, 35.0, 0.5, 24.0, "m/s"],
-	["pitch", "Launch angle", -10.0, 45.0, 0.5, 12.0, "°"],
+	["offset", "Launch offset", -20.0, 20.0, 0.5, 0.0, "°"],
 	["nose", "Nose", -10.0, 10.0, 0.5, 0.0, "°"],
 	["roll", "Hyzer / anhyzer", -40.0, 40.0, 1.0, 10.0, "°"],
 	["spin", "Spin", 20.0, 200.0, 1.0, 125.0, "rad/s"],
@@ -42,7 +42,7 @@ func _ready() -> void:
 	box.add_theme_constant_override("separation", 6)
 	add_child(box)
 	var title := Label.new()
-	title.text = "Throw a disc  (RH backhand · aim with your view · T to close)"
+	title.text = "Throw a disc  (RH backhand · aim + angle = your view · T to close)"
 	title.add_theme_color_override("font_color", Color(1, 0.85, 0.7))
 	box.add_child(title)
 
@@ -111,12 +111,18 @@ func set_paths_shown(on: bool) -> void:
 		_paths.set_pressed_no_signal(on)
 
 
+## Launch offset (deg) on top of your view angle.
+func launch_offset() -> float:
+	return _sliders.offset.value if _sliders.has("offset") else 0.0
+
+
 func toggle() -> void:
 	visible = not visible
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE if visible else Input.MOUSE_MODE_CAPTURED
 
 
-## Current settings: {disc, speed, pitch, nose, roll, spin}.
+## Current settings: {disc, speed, offset, nose, roll, spin}. The launch
+## angle itself comes from where you're looking (thrower.gd) plus `offset`.
 func params() -> Dictionary:
 	var p := {"disc": discs[_disc.selected] if not discs.is_empty() else null}
 	for name in _sliders:
@@ -135,7 +141,9 @@ func _refresh() -> void:
 		var name: String = row[0]
 		var v: float = _sliders[name].value
 		var txt := "%.1f %s" % [v, row[6]] if row[4] < 1.0 else "%d %s" % [int(v), row[6]]
-		if name == "roll":
+		if name == "offset":
+			txt = "%+.1f°" % v
+		elif name == "roll":
 			txt = "%d° %s" % [absi(int(v)), "hyzer" if v > 0 else ("anhyzer" if v < 0 else "flat")]
 		elif name == "spin":
 			txt = "%d rpm" % int(v * 60.0 / TAU)
