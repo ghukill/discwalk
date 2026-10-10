@@ -83,6 +83,8 @@ Notes:
 | `speed_per_level` | `thrower.gd` | 4.0 | m/s per power level (power 10 = 40 m/s). |
 | `max_discs` | `thrower.gd` | 12 | Older discs get cleared away (blocks and flying discs together). |
 | `VISUAL_SPIN_MAX` | `flying_disc.gd` | 14 rad/s | How fast the disc *looks* like it spins (real spin would strobe). |
+| `landed_friction` | `flying_disc.gd` | 0.3 | Grip after landing. Lower = more skip and skid. Flat-grass ground play averages ~8 m at 0.7, ~16 m at 0.3, ~26 m at 0.15 (`tools/skip_test.gd`). |
+| `landed_bounce` | `flying_disc.gd` | 0.35 | Bounce after landing (barely matters: discs land flat). |
 | `LANDED_SPIN_MAX` | `flying_disc.gd` | 25 rad/s | Real spin handed to the physics on landing (roll-on-edge flavour). |
 | `back`, `up`, `lead` | `follow_cam.gd` | 1.8, 0.5, 4.0 m | Follow cam: distance behind, height above, look-ahead. |
 | `follow_rate`, `aim_rate` | `follow_cam.gd` | 14, 8 /s | Follow cam smoothing (higher = snappier). |

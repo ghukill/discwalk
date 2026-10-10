@@ -29,6 +29,7 @@ tools/tree_gallery.gd    Flat-ground lineup of every oak form, for tuning trees
 tools/throw_test.gd      Headless throws (open ground, into an oak, into a lake): PASS/FAIL
 tools/flight_test.gd     Headless disc flights vs shotshaper + turn/fade sanity: PASS/FAIL
 tools/dials_shots.gd     Screenshots of the dials (level, up, down + offset)
+tools/skip_test.gd       48 throws on flat ground: ground play after landing (tunes friction)
 tools/landing_test.gd    48 discs all round spawn: none may end up under the ground
 tools/paths_shots.gd     Screenshots: three paths from behind/side/close, then P falling
 tools/flight_shots.gd    Screenshots: panel, follow cam in flight + on the ground, view handed back
@@ -193,7 +194,7 @@ Step 2 of throwing. `flying_disc.gd` extends `disc.gd`, so trees, lakes, beams, 
   - Pitching moment `M = C_m × ½ρv² × area × diameter` is not applied as a torque. A spinning disc precesses instead: the normal rolls about the line of flight at `M / (ω (I_z − I_xy))`. Early in the flight (low α) M is negative → it turns right (RH backhand); as it slows and α grows, M goes positive → it fades left.
   - The body's orientation is set from `normal` each tick; real angular velocity stays zero. Spin is just a number; the mesh spins at a capped, watchable rate.
   - Godot's default linear damping is replaced with 0 while flying (the model does drag).
-- **Landing**: first touch of anything (ground/trunk contact, bark, leaves, water) switches the aerodynamics off for good. Ordinary physics takes over with up to 25 rad/s of real spin, so it can skid, roll and flop. `flight_dist` is the carry at first contact; the HUD shows carry, rest distance, peak and airtime.
+- **Landing**: first touch of anything (ground/trunk contact, bark, leaves, water) switches the aerodynamics off for good. Ordinary physics takes over with up to 25 rad/s of real spin, so it can skid, roll and flop, with a slicker material than the block (friction 0.3 vs 0.7) so it skips on instead of digging in. `flight_dist` is the carry at first contact; the HUD shows carry, rest distance, peak and airtime.
 - **Disc data**: JSON tables under `data/discs/` (four shotshaper CFD tables for now, GPL-3.0; see `data/discs/README.md` for swapping them out).
 
 ### Follow cam (`follow_cam.gd`)

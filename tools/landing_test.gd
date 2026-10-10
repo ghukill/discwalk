@@ -68,6 +68,13 @@ func _process(_d: float) -> bool:
 		for d in _discs:
 			if is_instance_valid(d):
 				rescued += d.rescues
+		var gp := []
+		for d in _discs:
+			if is_instance_valid(d) and d.landed_by == "ground":
+				gp.append(d.distance() - d.flight_dist)
+		gp.sort()
+		if not gp.is_empty():
+			print("LANDING ground play after landing on the ground (%d discs): median %.1f m, max %.1f m" % [gp.size(), gp[gp.size() / 2], gp[gp.size() - 1]])
 		print("LANDING rescued (popped back above ground): %d" % rescued)
 		var ok := _bad.is_empty()
 		print("LANDING %d discs, %d under the ground or lost %s" % [_discs.size(), _bad.size(), _bad])

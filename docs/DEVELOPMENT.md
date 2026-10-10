@@ -60,6 +60,12 @@ $G --headless --path . --script res://tools/landing_test.gd [-- --block-size=0.5
 DISPLAY=:0 $G --path . --resolution 1280x720 --script res://tools/paths_shots.gd -- /tmp/paths_shots   # flight paths + the P fall/poof
 ```
 
+Ground play (skips and skids) has a tuning check: 48 throws over flat ground, reporting how far discs go after first contact. It passes when that averages 10–25 m:
+
+```sh
+$G --headless --path . --script res://tools/skip_test.gd
+```
+
 Collecting has one too. It scatters 8 discs around spawn, presses C, and passes if at least 6 make it home and they start slow (under 3 m/s in the first second):
 
 ```sh

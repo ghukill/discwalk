@@ -20,6 +20,12 @@ const PIXELS := 7                    ## Pixel-circle grid (PIXELS x PIXELS).
 const VISUAL_SPIN_MAX := 14.0        ## rad/s shown on screen (real spin strobes).
 const LANDED_SPIN_MAX := 25.0        ## rad/s handed to the physics on landing.
 
+## Ground play. Friction is the big knob: on flat grass, ground play after
+## first contact averages ~8 m at 0.7 (the old block value), ~14 m at 0.35,
+## ~16 m at 0.3, ~26 m at 0.15. Bounce barely matters (discs land flat).
+@export var landed_friction := 0.3
+@export var landed_bounce := 0.35
+
 var model: RefCounted                ## DiscModel
 var normal := Vector3.UP             ## Top face direction while flying.
 var omega := 0.0                     ## Spin (rad/s).
@@ -183,6 +189,12 @@ func _land(by: String, state: PhysicsDirectBodyState3D) -> void:
 	linear_damp_mode = RigidBody3D.DAMP_MODE_COMBINE
 	linear_damp = 0.05
 	can_sleep = true
+	# A disc is smooth plastic, not a block: less grip so it skips and
+	# skids on (the block's 0.7 made it dig in and stop dead).
+	var mat := PhysicsMaterial.new()
+	mat.friction = landed_friction
+	mat.bounce = landed_bounce
+	physics_material_override = mat
 	# Clockwise from above for a RH backhand = negative about the top face.
 	state.angular_velocity = normal * -hand * minf(omega, LANDED_SPIN_MAX)
 
