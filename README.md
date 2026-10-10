@@ -116,6 +116,7 @@ Explore later:
 - [ ] **Game controller support** (Graham has ideas): left stick walk, right stick look, triggers/buttons for throw, follow cam, paths, warp; the throw panel navigable with the d-pad
 - [ ] **Disc golf mechanics**: baskets, holes/tees, stroke counting (warp is the first piece)
 - [ ] **Single-file builds**: Godot export for Linux (one binary with the game data embedded) and macOS (a universal .app, zipped), built headless on the T480
+- [ ] **Web build (WASM)**: Godot web export, single-threaded so it works on GitHub Pages/itch. Needs the Compatibility (WebGL2) renderer instead of Forward+ (check shadows, lakes, shaders), URL params instead of CLI flags (`?block=0.25&clouds=0`), a loading screen, probably 0.5 m blocks by default on the web, and a check that Jolt is in the web build
 - [ ] **Distance throwing zone**: a field marked with distance lines in the ground, either near one edge of every world (e.g. the west edge) or, better, its own pre-made world (which opens the door to hand-made/pre-made worlds generally)
 - [ ] Background/threaded tree building with a grow-in animation
 - [ ] Bigger worlds; infinite streaming world (region-local lakes/trees, chunks built as you walk)
