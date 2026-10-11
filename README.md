@@ -73,6 +73,7 @@ A tap moves one fine step (0.5° nose, 1° hyzer, 0.5 m/s, 2 rad/s spin); hold t
 | G | **Goto** lamp (starts off): once a throw stops, you're moved to it, standing just behind it facing down the fairway (a lake puts you on the shore). Off mid-flight cancels it. **Chase + Goto**: watch the flight, then end up there |
 | P | **Paths** lamp (starts on): flight paths *and* the beams over resting discs. Every disc throw leaves a trail of little cubes in its own colour (bright in the air, dimmer for skips and rolls). The cubes are see-through, start about 1 m from where you threw (fading in), and fade away when the camera gets within a few metres, so a pile of paths from the same tee never fills your view. Off: beams go out, paths drift down and go *poof* |
 | C | **collect**: every disc rolls home to you, slow at first then faster. Trunks and cliffs block them unless they have the momentum |
+| B | **new hole**: the basket moves to where you're looking, the tee becomes where you stand, and the stroke count starts again |
 | U | hide / show the throw HUD and the help text (screenshots, or just walking in the woods); just the crosshair stays |
 | - / = | HUD smaller / bigger (also `-- --ui-scale=1.5` at launch) |
 | N | roll a brand-new world |
@@ -168,7 +169,8 @@ Next (pick any):
 - [ ] Throw HUD follow-ups: a better nose display (try it, iterate), a mouse-drag option, controller mapping
 - [ ] More discs / our own coefficient tables (replace the GPL shotshaper ones, see `data/discs/README.md`)
 - [ ] Picture-in-picture follow cam
-- [ ] Discs resting in trees; baskets
+- [x] **Baskets + one hole**: a basket with chains that catch (the chains push back with a limited force, so contact time decides it: a putt dawdles through and is wrung out, a drive is past in one tick and punches on). Sited from the world seed, with a tee and a stroke count. B sets a new hole
+- [ ] Discs resting in trees
 - [ ] **Wind grass**: instanced voxel tufts, reusing the flower sway shader
 - [ ] More tree variety (tuning, species, autumn)
 - [ ] Auto-walk toggle (helps over VNC, where held keys arrive as taps)

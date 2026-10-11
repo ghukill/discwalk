@@ -155,9 +155,9 @@ func _setup_hole_label() -> void:
 	hole_label.add_theme_font_size_override("font_size", 15)
 	hole_label.set_anchors_and_offsets_preset(Control.PRESET_TOP_LEFT)
 	hole_label.offset_left = 16
-	hole_label.offset_top = 150
+	hole_label.offset_top = 182        # clear of the six-line key help above
 	hole_label.offset_right = 420
-	hole_label.offset_bottom = 174
+	hole_label.offset_bottom = 206
 	$HUD.add_child(hole_label)
 
 

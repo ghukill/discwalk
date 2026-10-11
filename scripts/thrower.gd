@@ -421,6 +421,8 @@ func _process(_delta: float) -> void:
 	if rolling > 0:
 		_flying_text = "collecting: %d rolling home…%s" % [rolling,
 			("  (%d in)" % _collected) if _collected > 0 else ""]
+	elif is_instance_valid(_last) and _last.in_basket:
+		_flying_text = ""            # sitting in the basket, not in flight
 	elif is_instance_valid(_last) and "flying" in _last and _last.flying:
 		_flying_text = "disc in flight: %.1f m  ·  %.0f m/s" % [_last.distance(), _last.linear_velocity.length()]
 	elif is_instance_valid(_last) and not _last.resting:

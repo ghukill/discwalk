@@ -221,18 +221,40 @@ func _build_visual() -> void:
 	band.position.y = BAND_Y
 	add_child(band)
 
-	# Tray: a shallow open cylinder. Cheap next to the oaks, and it reads as a
-	# cage from any distance you can actually putt from.
-	var tray := MeshInstance3D.new()
-	var tm := CylinderMesh.new()
-	tm.top_radius = TARGET_RADIUS
-	tm.bottom_radius = TARGET_RADIUS * 0.7
-	tm.height = TRAY_RIM_Y - TRAY_FLOOR_Y
-	tm.radial_segments = 14
-	tm.material = steel
-	tray.mesh = tm
-	tray.position.y = (TRAY_RIM_Y + TRAY_FLOOR_Y) * 0.5
-	add_child(tray)
+	# Tray: a rim hoop, a floor, and slats between them. A capped cylinder
+	# would read as a closed lid, which is exactly wrong -- the disc has to
+	# look like it can drop in.
+	var rim := MeshInstance3D.new()
+	var rm := TorusMesh.new()
+	rm.inner_radius = TARGET_RADIUS - 0.025
+	rm.outer_radius = TARGET_RADIUS
+	rm.rings = 16
+	rm.material = steel
+	rim.mesh = rm
+	rim.position.y = TRAY_RIM_Y
+	add_child(rim)
+
+	var floor_disc := MeshInstance3D.new()
+	var fm := CylinderMesh.new()
+	fm.top_radius = TARGET_RADIUS * 0.72
+	fm.bottom_radius = TARGET_RADIUS * 0.62
+	fm.height = 0.03
+	fm.radial_segments = 14
+	fm.material = steel
+	floor_disc.mesh = fm
+	floor_disc.position.y = TRAY_FLOOR_Y
+	add_child(floor_disc)
+
+	for i in 10:
+		var a := TAU * i / 10.0
+		var slat := MeshInstance3D.new()
+		var sm := BoxMesh.new()
+		sm.size = Vector3(0.018, TRAY_RIM_Y - TRAY_FLOOR_Y, 0.018)
+		sm.material = steel
+		slat.mesh = sm
+		slat.position = Vector3(cos(a) * TARGET_RADIUS * 0.88,
+			(TRAY_RIM_Y + TRAY_FLOOR_Y) * 0.5, sin(a) * TARGET_RADIUS * 0.88)
+		add_child(slat)
 
 	var chain_mat := StandardMaterial3D.new()
 	chain_mat.albedo_color = COLOR_CHAIN

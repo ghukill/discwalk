@@ -20,6 +20,8 @@ scripts/disc.gd          The thrown block (RigidBody3D): physics + tree/water in
 scripts/flying_disc.gd   A real disc (extends disc.gd): flat collider, pixel-circle mesh, flight
 scripts/disc_model.gd    Disc aerodynamics: coefficient tables, lift/drag, gyroscopic roll
 scripts/follow_cam.gd    Follow cam (V): chase camera for the last disc
+scripts/basket.gd        A basket: pole, tray, band, and chains that catch (swept, not colliders)
+scripts/hole.gd          One hole: tee, basket, stroke count. Knows the rules, not the physics
 scripts/clouds.gd        Fluffy voxel clouds drifting high overhead (K toggles)
 scripts/dials.gd         Heading + horizon dials (in the throw HUD)
 scripts/paths.gd         Flight paths: voxel trail per disc throw; P toggles (off = fall + poof)
@@ -42,6 +44,9 @@ tools/paths_shots.gd     Screenshots: three paths from behind/side/close, then P
 tools/flight_shots.gd    Screenshots: HUD, follow cam in flight + on the ground, view handed back
 tools/discs/             Python helpers: shotshaper tables -> JSON, shotshaper reference flights
 tools/collect_test.gd    Headless collect: 8 scattered discs roll home, speed ramps up
+tools/basket_test.gd     Headless basket: geometry, chains, siting, strokes: PASS/FAIL
+tools/basket_shots.gd    Screenshots of the basket: close up, from the tee, a putt going in
+tools/putt_probe.gd      Tuning aid: sweeps putt distance/speed/loft, reports what goes in
 tools/toggles_test.gd    Headless VIEW/WARP/launch/PATH behaviour, scene by scene
 docs/                    These docs + screenshots
 ```
@@ -63,6 +68,8 @@ Main (main.gd)
 │     └─ Flowers/<species>_x_z   MultiMeshInstance3D per species per 64 m region
 ├─ Player (player.gd)            CharacterBody3D + capsule + Head/Camera3D
 ├─ Clouds (clouds.gd)            one MeshInstance3D per cloud, drifting
+├─ Basket (basket.gd)            pole/tray/band meshes + Pole, Tray static bodies
+├─ Hole (hole.gd)                tee, basket, strokes (no nodes of its own)
 ├─ Thrower (thrower.gd)
 │  ├─ FollowCam (follow_cam.gd)  chase camera (V)
 │  └─ Paths (paths.gd)           one MultiMeshInstance3D per flight path

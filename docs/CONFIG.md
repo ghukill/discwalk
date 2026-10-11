@@ -31,6 +31,7 @@ Command-line flags override the scene and the code defaults.
 | `--debug-keys` | off | Prints every key press/release to stdout. Useful for diagnosing remote input (VNC). |
 | `--ui-scale=<x>` | `1.0` | Extra size for the HUD and help text (0.6–3). `-` / `=` change it in game. |
 | `--no-clouds` | off | Start with clouds hidden (K shows them). |
+| `--no-hole` | off | Leave the world without a basket or a hole (the screenshot tools use this). |
 
 The dev tools accept the same flags, e.g.
 
@@ -129,3 +130,34 @@ Notes:
 | `flower_view_distance` | 110 | Flowers fade out beyond this distance (m). |
 
 Wind sway lives in `shaders/sway.gdshader` (`sway_strength`, `sway_speed`, `wind_dir`).
+
+## Basket knobs (`scripts/basket.gd`)
+
+The chains are not physics bodies (too thin: a fast disc would tunnel through).
+Each tick the disc's swept path is marched through the chain volume, the same
+trick `flora.gd` uses for leaves. The chains push back with a **limited force**,
+so how much a disc loses depends on how long it spends in the curtain. A putt
+dawdles through over several ticks and is wrung out; a drive is past in one and
+keeps nearly everything. `chain_max_force` is the knob that sets that line.
+
+| Setting | Default | Meaning |
+|---|---|---|
+| `chain_max_force` | 28 | Hardest the chains push back (N). **The main feel knob.** Higher = more putts stick and drives start getting caught; lower = more spit-outs. |
+| `chain_drag_per_metre` | 0.01 | Fraction of speed kept per metre of curtain. Deliberately brutal; the force limit above is what discriminates. |
+| `chain_kick` | 0.08 | Random sideways rattle, as a fraction of the speed absorbed. |
+| `chain_down_bias` | 0.35 | Share of absorbed speed sent downward, so a dying disc drops into the tray. |
+| `band_bounce` | 0.35 | Speed kept along the hit axis when the top band is clipped. |
+| `catch_speed` | 2.5 | Horizontal speed (m/s) at or under which the cage keeps the disc. Measured horizontally because the tray arrests a falling disc by itself. |
+| `sweep_step` | 0.05 | March resolution through the chain volume (m). |
+
+Geometry is PDGA-ish and fixed in metres, independent of `block_size`: 1.32 m to
+the top band, a 0.635 m tray, chains between 0.75 m and 1.30 m. The basket is
+built from smooth primitives rather than voxels, because at a 0.25 m block size
+the tray would be two and a half blocks across.
+
+`tools/putt_probe.gd` sweeps putt distance, speed and loft and reports what goes
+in — run it after changing any of the above:
+
+```sh
+$G --headless --path . --script res://tools/putt_probe.gd -- --block-size=1
+```
