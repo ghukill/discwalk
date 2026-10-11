@@ -28,7 +28,8 @@ const REFERENCE := [
 	[["fd2", 22.0, 114.4, 8.0, 2.0, 5.0], [65.6, 18.4]],
 ]
 
-var _models := {}
+var _models := {}                     # constant spin (shotshaper behaviour)
+var _dmodels := {}                    # spin decays (Hummel form, C_ZD_HUMMEL)
 var _lab: Node3D
 var _cases: Array = []               # {name, disc, ref?, check?}
 var _frames := 0
@@ -43,6 +44,8 @@ var _warp_waiting := false
 func _initialize() -> void:
 	for m in DiscModel.load_all():
 		_models[m.id] = m
+	for m in DiscModel.load_all(DiscModel.C_ZD_HUMMEL):
+		_dmodels[m.id] = m
 	_lab = Node3D.new()
 	root.add_child(_lab)
 	var floor_body := StaticBody3D.new()
@@ -67,13 +70,17 @@ func _initialize() -> void:
 				"args": [id, 20.0, 104.0, 10.0, 0.0, 0.0], "hand": hand})
 	_cases.append({"name": "fd2_hyzer25", "args": ["fd2", 22.0, 114.4, 10.0, 0.0, 25.0], "hand": 1.0})
 	_cases.append({"name": "fd2_flat", "args": ["fd2", 22.0, 114.4, 10.0, 0.0, 0.0], "hand": 1.0})
+	# Same throws as cd1/cd5 backhand, but with spin decay on.
+	for id in ["cd1", "cd5"]:
+		_cases.append({"name": "%s_bh_decay" % id,
+			"args": [id, 20.0, 104.0, 10.0, 0.0, 0.0], "hand": 1.0, "decay": true})
 	for i in _cases.size():
 		var c: Dictionary = _cases[i]
 		var a: Array = c.args
 		var d: RigidBody3D = RigidBody3D.new()
 		d.set_script(FLYING_DISC)
 		d.terrain = stub
-		d.model = _models[a[0]]
+		d.model = (_dmodels if c.get("decay", false) else _models)[a[0]]
 		_lab.add_child(d)
 		# Spread the throws sideways so they never meet.
 		var origin := Vector3(i * 200.0, 1.3, 0)
@@ -106,6 +113,7 @@ func _process(_delta: float) -> bool:
 			c.left = c.x0 - d.global_position.x
 			c.t = d.flight_time
 			c.landed_by = d.landed_by
+			c.omega = d.omega
 	var lab_done := _cases.all(func(c) -> bool: return c.done)
 	if lab_done and _main == null:
 		_lab.queue_free()
@@ -155,6 +163,17 @@ func _report() -> void:
 		print(line)
 	var checks := [
 		["cd1 backhand fades left", by.cd1_bh.left > 3.0],
+		# Spin decay: spin bleeds off, and the throw still goes about where it did.
+		["spin decays in flight (cd1 %.0f -> %.0f rad/s)" % [104.0, by.cd1_bh_decay.omega],
+			by.cd1_bh_decay.omega < 0.9 * 104.0 and by.cd1_bh_decay.omega > 0.5 * 104.0],
+		["spin decay keeps cd1 controllable (carry %.1f -> %.1f m, drift %.1f -> %.1f m)" % [
+			by.cd1_bh.carry, by.cd1_bh_decay.carry, by.cd1_bh.left, by.cd1_bh_decay.left],
+			absf(by.cd1_bh_decay.carry - by.cd1_bh.carry) <= 0.1 * by.cd1_bh.carry
+			and absf(by.cd1_bh_decay.left - by.cd1_bh.left) <= 3.0],
+		["spin decay keeps cd5 controllable (carry %.1f -> %.1f m, drift %.1f -> %.1f m)" % [
+			by.cd5_bh.carry, by.cd5_bh_decay.carry, by.cd5_bh.left, by.cd5_bh_decay.left],
+			absf(by.cd5_bh_decay.carry - by.cd5_bh.carry) <= 0.1 * by.cd5_bh.carry
+			and absf(by.cd5_bh_decay.left - by.cd5_bh.left) <= 3.0],
 		["cd5 backhand turns right", by.cd5_bh.left < -3.0],
 		["cd1 forehand mirrors backhand", absf(by.cd1_fh.left + by.cd1_bh.left) < 1.0],
 		["cd5 forehand mirrors backhand", absf(by.cd5_fh.left + by.cd5_bh.left) < 1.0],

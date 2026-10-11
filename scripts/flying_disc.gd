@@ -170,9 +170,11 @@ func apply_aero(state: PhysicsDirectBodyState3D, v: Vector3) -> Vector3:
 	if splashed:
 		_land("water", state)
 		return v
-	var r: Array = model.step(v - wind, normal, omega, hand, dt)
+	var air := v - wind
+	var r: Array = model.step(air, normal, omega, hand, dt)
 	v += r[0] * dt
 	normal = r[1]
+	omega = model.spin_after(air.length(), omega, dt)
 	flight_time += dt
 	var xf := state.transform
 	xf.basis = _flight_basis(v)

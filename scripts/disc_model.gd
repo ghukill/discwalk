@@ -19,6 +19,13 @@ extends RefCounted
 const AIR_DENSITY := 1.225           ## kg/m^3
 const DATA_DIR := "res://data/discs"
 
+## Spin-damping coefficient C_zd (Hummel 2003 form: M_z = q S d (d/2V) C_zd w).
+## Negative = spin bleeds off in flight. 0 = constant spin (the shotshaper
+## behaviour, which the reference flights in tools/flight_test.gd assume).
+## PLACEHOLDER value, tuned by feel: not yet taken from Hummel's thesis. At
+## 20 m/s it gives ~10%/s spin loss (about 0.1 / s).
+const C_ZD_HUMMEL := -0.014
+
 var id := ""
 var label := ""
 var source := ""
@@ -28,6 +35,7 @@ var area := 0.0                      ## m^2
 var mass := 0.175                    ## kg
 var i_xy := 0.0                      ## moment of inertia across the disc (kg m^2)
 var i_z := 0.0                       ## moment of inertia about the spin axis (kg m^2)
+var c_zd := 0.0                      ## spin-damping coefficient (see C_ZD_HUMMEL)
 
 var _alpha := PackedFloat32Array()   ## deg, ascending, covers -90..90
 var _cl := PackedFloat32Array()
@@ -37,7 +45,7 @@ var _cm := PackedFloat32Array()
 
 ## Loads one disc from JSON: {id, label, source, license, diameter, J_xy, J_z,
 ## alpha[], Cl[], Cd[], Cm[]}. J_* are inertia per unit mass (m^2).
-static func load_json(path: String, disc_mass := 0.175) -> RefCounted:
+static func load_json(path: String, disc_mass := 0.175, c_zd_default := 0.0) -> RefCounted:
 	var d: Dictionary = JSON.parse_string(FileAccess.get_file_as_string(path))
 	var m = load("res://scripts/disc_model.gd").new()
 	m.id = d.get("id", path.get_file().get_basename())
@@ -49,6 +57,7 @@ static func load_json(path: String, disc_mass := 0.175) -> RefCounted:
 	m.mass = disc_mass
 	m.i_xy = disc_mass * float(d.J_xy)
 	m.i_z = disc_mass * float(d.J_z)
+	m.c_zd = float(d.get("C_zd", c_zd_default))
 	m._alpha = PackedFloat32Array(d.alpha)
 	m._cl = PackedFloat32Array(d.Cl)
 	m._cd = PackedFloat32Array(d.Cd)
@@ -59,13 +68,14 @@ static func load_json(path: String, disc_mass := 0.175) -> RefCounted:
 
 
 ## Every disc under res://data/discs/*/*.json, sorted by id.
-static func load_all() -> Array:
+## c_zd_default applies to discs whose JSON has no "C_zd" key.
+static func load_all(c_zd_default := 0.0) -> Array:
 	var out: Array = []
 	for sub in DirAccess.get_directories_at(DATA_DIR):
 		var dir := DATA_DIR.path_join(sub)
 		for f in DirAccess.get_files_at(dir):
 			if f.ends_with(".json"):
-				out.append(load_json(dir.path_join(f)))
+				out.append(load_json(dir.path_join(f), 0.175, c_zd_default))
 	out.sort_custom(func(a, b) -> bool: return a.id < b.id)
 	return out
 
@@ -115,6 +125,18 @@ func coeffs(a: float) -> Vector3:
 		s * lerpf(_cl[i - 1], _cl[i], t),
 		lerpf(_cd[i - 1], _cd[i], t),
 		s * lerpf(_cm[i - 1], _cm[i], t))
+
+
+## Spin after `dt` seconds of flight at air speed `speed` (m/s). Hummel's
+## spin-damping moment is proportional to omega, so spin decays exponentially,
+## faster at higher speed: d(omega)/dt = -k omega with
+## k = -rho V S d^2 C_zd / (4 I_z). Roll rate (in step) still goes as 1/omega,
+## so a slower spin turns and fades more later in the flight.
+func spin_after(speed: float, omega: float, dt: float) -> float:
+	if c_zd == 0.0 or omega <= 0.0:
+		return omega
+	var k := -AIR_DENSITY * speed * area * diameter * diameter * c_zd / (4.0 * i_z)
+	return omega * exp(-k * dt)
 
 
 ## One tick of flight.

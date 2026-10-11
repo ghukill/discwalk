@@ -78,7 +78,7 @@ var _collected := 0
 
 
 func _ready() -> void:
-	disc_models = DiscModel.load_all()
+	disc_models = DiscModel.load_all(DiscModel.C_ZD_HUMMEL)
 	setup = ThrowSetup.new()
 	setup.name = "ThrowSetup"
 	setup.discs = disc_models
