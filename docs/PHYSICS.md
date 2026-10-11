@@ -69,17 +69,23 @@ the game lands within ~1–3 % (checked every run of `tools/flight_test.gd`).
 ## The discs
 
 Seven discs, each built from the wind-tunnel data of one real disc. Names are
-Michigan glacial landforms. Drivers are listed from understable to overstable.
+Michigan glacial landforms. (Player's guide, with flights to try:
+[DISCS.md](DISCS.md).) Drivers are listed from understable to overstable.
 
 | Disc | Kind | Data from | Character (in game) | `C_M` at 0° | aero centre |
 |---|---|---|---|---|---|
 | **Kettle** | putter | Innova Aviar | short and straight at putting speed (16 m/s: 37 m) | −0.018 | 5 % |
 | **Drumlin** | midrange | Innova Roc | steady, fades with a little hyzer | −0.014 | 7 % |
 | **Esker** | midrange | Discraft Buzz | straight-to-understable; likes some hyzer | −0.034 | 10 % |
-| **Till** | driver | Discwing Quarter K | very understable: turns over flat, needs 20–30° hyzer (hyzer flip) | −0.038 | 13 % |
-| **Outwash** | driver | "Storm" (maker not given) | slightly understable; long with 15–20° hyzer (~86 m at 23 m/s) | −0.026 | 9 % |
-| **Moraine** | driver | Innova Wraith | the distance driver: 10° hyzer at 24 m/s flips up and goes ~93 m | −0.020 | 15 % |
-| **Erratic** | driver | Discraft Flick | very overstable: fades left even thrown anhyzer | −0.007 | 21 % |
+| **Till** | distance driver | Discwing Quarter K | very understable: turns over flat, needs 20–30° hyzer (hyzer flip) | −0.038 | 13 % |
+| **Outwash** | distance driver | "Storm" (maker not given) | slightly understable; long with 15–20° hyzer (~86 m at 23 m/s) | −0.026 | 9 % |
+| **Moraine** | distance driver | Innova Wraith | the distance driver: 10° hyzer at 24 m/s flips up and goes ~93 m | −0.020 | 15 % |
+| **Erratic** | distance driver | Discraft Flick | very overstable: fades left even thrown anhyzer | −0.007 | 21 % |
+
+The throw HUD shows each disc's kind and a one-word stability (straight,
+stable, understable, overstable, "very ...") in small print above its name.
+"Distance driver" follows the rim: these four have 2.1–2.3 cm rims
+(Table 4.1; the Storm's isn't given).
 
 How to read the last two columns: a more negative `C_M` at low angle of attack
 means more **turn** at speed (understable); an aerodynamic centre further

@@ -4,7 +4,8 @@ extends Control
 ##
 ##   ┌──────────────────────────────┐
 ##   │  ( disc )✋   ▮ ▯            │  disc tilt (nose + hyzer), hand,
-##   │  Moraine · nose +0 · hyzer 10│  velocity bar, spin bar (dotted = locked)
+##   │  distance driver · stable    │  velocity bar, spin bar (dotted = locked),
+##   │  Moraine · nose +0 · hyzer 10│  disc kind + stability (small, dim)
 ##   │  (hdg) (hzn)   o Chase view  │
 ##   │                o Goto        │
 ##   │                o Paths       │
@@ -97,6 +98,10 @@ func _draw() -> void:
 	var r: float = setup.roll
 	var tilt := "flat" if absf(r) < 0.5 else ("hyzer %d°" % int(round(absf(r))) if r > 0 else "anhyzer %d°" % int(round(absf(r))))
 	var y := PAD + DISC_R * 2 + 38.0
+	# Small and dim above the name: what kind of disc it is, for the curious.
+	if d != null and d.kind != "":
+		var kind: String = d.kind if d.stability == "" else "%s · %s" % [d.kind, d.stability]
+		_text(Vector2(PAD, y - 15), kind, 9, DIM)
 	_text(Vector2(PAD, y), name, 13, AMBER)
 	var nw := font.get_string_size(name, HORIZONTAL_ALIGNMENT_LEFT, -1, 13).x
 	_text(Vector2(PAD + nw + 8, y), "nose %+.1f°   %s" % [setup.nose, tilt], 12, INK)

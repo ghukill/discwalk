@@ -41,7 +41,8 @@ var mass := 0.175                    ## kg
 var i_xy := 0.0                      ## moment of inertia across the disc (kg m^2)
 var i_z := 0.0                       ## moment of inertia about the spin axis (kg m^2)
 var order := 0                       ## Sort key (putter -> drivers).
-var kind := ""                       ## putter / midrange / driver
+var kind := ""                       ## putter / midrange / distance driver ...
+var stability := ""                  ## straight / stable / overstable / understable ...
 var inspired_by := ""                ## The real disc whose data this is.
 var c_mq := HUMMEL_CMQ               ## Pitch damping (per rad/s).
 var c_rp := HUMMEL_CRP               ## Roll damping (per rad/s).
@@ -55,7 +56,8 @@ var _cm := PackedFloat32Array()
 
 ## Loads one disc from JSON: {id, label, source, license, diameter, J_xy, J_z,
 ## alpha[], Cl[], Cd[], Cm[]} plus optional Hummel overrides {CMq, CRp, CNr}.
-## J_* are inertia per unit mass (m^2). Optional: order, kind, inspired_by.
+## J_* are inertia per unit mass (m^2). Optional: order, kind, stability,
+## inspired_by.
 static func load_json(path: String, disc_mass := 0.175) -> RefCounted:
 	var d: Dictionary = JSON.parse_string(FileAccess.get_file_as_string(path))
 	var m = load("res://scripts/disc_model.gd").new()
@@ -70,6 +72,7 @@ static func load_json(path: String, disc_mass := 0.175) -> RefCounted:
 	m.i_z = disc_mass * float(d.J_z)
 	m.order = int(d.get("order", 0))
 	m.kind = d.get("kind", "")
+	m.stability = d.get("stability", "")
 	m.inspired_by = d.get("inspired_by", "")
 	m.c_mq = float(d.get("CMq", HUMMEL_CMQ))
 	m.c_rp = float(d.get("CRp", HUMMEL_CRP))

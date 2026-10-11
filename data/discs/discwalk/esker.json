@@ -3,6 +3,7 @@
  "label": "Esker",
  "order": 3,
  "kind": "midrange",
+ "stability": "straight",
  "inspired_by": "Discraft Buzz",
  "note": "An esker is a long, straight ridge left by a river under the ice.",
  "source": "Kamaruddin 2011 (wind tunnel, Buzz) + discwalk extension; tools/discs/build_tables.py, docs/PHYSICS.md",

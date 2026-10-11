@@ -4,7 +4,7 @@ A voxel walking sim through a generated glacial landscape (kettle lakes, rolling
 
 Built with **Godot 4.7** in plain GDScript. There are no native plugins or C#, so the same project runs on Linux, macOS and Windows.
 
-**Docs:** [Screenshots](#screenshots) · [Configuration](docs/CONFIG.md) · [Architecture](docs/ARCHITECTURE.md) · [Development](docs/DEVELOPMENT.md) · [Physics](docs/PHYSICS.md) · [Disc flight plan](docs/DISC-FLIGHT-PLAN.md)
+**Docs:** [Screenshots](#screenshots) · [Configuration](docs/CONFIG.md) · [Architecture](docs/ARCHITECTURE.md) · [Development](docs/DEVELOPMENT.md) · [Discs](docs/DISCS.md) · [Physics](docs/PHYSICS.md) · [Disc flight plan](docs/DISC-FLIGHT-PLAN.md)
 
 ![Oak grove with lupine and coneflowers](docs/screenshot-oak.png)
 

@@ -7,7 +7,8 @@ sorts them by `order` and lists them in the throw HUD (Tab).
 ```json
 {
  "id": "moraine", "label": "Moraine",    // label is what the HUD shows
- "order": 6, "kind": "driver",            // optional: sort key, putter/midrange/driver
+ "order": 6, "kind": "distance driver",   // optional: sort key; kind shows in the HUD
+ "stability": "stable",                   // optional: shows in the HUD next to kind
  "inspired_by": "Innova Wraith",          // optional: the real disc behind the data
  "source": "...", "license": "...",
  "diameter": 0.211,                       // m
@@ -38,10 +39,10 @@ python3 tools/discs/build_tables.py
 | kettle | putter | Innova Aviar |
 | drumlin | midrange | Innova Roc |
 | esker | midrange | Discraft Buzz |
-| till | driver | Discwing Quarter K |
-| outwash | driver | "Storm" (maker not given in the thesis) |
-| moraine | driver | Innova Wraith |
-| erratic | driver | Discraft Flick |
+| till | distance driver | Discwing Quarter K |
+| outwash | distance driver | "Storm" (maker not given in the thesis) |
+| moraine | distance driver | Innova Wraith |
+| erratic | distance driver | Discraft Flick |
 
 How the tables are made, and why: [docs/PHYSICS.md](../../docs/PHYSICS.md).
 After changing them, refresh the reference flights in `tools/flight_test.gd`

@@ -208,7 +208,7 @@ Step 2 of throwing. `flying_disc.gd` extends `disc.gd`, so trees, lakes, beams, 
   - The body's orientation is set from `normal` each tick; real angular velocity stays zero. Spin (`omega`) is a number fed to the maths; the mesh spins at a capped, watchable rate.
   - Godot's default linear damping is replaced with 0 while flying (the model does drag).
 - **Landing**: first touch of anything (ground/trunk contact, bark, leaves, water) switches the aerodynamics off for good. Ordinary physics takes over with up to 25 rad/s of real spin, so it can skid, roll and flop, with a slicker material than the block (friction 0.3 vs 0.7) so it skips on instead of digging in. `flight_dist` is the carry at first contact; the HUD shows carry, rest distance, peak and airtime.
-- **Disc data**: seven discs, JSON tables under `data/discs/discwalk/`, built by `tools/discs/build_tables.py` from Kamaruddin's (2011) wind-tunnel data for real golf discs (see `data/discs/README.md` and [PHYSICS.md](PHYSICS.md#the-discs)). They load sorted by `order` (putter, mids, then drivers from understable to overstable); the HUD shows each disc's `label`.
+- **Disc data**: seven discs, JSON tables under `data/discs/discwalk/`, built by `tools/discs/build_tables.py` from Kamaruddin's (2011) wind-tunnel data for real golf discs (see `data/discs/README.md` and [PHYSICS.md](PHYSICS.md#the-discs)). They load sorted by `order` (putter, mids, then drivers from understable to overstable); the HUD shows each disc's `label`, with `kind` and `stability` in small print above it. Player's guide: [DISCS.md](DISCS.md).
 
 ### Toggles: Chase view, Goto, Paths (`thrower.gd`, `lamps.gd`)
 

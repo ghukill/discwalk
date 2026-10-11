@@ -44,22 +44,25 @@ GRID = ([-90, -80, -70, -60, -50, -40, -35, -30, -25, -20, -16, -14, -12, -10, -
 
 # Our discs. Glacial names (Michigan's landscape is all of these). "src" is the
 # Kamaruddin disc whose data we use. Ordered putter -> mids -> drivers, the
-# drivers from understable to overstable. (A disc may set "cm_shift" to offset
+# drivers from understable to overstable. "kind" follows the rim: the drivers'
+# rims are 2.1-2.3 cm wide (Table 4.1), distance-driver territory (the Storm's
+# isn't given; it is a driver in the thesis). "stability" describes how each
+# flies in the game (docs/PHYSICS.md); both show in the throw HUD. (A disc may set "cm_shift" to offset
 # C_M and "synthetic": True, for a disc no one has measured; none do yet.)
 DISCS = [
-    dict(id="kettle", label="Kettle", order=1, src="Aviar", kind="putter",
+    dict(id="kettle", label="Kettle", order=1, src="Aviar", kind="putter", stability="straight",
          note="A kettle is the hole a buried ice block leaves: where the disc ends up."),
-    dict(id="drumlin", label="Drumlin", order=2, src="Roc", kind="midrange",
+    dict(id="drumlin", label="Drumlin", order=2, src="Roc", kind="midrange", stability="stable",
          note="A drumlin is a smooth hill the ice streamlined: steady, with a gentle fade."),
-    dict(id="esker", label="Esker", order=3, src="Buzz", kind="midrange",
+    dict(id="esker", label="Esker", order=3, src="Buzz", kind="midrange", stability="straight",
          note="An esker is a long, straight ridge left by a river under the ice."),
-    dict(id="till", label="Till", order=4, src="Quarter K", kind="driver",
+    dict(id="till", label="Till", order=4, src="Quarter K", kind="distance driver", stability="very understable",
          note="Till is the jumble the glacier drops: very understable, a hyzer-flip disc."),
-    dict(id="outwash", label="Outwash", order=5, src="Storm", kind="driver",
+    dict(id="outwash", label="Outwash", order=5, src="Storm", kind="distance driver", stability="understable",
          note="Outwash plains spread out from the ice: an easy, slightly understable driver."),
-    dict(id="moraine", label="Moraine", order=6, src="Wraith", kind="driver",
+    dict(id="moraine", label="Moraine", order=6, src="Wraith", kind="distance driver", stability="stable",
          note="The big ridge at the edge of the ice: the long distance driver."),
-    dict(id="erratic", label="Erratic", order=7, src="Flick", kind="driver",
+    dict(id="erratic", label="Erratic", order=7, src="Flick", kind="distance driver", stability="very overstable",
          note="An erratic is a boulder the ice dropped somewhere odd. Very overstable: always hooks."),
 ]
 
@@ -174,6 +177,7 @@ def main():
             "label": d["label"],
             "order": d["order"],
             "kind": d["kind"],
+            "stability": d["stability"],
             "inspired_by": ("synthetic: %s's data, C_M shifted %+.3f" % (src, d["cm_shift"]))
             if synthetic else ("%s %s" % (g["maker"], src) if src in K.GEOMETRY else "%s (maker not given in the thesis)" % src),
             "note": d["note"],

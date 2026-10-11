@@ -3,6 +3,7 @@
  "label": "Drumlin",
  "order": 2,
  "kind": "midrange",
+ "stability": "stable",
  "inspired_by": "Innova Roc",
  "note": "A drumlin is a smooth hill the ice streamlined: steady, with a gentle fade.",
  "source": "Kamaruddin 2011 (wind tunnel, Roc) + discwalk extension; tools/discs/build_tables.py, docs/PHYSICS.md",

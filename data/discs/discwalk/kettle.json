@@ -3,6 +3,7 @@
  "label": "Kettle",
  "order": 1,
  "kind": "putter",
+ "stability": "straight",
  "inspired_by": "Innova Aviar",
  "note": "A kettle is the hole a buried ice block leaves: where the disc ends up.",
  "source": "Kamaruddin 2011 (wind tunnel, Aviar) + discwalk extension; tools/discs/build_tables.py, docs/PHYSICS.md",
