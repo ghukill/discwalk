@@ -59,6 +59,7 @@ var view_on := false                     ## VIEW toggle (V).
 var warp_on := false                     ## GOTO toggle (G).
 var lamps: Control                       ## Warm lamps in the HUD (lamps.gd).
 var hole: Node                           ## The hole being played (hole.gd), if any.
+var basket_arrow: Control                ## Screen-edge pointer to the basket (P).
 var note_label: Label                    ## Top centre: brief notes ("goto 42 m", "Holed in 4").
 var warp_flash: ColorRect                ## Soft white fade when you arrive.
 var _warp_target: Node = null            ## Throw we'll warp to when it stops.
@@ -271,6 +272,8 @@ func set_paths(on: bool) -> void:
 			d.set_beam(on)
 	if hole != null and hole.basket != null:
 		hole.basket.set_beam(on)
+	if basket_arrow != null:
+		basket_arrow.enabled = on
 	_update_lamps()
 	_update_label()
 

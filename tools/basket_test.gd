@@ -14,7 +14,7 @@ var _ran := {}                       ## Test functions that reached their end.
 ## Every test function that must run to completion. A GDScript error aborts
 ## only the function it happens in, so without this a broken test would skip
 ## all its checks and the run would still report PASS.
-const MUST_RUN := ["geometry", "chains", "siting", "strokes", "ace"]
+const MUST_RUN := ["geometry", "chains", "siting", "strokes", "ace", "arrow"]
 
 
 func _initialize() -> void:
@@ -39,6 +39,7 @@ func _run() -> void:
 	_test_siting()
 	_test_strokes()
 	await _test_ace()
+	await _test_arrow()
 	for name: String in MUST_RUN:
 		if not _ran.has(name):
 			print("BASKET %-22s BAD  (aborted before finishing)" % name)
@@ -253,3 +254,57 @@ func _test_ace() -> void:
 	_check("ace from 44 m is possible", made,
 		"strokes=%d" % _main.hole.strokes)
 	_done("ace")
+
+
+## The screen-edge arrow: hidden when you can see the basket, shown when you
+## cannot, and pointing the correct way round. That last one matters because
+## unproject_position() mirrors points behind the camera, so an arrow that
+## forgets to flip them points exactly 180 degrees wrong -- and looks
+## perfectly plausible until you follow it.
+func _test_arrow() -> void:
+	var t = _main.get_node("Terrain")
+	var b = t.basket
+	var th = _main.thrower
+	var arrow = _main.basket_arrow
+	var player: CharacterBody3D = _main.get_node("Player")
+	if arrow == null or b == null or _main.hole == null:
+		_check("arrow present", false)
+		return
+	th.clear()
+	var tee: Vector3 = t.spawn_point()
+	_main.hole.start(tee, tee + Vector3(0, 0, -40.0))
+	var c: Vector3 = b.global_position
+	player.global_position = tee
+	var face := atan2(-(c.x - tee.x), -(c.z - tee.z))
+
+	player.rotation.y = face
+	await _settle()
+	_check("arrow hidden when basket in view", not arrow.showing())
+
+	player.rotation.y = face + PI
+	await _settle()
+	_check("arrow shown when basket behind you", arrow.showing())
+
+	player.rotation.y = face + PI * 0.5
+	await _settle()
+	var shown_one: bool = arrow.showing()
+	var side_one := cos(arrow.angle())
+
+	player.rotation.y = face - PI * 0.5
+	await _settle()
+	_check("arrow shown when basket off to the side", shown_one and arrow.showing())
+	var side_two := cos(arrow.angle())
+	_check("arrow points to opposite sides", side_one * side_two < 0.0,
+		"cos(angle) %+.2f then %+.2f" % [side_one, side_two])
+
+	th.set_paths(false)
+	await _settle()
+	_check("P hides the arrow", not arrow.showing())
+	th.set_paths(true)
+	await _settle()
+	_done("arrow")
+
+
+func _settle() -> void:
+	await process_frame
+	await process_frame

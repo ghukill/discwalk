@@ -22,6 +22,7 @@ scripts/disc_model.gd    Disc aerodynamics: coefficient tables, lift/drag, gyros
 scripts/follow_cam.gd    Follow cam (V): chase camera for the last disc
 scripts/basket.gd        A basket: pole, tray, band, and chains that catch (swept, not colliders)
 scripts/hole.gd          One hole: tee, basket, stroke count. Knows the rules, not the physics
+scripts/basket_arrow.gd  Screen-edge arrow pointing at the basket while it is off screen (P)
 scripts/clouds.gd        Fluffy voxel clouds drifting high overhead (K toggles)
 scripts/dials.gd         Heading + horizon dials (in the throw HUD)
 scripts/paths.gd         Flight paths: voxel trail per disc throw; P toggles (off = fall + poof)

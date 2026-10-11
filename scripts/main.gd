@@ -6,6 +6,7 @@ const THROWER_SCRIPT := preload("res://scripts/thrower.gd")
 const CLOUDS_SCRIPT := preload("res://scripts/clouds.gd")
 const BASKET_SCRIPT := preload("res://scripts/basket.gd")
 const HOLE_SCRIPT := preload("res://scripts/hole.gd")
+const BASKET_ARROW_SCRIPT := preload("res://scripts/basket_arrow.gd")
 
 @onready var terrain: Node3D = $Terrain
 @onready var player: CharacterBody3D = $Player
@@ -14,6 +15,7 @@ const HOLE_SCRIPT := preload("res://scripts/hole.gd")
 var thrower: Node
 var hole: Node                       ## The hole you're playing (scripts/hole.gd).
 var hole_label: Label                ## Top left: distance to the basket and your score.
+var basket_arrow: Control            ## Screen-edge pointer to the basket.
 var clouds: Node3D
 var ui_scale := 1.0                  ## On top of the screen's own scale (- / = keys, --ui-scale=).
 
@@ -142,6 +144,15 @@ func _setup_basket() -> void:
 	thrower.hole = hole
 	b.caught.connect(thrower._on_holed)
 	_setup_hole_label()
+
+	basket_arrow = Control.new()
+	basket_arrow.set_script(BASKET_ARROW_SCRIPT)
+	basket_arrow.name = "BasketArrow"
+	basket_arrow.camera = $Player/Head/Camera3D
+	basket_arrow.target = b
+	basket_arrow.enabled = thrower.paths_on
+	$HUD.add_child(basket_arrow)
+	thrower.basket_arrow = basket_arrow
 
 
 ## Distance to the basket and how you're doing, under the key help.
