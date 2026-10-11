@@ -58,7 +58,6 @@ var paths_on := true                     ## Paths + rest beams (P).
 var view_on := false                     ## VIEW toggle (V).
 var warp_on := false                     ## GOTO toggle (G).
 var lamps: Control                       ## Warm lamps in the HUD (lamps.gd).
-var launch_label: Label                  ## Under the crosshair: "launch 12°".
 var warp_label: Label                    ## Top centre: brief notes ("warped 42 m").
 var warp_flash: ColorRect                ## Soft white fade when you arrive.
 var _warp_target: Node = null            ## Throw we'll warp to when it stops.
@@ -410,9 +409,6 @@ func _update_lamps() -> void:
 func _process(_delta: float) -> void:
 	_update_warp(_delta)
 	var following: bool = follow_cam != null and follow_cam.active()
-	if launch_label != null:
-		launch_label.visible = not following
-		launch_label.text = "launch %+d°" % int(round(launch_angle()))
 	var rolling := 0
 	for d in discs:
 		if is_instance_valid(d) and d.collecting:

@@ -67,7 +67,7 @@ Main (main.gd)
 │  ├─ FollowCam (follow_cam.gd)  chase camera (V)
 │  └─ Paths (paths.gd)           one MultiMeshInstance3D per flight path
 ├─ Disc / FlyingDisc …           RigidBody3D per throw (up to 12 kept)
-└─ HUD/Help, Crosshair, Throw, ThrowStatus, ThrowPanel, LaunchAngle,
+└─ HUD/Help, Crosshair, Throw, ThrowHud (Dials, Lamps),
        WarpFlash, Warp, Dials (dials.gd)
 ```
 
@@ -198,7 +198,7 @@ Everything is driven by `world_seed`: `RandomNumberGenerator` seeds and `FastNoi
 
 Step 2 of throwing. `flying_disc.gd` extends `disc.gd`, so trees, lakes, beams, fetch and collect all work the same; what changes is the shape and the flight. Design notes: [DISC-FLIGHT-PLAN.md](DISC-FLIGHT-PLAN.md).
 
-- **Setting up a throw** (`throw_setup.gd`, spec in [THROW-HUD.md](THROW-HUD.md)): disc (Tab), speed, nose (disc tilt relative to the flight path), hyzer (+) / anhyzer (−), spin (locked = auto, 5.2 rad/s per m/s, about 1200 rpm at 24 m/s), hand (H: `+1` backhand, `-1` forehand, which mirrors the flight). The arrows are polled in `_process` so a hold repeats: one step on press, then after 0.3 s at 10 steps/s ramping to 45. Nothing resets after a throw. Left click or Enter calls `thrower.throw_disc(setup.params())`. Aim is where you look: left/right sets the direction, up/down the launch angle (`thrower.launch_angle()` = view pitch, clamped to −45..85°; shown as `launch +N°` under the crosshair). There is no launch offset any more. Tests can pass `pitch` to override; release is 1.3 m up, 0.6 m ahead.
+- **Setting up a throw** (`throw_setup.gd`, spec in [THROW-HUD.md](THROW-HUD.md)): disc (Tab), speed, nose (disc tilt relative to the flight path), hyzer (+) / anhyzer (−), spin (locked = auto, 5.2 rad/s per m/s, about 1200 rpm at 24 m/s), hand (H: `+1` backhand, `-1` forehand, which mirrors the flight). The arrows are polled in `_process` so a hold repeats: one step on press, then after 0.3 s at 10 steps/s ramping to 45. Nothing resets after a throw. Left click or Enter calls `thrower.throw_disc(setup.params())`. Aim is where you look: left/right sets the direction, up/down the launch angle (`thrower.launch_angle()` = view pitch, clamped to −45..85°; the horizon dial in the HUD shows it). There is no launch offset any more. Tests can pass `pitch` to override; release is 1.3 m up, 0.6 m ahead.
 - **Body**: a 21 cm × 3 cm cylinder collider, drawn as a 7×7 pixel circle with a darker rim and a white stamp so you can see it spin. Blue, except the overstable `cd1` which is pink.
 - **Flight** (`DiscModel.step()`), every physics tick while `flying`:
   - Angle of attack from the velocity (minus wind) and the disc's normal.
@@ -223,7 +223,7 @@ With **Chase view** on, the view switches to a Camera3D (child of the Thrower, `
 
 ### Flight paths (`paths.gd`)
 
-Every real disc throw (not blocks) is tracked from release: a cube every 0.5 m in the air (8 cm, full colour) and every 0.25 m on the ground (5 cm, darkened by half). Cubes are see-through (alpha 0.55). Nothing is drawn within 3.5 m of the release point (`START_GAP`); past that they fade in over 4 m (`FADE_IN`), and the material's distance fade hides any cube within 1–4 m of the camera (`NEAR_FADE_MIN/MAX`), so stacked paths at the tee or in front of a chase camera stay out of your face. Each throw gets the next colour on a golden-ratio hue walk, and the disc and its beam share it. One `MultiMeshInstance3D` per path, unshaded, no fog, no shadows, no collision; it doubles its capacity as needed. Recording stops when the disc rests, is collected, or disappears; the path stays.
+Every real disc throw (not blocks) is tracked from release: a cube every 0.5 m in the air (8 cm, full colour) and every 0.25 m on the ground (5 cm, darkened by half). Cubes are see-through (alpha 0.55). Nothing is drawn within 1.75 m of the release point (`START_GAP`); past that they fade in over 2 m (`FADE_IN`), and the material's distance fade hides any cube within 1–4 m of the camera (`NEAR_FADE_MIN/MAX`), so stacked paths at the tee or in front of a chase camera stay out of your face. Each throw gets the next colour on a golden-ratio hue walk, and the disc and its beam share it. One `MultiMeshInstance3D` per path, unshaded, no fog, no shadows, no collision; it doubles its capacity as needed. Recording stops when the disc rests, is collected, or disappears; the path stays.
 
 **P** toggles paths and rest beams together (`thrower.set_paths()`, starts on; shown by the Paths lamp in the HUD). Off: existing paths `clear(true)` and new throws aren't tracked until it's back on. On clearing, each cube lets go after a random 0–0.6 s, drifts down at 3.5 m/s² with a little sideways breeze and a slow tumble, and when it reaches the ground (or the lake surface) it swells to 1.8×, whitens and fades out over 0.35 s. **N** (new world) clears paths instantly.
 

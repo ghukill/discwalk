@@ -87,21 +87,6 @@ func _setup_throwing() -> void:
 	thrower.hud = $HUD
 	add_child(thrower)
 
-	# Launch angle readout, small and faint, just under the crosshair.
-	var launch := Label.new()
-	launch.name = "LaunchAngle"
-	launch.add_theme_color_override("font_color", Color(1, 1, 1, 0.55))
-	launch.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.5))
-	launch.add_theme_font_size_override("font_size", 12)
-	launch.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
-	launch.offset_left = -60
-	launch.offset_right = 60
-	launch.offset_top = 14
-	launch.offset_bottom = 32
-	launch.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	$HUD.add_child(launch)
-	thrower.launch_label = launch
-
 	# Warp flag, small, top centre; and a soft flash on arrival.
 	var flash := ColorRect.new()
 	flash.name = "WarpFlash"

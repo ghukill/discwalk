@@ -13,7 +13,7 @@
 - **Velocity bar** (left of the pair) and **spin bar** (right). Spin is dotted/dimmed and can't be changed while it's locked (auto spin from speed).
 - **Heading dial** and **horizon dial** below. They always show; the horizon chevron = launch angle (= view pitch, no offset).
 - **Lamps**: Chase view (V), Goto (G), Paths (P).
-- `launch +N°` stays under the crosshair.
+- No readout under the crosshair: the horizon dial shows the launch angle (hide the HUD with U and there's nothing, on purpose).
 
 ## Keys
 

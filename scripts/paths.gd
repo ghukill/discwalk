@@ -22,8 +22,8 @@ const GROUND_SPACING := 0.25         ## ... and rolled (slower, so closer).
 const GROUND_DIM := 0.5              ## Ground cubes: colour darkened by this.
 const START_CAPACITY := 256
 const ALPHA := 0.55                  ## See-through-ness of path cubes (1 = solid).
-const START_GAP := 3.5               ## No cubes within this many metres of the release.
-const FADE_IN := 4.0                 ## ... then they fade in over this many metres.
+const START_GAP := 1.75              ## No cubes within this many metres of the release.
+const FADE_IN := 2.0                 ## ... then they fade in over this many metres.
 const NEAR_FADE_MIN := 1.0           ## Cubes closer than this to the camera are invisible,
 const NEAR_FADE_MAX := 4.0           ## ... and fully there from this far.
 const FALL_GRAVITY := 3.5            ## m/s^2: a gentle drift, not a drop.

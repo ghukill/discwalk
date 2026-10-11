@@ -42,7 +42,7 @@ func _process(_d: float) -> bool:
 		var d = th.throw_disc(th.setup.params())
 		var v: Vector3 = d.linear_velocity
 		var ang := rad_to_deg(atan2(v.y, Vector2(v.x, v.z).length()))
-		print("DIALS launch angle at view +15: %.1f deg (readout %s)" % [ang, th.launch_label.text])
+		print("DIALS launch angle at view +15: %.1f deg" % ang)
 	if _f == 80:
 		quit()
 	return false
