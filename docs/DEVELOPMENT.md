@@ -1,24 +1,5 @@
 # Development
 
-## Machines
-
-| Where | What | Notes |
-|---|---|---|
-| **T480** (Linux, headless) | Main dev box. Repo at `~/.henon/instances/zippychirps/discwalk`. Godot at `../tools/godot/Godot_v4.7.2-stable_linux.x86_64`. | Real GPU (Intel UHD 620) on `DISPLAY=:0` (~30 fps at 720p). VNC `:1` is software-rendered (llvmpipe, ~3–10 fps), so only use it for previews. |
-| **Bosworth** (Mac, M1 Pro) | Playtest box. Repo cloned at `~/projects/discwalk`, Godot at `~/Applications/Godot.app`. | Metal, 60 fps capped (~450 uncapped). |
-
-Launch on Bosworth from the T480:
-
-```sh
-ssh commander@100.93.7.9 'cd ~/projects/discwalk && git pull -q && open -n ~/Applications/Godot.app --args --path ~/projects/discwalk'
-# finer blocks:
-ssh commander@100.93.7.9 'open -n ~/Applications/Godot.app --args --path ~/projects/discwalk -- --block-size=0.5'
-# stop:
-ssh commander@100.93.7.9 'pkill -f Godot.app/Contents/MacOS/Godot'
-```
-
-Over SSH, macOS won't allow `screencapture` (no Screen Recording permission), so take screenshots on the T480's `:0` instead.
-
 ## Checks before committing
 
 ```sh
@@ -116,4 +97,3 @@ To check frame rate: `DISPLAY=:0 $G --path . --resolution 1280x720 --print-fps -
 
 - GitHub: <https://github.com/ghukill/discwalk> (`main`).
 - Tags: `checkpoint-1` = phase 1.
-- Bosworth pulls over HTTPS (works while the repo is public).
