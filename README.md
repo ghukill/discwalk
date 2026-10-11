@@ -4,8 +4,6 @@ A voxel walking sim through a generated glacial landscape (kettle lakes, rolling
 
 Built with **Godot 4.7** in plain GDScript. There are no native plugins or C#, so the same project runs on Linux, macOS and Windows.
 
-Design + roadmap: Henon ticket `0002` (`zippychirps/tickets/0002-discwalk-voxel-godot-game.md`).
-
 **Docs:** [Screenshots](#screenshots) · [Configuration](docs/CONFIG.md) · [Architecture](docs/ARCHITECTURE.md) · [Development](docs/DEVELOPMENT.md) · [Disc flight plan](docs/DISC-FLIGHT-PLAN.md)
 
 ![Oak grove with lupine and coneflowers](docs/screenshot-oak.png)
