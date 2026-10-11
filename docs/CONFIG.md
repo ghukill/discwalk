@@ -142,7 +142,7 @@ keeps nearly everything. `chain_max_force` is the knob that sets that line.
 
 | Setting | Default | Meaning |
 |---|---|---|
-| `chain_max_force` | 28 | Hardest the chains push back (N). **The main feel knob.** Higher = more putts stick and drives start getting caught; lower = more spit-outs. |
+| `chain_max_force` | 80 | Hardest the chains push back (N). **The main feel knob.** Higher = more putts stick and drives start getting caught; lower = more spit-outs. |
 | `chain_drag_per_metre` | 0.01 | Fraction of speed kept per metre of curtain. Deliberately brutal; the force limit above is what discriminates. |
 | `chain_kick` | 0.08 | Random sideways rattle, as a fraction of the speed absorbed. |
 | `chain_down_bias` | 0.35 | Share of absorbed speed sent downward, so a dying disc drops into the tray. |
@@ -155,9 +155,37 @@ the top band, a 0.635 m tray, chains between 0.75 m and 1.30 m. The basket is
 built from smooth primitives rather than voxels, because at a 0.25 m block size
 the tray would be two and a half blocks across.
 
-`tools/putt_probe.gd` sweeps putt distance, speed and loft and reports what goes
-in — run it after changing any of the above:
+### What the chains can actually catch
+
+Roughly, the catchable arrival speed goes as `sqrt(3.4 * chain_max_force)`, so
+80 N catches a disc arriving at up to about **17 m/s** and spits out anything
+faster. Measured at 80 N: a putt arriving at 8 m/s is caught in 5 ticks, while a
+point-blank 25 m/s drive leaves the far side at 7.7 m/s.
+
+### Throw-ins and aces
+
+They are possible, and they have to be earned. A disc only passes through the
+chain window (0.75–1.30 m up) for a metre or two of its flight — the rest of the
+time it is either well overhead or already down and skidding. So an ace needs
+the disc to arrive **on line, at chain height, and slowed below the ceiling**.
+Measured on seed 1848, throwing a `dd2` at 24 m/s with 8° of hyzer:
+
+| Hole | Launch angle | What happens |
+|---|---|---|
+| 40 m | +5° | arrives on line at chain height but at 19 m/s — spits out |
+| 44 m | +6° | arrives slowed and in the window — **goes in, repeatably** |
+| 50 m | +6° | on line at chain height, 19 m/s — spits out |
+| any | +10° or more | balloons on lift and sails metres over the band |
+| any | +3° or less | lands short and skids into the pole at ground level |
+
+`tools/basket_test.gd` keeps the 44 m ace as a regression: if `chain_max_force`
+drops much, that is the first check to fail.
+
+Three probes measure all of this, and are worth re-running after changing any
+knob above:
 
 ```sh
-$G --headless --path . --script res://tools/putt_probe.gd -- --block-size=1
+$G --headless --path . --script res://tools/putt_probe.gd    -- --block-size=1  # putts
+$G --headless --path . --script res://tools/ace_probe.gd     -- --block-size=1  # throw-ins
+$G --headless --path . --script res://tools/arrival_probe.gd -- --block-size=1  # speed/height downrange
 ```

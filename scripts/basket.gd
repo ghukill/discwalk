@@ -47,7 +47,7 @@ const COLOR_BAND := Color(0.80, 0.62, 0.22)   ## A warm band, easy to pick out.
 ## CONTACT TIME decides how much it loses: a putt dawdles through the
 ## curtain over several physics ticks and gets wrung out, while a drive is
 ## past in one and keeps nearly everything. That is what a real basket does.
-@export var chain_max_force := 28.0
+@export var chain_max_force := 80.0
 ## Random sideways rattle, as a fraction of the speed absorbed.
 @export var chain_kick := 0.08
 ## Share of absorbed speed redirected downward, so a dying disc drops in.

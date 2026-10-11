@@ -14,7 +14,7 @@ var _ran := {}                       ## Test functions that reached their end.
 ## Every test function that must run to completion. A GDScript error aborts
 ## only the function it happens in, so without this a broken test would skip
 ## all its checks and the run would still report PASS.
-const MUST_RUN := ["geometry", "chains", "siting", "strokes"]
+const MUST_RUN := ["geometry", "chains", "siting", "strokes", "ace"]
 
 
 func _initialize() -> void:
@@ -22,21 +22,29 @@ func _initialize() -> void:
 	root.add_child(_main)
 
 
+var _started := false
+
+
 func _process(_delta: float) -> bool:
 	_frames += 1
-	if _frames < 5:
-		return false
+	if _frames > 5 and not _started:
+		_started = true
+		_run()
+	return false
+
+
+func _run() -> void:
 	_test_geometry()
 	_test_chains()
 	_test_siting()
 	_test_strokes()
+	await _test_ace()
 	for name: String in MUST_RUN:
 		if not _ran.has(name):
 			print("BASKET %-22s BAD  (aborted before finishing)" % name)
 			_ok = false
 	print("BASKET " + ("PASS" if _ok else "FAIL"))
 	quit(0 if _ok else 1)
-	return true
 
 
 func _check(name: String, cond: bool, detail := "") -> void:
@@ -106,9 +114,14 @@ func _test_chains() -> void:
 		"exit %.2f m/s after %d ticks" % [putt.speed, putt.ticks])
 	_check("putt touched chains", putt.hits.has("chains"))
 
+	# A point-blank drive must not stick. How much speed it keeps tracks
+	# chain_max_force, so the bar here is "clearly still travelling" rather
+	# than a number that has to be edited every time the knob moves.
 	var drive := _fly(entry, Vector3(25.0, 0, 0))
-	_check("drive punches through", not drive.caught and drive.speed > 12.0,
+	_check("drive punches through", not drive.caught and drive.speed > 5.0,
 		"exit %.2f m/s" % drive.speed)
+	_check("drive keeps far more than a putt", drive.speed > putt.speed * 2.0,
+		"drive %.2f vs putt %.2f m/s" % [drive.speed, putt.speed])
 	_check("drive touched chains", drive.hits.has("chains"))
 
 	# Over the top: a few ticks is plenty to clear the basket at 25 m/s.
@@ -196,3 +209,47 @@ func _test_strokes() -> void:
 	thrower.collect()
 	_check("collect frees the disc", b.holed == null and not last.in_basket)
 	_done("strokes")
+
+
+## A throw-in must be possible, or the chains are too strong. The shot needs
+## to arrive on line, at chain height, and far enough out to have slowed
+## below what the chains can absorb -- 44 m with a touch of loft is that
+## shot on this seed. If chain_max_force drops much, this is the first thing
+## that breaks, which is the point of testing it.
+func _test_ace() -> void:
+	var t = _main.get_node("Terrain")
+	var b = t.basket
+	var th = _main.thrower
+	var player: CharacterBody3D = _main.get_node("Player")
+	if b == null or _main.hole == null:
+		_check("ace: hole present", false)
+		return
+	th.clear()
+	b.release()
+	var tee: Vector3 = t.spawn_point()
+	_main.hole.start(tee, tee + Vector3(0, 0, -44.0))
+	var c: Vector3 = b.global_position
+	player.global_position = tee
+	var to := (c - tee) * Vector3(1, 0, 1)
+	# Aimed off to the right, because the disc fades left over 44 m.
+	player.rotation.y = atan2(-to.x, -to.z) + deg_to_rad(9.0)
+	await process_frame
+	var p: Dictionary = th.setup.params()
+	p.speed = 24.0
+	p.pitch = 6.0
+	p.roll = -8.0
+	p.spin = 5.2 * 24.0
+	var d = th.throw_disc(p)
+	var made := false
+	for i in 400:
+		await process_frame
+		if not is_instance_valid(d):
+			break
+		if b.holed != null:
+			made = true
+			break
+		if d.resting:
+			break
+	_check("ace from 44 m is possible", made,
+		"strokes=%d" % _main.hole.strokes)
+	_done("ace")

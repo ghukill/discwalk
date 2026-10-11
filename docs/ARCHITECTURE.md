@@ -47,6 +47,8 @@ tools/collect_test.gd    Headless collect: 8 scattered discs roll home, speed ra
 tools/basket_test.gd     Headless basket: geometry, chains, siting, strokes: PASS/FAIL
 tools/basket_shots.gd    Screenshots of the basket: close up, from the tee, a putt going in
 tools/putt_probe.gd      Tuning aid: sweeps putt distance/speed/loft, reports what goes in
+tools/ace_probe.gd       Tuning aid: can you throw one in? Finds the aim that reaches the basket
+tools/arrival_probe.gd   Tuning aid: disc speed and height at each distance mark downrange
 tools/toggles_test.gd    Headless VIEW/WARP/launch/PATH behaviour, scene by scene
 docs/                    These docs + screenshots
 ```
