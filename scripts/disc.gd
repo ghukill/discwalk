@@ -49,6 +49,7 @@ var splashed := false
 var resting := false
 var max_height := 0.0                ## Peak height above release (m).
 var collecting := false
+var in_basket := false               ## Parked in a basket's tray.
 var collect_target: Node3D
 var _collect_t := 0.0
 var _shape: CollisionShape3D
@@ -173,6 +174,17 @@ func _integrate_forces(state: PhysicsDirectBodyState3D) -> void:
 			_in_water = true
 			break
 
+	# Basket: the chains and top band are swept, not colliders, for the same
+	# reason leaves are (too thin, a fast disc would tunnel straight through).
+	var basket: Node3D = terrain.basket
+	if basket != null and not collecting and not in_basket:
+		var res: Dictionary = basket.sweep(p, p + v * dt, v, mass, dt)
+		v = res.v
+		if res.caught:
+			basket.capture.call_deferred(self)
+			state.linear_velocity = Vector3.ZERO
+			return
+
 	v = _rescue_if_under(state, v, p, bs)
 	if collecting:
 		v = _roll_home(state, v, p, dt)
@@ -204,6 +216,8 @@ func _rescue_if_under(state: PhysicsDirectBodyState3D, v: Vector3, p: Vector3, b
 
 ## Start rolling home to `target` (the player).
 func start_collect(target: Node3D) -> void:
+	if in_basket and terrain != null and terrain.basket != null:
+		terrain.basket.release()     # C pulls a holed disc back out of the tray
 	collecting = true
 	collect_target = target
 	_collect_t = 0.0
@@ -280,6 +294,8 @@ func apply_aero(_state: PhysicsDirectBodyState3D, v: Vector3) -> Vector3:
 
 
 func _physics_process(delta: float) -> void:
+	if in_basket:
+		return                       # sitting in a basket's tray: not a lie
 	if global_position.y < -30.0:
 		queue_free()
 		return

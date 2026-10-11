@@ -37,16 +37,40 @@ const COLOR_STEEL := Color(0.62, 0.64, 0.66)
 const COLOR_CHAIN := Color(0.78, 0.80, 0.82)
 const COLOR_BAND := Color(0.80, 0.62, 0.22)   ## A warm band, easy to pick out.
 
+## Fraction of speed the chains keep per metre of curtain. Deliberately
+## brutal: the ratio is not what separates a putt from a drive, the force
+## limit below is. Left in because it rounds off the very slow arrivals.
+@export var chain_drag_per_metre := 0.01
+## The hardest the chains can push back, in newtons. THIS is the knob that
+## makes putting feel different from driving. A force limit (rather than a
+## fixed share of speed, or a budget for the whole pass) means the disc's
+## CONTACT TIME decides how much it loses: a putt dawdles through the
+## curtain over several physics ticks and gets wrung out, while a drive is
+## past in one and keeps nearly everything. That is what a real basket does.
+@export var chain_max_force := 28.0
+## Random sideways rattle, as a fraction of the speed absorbed.
+@export var chain_kick := 0.08
+## Share of absorbed speed redirected downward, so a dying disc drops in.
+@export var chain_down_bias := 0.35
+## Speed kept along the hit axis when the top band is clipped.
+@export var band_bounce := 0.35
+## Horizontal speed (m/s) at or under which the cage keeps the disc.
+@export var catch_speed := 2.5
+## March resolution through the chain volume (m).
+@export var sweep_step := 0.05
+
 var terrain: Node3D
 var holed: Node = null          ## The disc parked in the tray, or null.
 var beam_on := true             ## Tall finder beam, on the P toggle.
 
 var _beacon: MeshInstance3D
+var _rng := RandomNumberGenerator.new()
 
 
 func _ready() -> void:
 	_build_visual()
 	_build_colliders()
+	_rng.randomize()
 
 
 ## Stand the basket on the ground under `at` (x/z used, y from the terrain).
@@ -61,6 +85,107 @@ func set_beam(on: bool) -> void:
 	beam_on = on
 	if _beacon != null:
 		_beacon.visible = on
+
+
+# --- chains ------------------------------------------------------------------
+
+## Resolve one physics tick's swept path p0 -> p1 for a disc of `mass` kg,
+## travelling over `dt` seconds. Returns
+##   {"v": Vector3, "caught": bool, "hit": String}
+## where hit is one of "", "chains", "band", "cage". Cheap to call for discs
+## nowhere near us, which is almost all of them.
+func sweep(p0: Vector3, p1: Vector3, v: Vector3, mass: float, dt: float) -> Dictionary:
+	var out := {"v": v, "caught": false, "hit": ""}
+	var c := global_position
+
+	# Broad phase: a cylinder a bit bigger than the basket, swept by how far
+	# we travel this tick. Discs out in the world cost two length checks.
+	var seg := p1 - p0
+	var dist := seg.length()
+	if dist < 1e-6:
+		return out
+	var mid := (p0 + p1) * 0.5
+	var reach := dist * 0.5 + CHAIN_RADIUS + 0.2
+	if Vector2(mid.x - c.x, mid.z - c.z).length_squared() > reach * reach:
+		return out
+	if maxf(p0.y, p1.y) < c.y + TRAY_FLOOR_Y - 0.2 \
+			or minf(p0.y, p1.y) > c.y + BAND_Y + 0.2:
+		return out
+
+	var vv := v
+	var steps := maxi(1, ceili(dist / sweep_step))
+	var step_m := dist / steps
+	var chain_metres := 0.0
+	var prev_y := p0.y - c.y
+	for i in range(1, steps + 1):
+		var local := p0 + seg * (float(i) / steps) - c
+		var r := Vector2(local.x, local.z).length()
+		# Top band: a thin ring. Crossing its plane out near the rim clangs;
+		# crossing it further in is a disc dropping into the cage.
+		if r <= TARGET_RADIUS + 0.04 and r >= TARGET_RADIUS - 0.10:
+			if (prev_y - BAND_Y) * (local.y - BAND_Y) <= 0.0:
+				vv.y = -vv.y * band_bounce
+				vv.x *= 0.6
+				vv.z *= 0.6
+				out.v = vv
+				out.hit = "band"
+				return out
+		if r <= CHAIN_RADIUS and local.y >= CHAIN_BOTTOM and local.y <= CHAIN_TOP:
+			chain_metres += step_m
+		prev_y = local.y
+
+	if chain_metres > 0.0:
+		out.hit = "chains"
+		var speed := vv.length()
+		var dv := minf(speed * (1.0 - pow(chain_drag_per_metre, chain_metres)),
+			chain_max_force * dt / maxf(mass, 0.001))
+		dv = minf(dv, speed)
+		if speed > 1e-5:
+			vv -= vv.normalized() * dv
+		vv += Vector3(_rng.randf_range(-1.0, 1.0), 0.0,
+			_rng.randf_range(-1.0, 1.0)) * dv * chain_kick
+		vv.y -= dv * chain_down_bias
+
+	# Catch test. Runs whether or not chains were touched, and reaches down to
+	# the tray floor, so a disc lobbed straight in counts and so does one the
+	# chains have already wrung out on its way down.
+	#
+	# The test is on HORIZONTAL speed, not total: the tray is a physical
+	# bucket, so it arrests a falling disc by itself. What the chains have to
+	# kill is the disc's forward run. Testing total speed would mean the
+	# harder the chains knock a disc downward, the less likely it is to count
+	# as caught, which is backwards.
+	var end_local := p1 - c
+	var end_r := Vector2(end_local.x, end_local.z).length()
+	var flat := Vector2(vv.x, vv.z).length()
+	if end_r <= CHAIN_RADIUS and end_local.y >= TRAY_FLOOR_Y \
+			and end_local.y <= BAND_Y and flat <= catch_speed:
+		out.caught = true
+		out.hit = "cage"
+	out.v = vv
+	return out
+
+
+## Park a caught disc in the tray and hold it there.
+func capture(disc: Node) -> void:
+	if holed == disc or not is_instance_valid(disc):
+		return
+	holed = disc
+	disc.in_basket = true
+	disc.set_beam(false)
+	disc.global_position = global_position + Vector3(0, TRAY_FLOOR_Y + 0.10, 0)
+	disc.linear_velocity = Vector3.ZERO
+	disc.angular_velocity = Vector3.ZERO
+	disc.freeze = true
+	caught.emit(disc)
+
+
+## Let go of whatever is in the tray (collect, new world, a fresh hole).
+func release() -> void:
+	if holed != null and is_instance_valid(holed):
+		holed.in_basket = false
+		holed.freeze = false
+	holed = null
 
 
 # --- building ----------------------------------------------------------------

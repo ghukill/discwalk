@@ -227,12 +227,13 @@ func _report() -> void:
 	quit(0 if ok else 1)
 
 
-## Minimal stand-in for terrain.gd: no trees, no lakes.
+## Minimal stand-in for terrain.gd: no trees, no lakes, no basket.
 func _stub_terrain_script() -> GDScript:
 	var s := GDScript.new()
 	s.source_code = """extends Node3D
 var block_size := 1.0
 var lakes: Array = []
+var basket: Node3D = null
 var flora := Flora.new()
 func height_at(_x: float, _z: float) -> float:
 	return 0.0
