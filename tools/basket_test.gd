@@ -14,7 +14,7 @@ var _ran := {}                       ## Test functions that reached their end.
 ## Every test function that must run to completion. A GDScript error aborts
 ## only the function it happens in, so without this a broken test would skip
 ## all its checks and the run would still report PASS.
-const MUST_RUN := ["geometry", "chains"]
+const MUST_RUN := ["geometry", "chains", "siting"]
 
 
 func _initialize() -> void:
@@ -28,6 +28,7 @@ func _process(_delta: float) -> bool:
 		return false
 	_test_geometry()
 	_test_chains()
+	_test_siting()
 	for name: String in MUST_RUN:
 		if not _ran.has(name):
 			print("BASKET %-22s BAD  (aborted before finishing)" % name)
@@ -124,3 +125,41 @@ func _test_chains() -> void:
 		Vector3(25.0, 0, 0), DISC_MASS, 1.0 / 60.0)
 	_check("far disc untouched", away.hit == "" and away.v == Vector3(25.0, 0, 0))
 	_done("chains")
+
+
+## Siting must give a legal basket for any seed, and the same one twice.
+func _test_siting() -> void:
+	var t = _main.get_node("Terrain")
+	var Hole := load("res://scripts/hole.gd")
+	var bad := 0
+	var first_seed: int = t.world_seed
+	var first := Vector3.ZERO
+	for i in 20:
+		t.world_seed = 1000 + i * 37
+		t.generate()
+		var at: Vector3 = Hole.site(t)
+		if i == 0:
+			first = at
+		var tee: Vector3 = t.spawn_point()
+		var d := Vector2(at.x - tee.x, at.z - tee.z).length()
+		var ix: int = t.col_of(at.x)
+		var iz: int = t.col_of(at.z)
+		var legal: bool = d >= 55.0 and d <= 125.0 \
+			and not t.is_underwater(ix, iz) and not t.is_shore(ix, iz) \
+			and t.lake_edge_distance(at.x, at.z) > 1.0 \
+			and at.x > t.moraine_width + 6.0 and at.x < t.world_size - t.moraine_width - 6.0 \
+			and at.z > t.moraine_width + 6.0 and at.z < t.world_size - t.moraine_width - 6.0
+		if not legal:
+			bad += 1
+			print("BASKET   seed %d sited badly at %s (%.1f m out)" % [t.world_seed, at, d])
+	_check("siting legal x20", bad == 0, "%d bad" % bad)
+
+	# Deterministic: the same seed must give the same spot.
+	t.world_seed = 1000
+	t.generate()
+	var again: Vector3 = Hole.site(t)
+	_check("siting deterministic", again.distance_to(first) < 0.01)
+
+	t.world_seed = first_seed
+	t.generate()
+	_done("siting")

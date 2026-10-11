@@ -5,12 +5,14 @@ extends Node3D
 const THROWER_SCRIPT := preload("res://scripts/thrower.gd")
 const CLOUDS_SCRIPT := preload("res://scripts/clouds.gd")
 const BASKET_SCRIPT := preload("res://scripts/basket.gd")
+const HOLE_SCRIPT := preload("res://scripts/hole.gd")
 
 @onready var terrain: Node3D = $Terrain
 @onready var player: CharacterBody3D = $Player
 @onready var hud: Label = $HUD/Help
 
 var thrower: Node
+var hole: Node                       ## The hole you're playing (scripts/hole.gd).
 var clouds: Node3D
 var ui_scale := 1.0                  ## On top of the screen's own scale (- / = keys, --ui-scale=).
 
@@ -118,8 +120,8 @@ func _setup_throwing() -> void:
 	thrower._update_lamps()
 
 
-## The basket. Sited 70 m due north of the tee for now; seeded siting comes
-## with hole.gd. `-- --no-hole` leaves the world without one.
+## The basket and the hole it belongs to. `-- --no-hole` leaves the world
+## without either (the screenshot tools use that).
 func _setup_basket() -> void:
 	if "--no-hole" in OS.get_cmdline_user_args():
 		return
@@ -130,7 +132,19 @@ func _setup_basket() -> void:
 	b.beam_on = thrower.paths_on
 	add_child(b)
 	terrain.basket = b
-	b.place(terrain.spawn_point() + Vector3(0, 0, -70.0))
+	hole = Node.new()
+	hole.set_script(HOLE_SCRIPT)
+	hole.name = "Hole"
+	hole.basket = b
+	add_child(hole)
+	_restart_hole()
+
+
+## Tee at spawn, basket sited from the seed.
+func _restart_hole() -> void:
+	if hole == null:
+		return
+	hole.start(terrain.spawn_point(), HOLE_SCRIPT.site(terrain))
 
 
 ## B: drop the basket on the ground under your crosshair.
@@ -145,8 +159,12 @@ func _place_basket_at_aim() -> void:
 		terrain.basket.get_node("Tray").get_rid()]
 	var hit := get_world_3d().direct_space_state.intersect_ray(q)
 	var at: Vector3 = hit.position if not hit.is_empty() else to
-	terrain.basket.place(at)
-	thrower._note("basket moved", 1.2)
+	if hole != null:
+		hole.start(player.global_position, at)
+		thrower._note("new hole, %.0f m" % hole.distance_from(player.global_position), 1.4)
+	else:
+		terrain.basket.place(at)
+		thrower._note("basket moved", 1.2)
 
 
 func _input(event: InputEvent) -> void:
@@ -176,6 +194,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		thrower.clear()
 		terrain.generate()
 		clouds.generate(terrain.world_seed, terrain.world_size, terrain.flora.canopy_top())
+		_restart_hole()
 		_place_player()
 		_update_hud()
 
