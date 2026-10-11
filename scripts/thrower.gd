@@ -58,7 +58,8 @@ var paths_on := true                     ## Paths + rest beams (P).
 var view_on := false                     ## VIEW toggle (V).
 var warp_on := false                     ## GOTO toggle (G).
 var lamps: Control                       ## Warm lamps in the HUD (lamps.gd).
-var warp_label: Label                    ## Top centre: brief notes ("warped 42 m").
+var hole: Node                           ## The hole being played (hole.gd), if any.
+var note_label: Label                    ## Top centre: brief notes ("goto 42 m", "Holed in 4").
 var warp_flash: ColorRect                ## Soft white fade when you arrive.
 var _warp_target: Node = null            ## Throw we'll warp to when it stops.
 var _launched: Node = null               ## Throw you launched with (L): no view/warp.
@@ -210,6 +211,8 @@ func throw_disc(p: Dictionary) -> Node:
 	if paths_on:
 		paths.track(disc, disc.color)
 	_track(disc)
+	if hole != null:
+		hole.count_stroke()
 	return disc
 
 
@@ -266,6 +269,8 @@ func set_paths(on: bool) -> void:
 	for d in discs:
 		if is_instance_valid(d):
 			d.set_beam(on)
+	if hole != null and hole.basket != null:
+		hole.basket.set_beam(on)
 	_update_lamps()
 	_update_label()
 
@@ -375,15 +380,15 @@ func _update_warp(delta: float) -> void:
 		warp_flash.color.a = maxf(warp_flash.color.a - delta * 1.6, 0.0)
 	if lamps != null:
 		lamps.pulse_warp = _warp_target != null     # GOTO lamp breathes while armed
-	if warp_label == null:
+	if note_label == null:
 		return
 	if _warp_note_t > 0.0:
 		_warp_note_t -= delta
-		warp_label.text = _warp_note
-		warp_label.modulate.a = clampf(_warp_note_t / 0.5, 0.0, 0.9)
-		warp_label.visible = true
+		note_label.text = _warp_note
+		note_label.modulate.a = clampf(_warp_note_t / 0.5, 0.0, 0.9)
+		note_label.visible = true
 	else:
-		warp_label.visible = false
+		note_label.visible = false
 
 
 func clear() -> void:
@@ -423,6 +428,17 @@ func _process(_delta: float) -> void:
 	else:
 		_flying_text = ""
 	_update_label()
+
+
+## A disc found the chains. Report the score and stop counting.
+func _on_holed(_disc: Node) -> void:
+	if hole == null or hole.complete:
+		return
+	hole.complete = true
+	hole.holed_out.emit(hole.strokes)
+	_note("Holed in %d" % hole.strokes, 2.5)
+	if warp_flash != null:
+		warp_flash.color.a = 0.55
 
 
 func _on_rest(disc: Node) -> void:

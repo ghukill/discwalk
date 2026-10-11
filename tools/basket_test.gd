@@ -14,7 +14,7 @@ var _ran := {}                       ## Test functions that reached their end.
 ## Every test function that must run to completion. A GDScript error aborts
 ## only the function it happens in, so without this a broken test would skip
 ## all its checks and the run would still report PASS.
-const MUST_RUN := ["geometry", "chains", "siting"]
+const MUST_RUN := ["geometry", "chains", "siting", "strokes"]
 
 
 func _initialize() -> void:
@@ -29,6 +29,7 @@ func _process(_delta: float) -> bool:
 	_test_geometry()
 	_test_chains()
 	_test_siting()
+	_test_strokes()
 	for name: String in MUST_RUN:
 		if not _ran.has(name):
 			print("BASKET %-22s BAD  (aborted before finishing)" % name)
@@ -163,3 +164,35 @@ func _test_siting() -> void:
 	t.world_seed = first_seed
 	t.generate()
 	_done("siting")
+
+
+## Three throws then a hand-fed make: the hole must report 3 strokes, and
+## collect must be able to pull the disc back out of the tray.
+func _test_strokes() -> void:
+	var t = _main.get_node("Terrain")
+	var b = t.basket
+	var hole = _main.hole
+	var thrower = _main.thrower
+	if b == null or hole == null:
+		_check("hole present", false)
+		return
+	hole.start(t.spawn_point(), b.global_position)
+	_check("starts at zero", hole.strokes == 0 and not hole.complete)
+
+	for i in 3:
+		thrower.throw_disc(thrower.setup.params())
+	_check("three throws, three strokes", hole.strokes == 3,
+		"strokes=%d" % hole.strokes)
+
+	thrower.throw_cube()
+	_check("cube is not a stroke", hole.strokes == 3, "strokes=%d" % hole.strokes)
+
+	var last = thrower._last
+	b.capture(last)
+	_check("make completes the hole", hole.complete and hole.strokes == 3,
+		"complete=%s strokes=%d" % [hole.complete, hole.strokes])
+	_check("disc parked in tray", b.holed == last and last.in_basket)
+
+	thrower.collect()
+	_check("collect frees the disc", b.holed == null and not last.in_basket)
+	_done("strokes")

@@ -13,6 +13,7 @@ const HOLE_SCRIPT := preload("res://scripts/hole.gd")
 
 var thrower: Node
 var hole: Node                       ## The hole you're playing (scripts/hole.gd).
+var hole_label: Label                ## Top left: distance to the basket and your score.
 var clouds: Node3D
 var ui_scale := 1.0                  ## On top of the screen's own scale (- / = keys, --ui-scale=).
 
@@ -115,7 +116,7 @@ func _setup_throwing() -> void:
 	warp.offset_bottom = 34
 	warp.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	$HUD.add_child(warp)
-	thrower.warp_label = warp
+	thrower.note_label = warp
 
 	thrower._update_lamps()
 
@@ -138,6 +139,26 @@ func _setup_basket() -> void:
 	hole.basket = b
 	add_child(hole)
 	_restart_hole()
+	thrower.hole = hole
+	b.caught.connect(thrower._on_holed)
+	_setup_hole_label()
+
+
+## Distance to the basket and how you're doing, under the key help.
+func _setup_hole_label() -> void:
+	hole_label = Label.new()
+	hole_label.name = "Hole"
+	hole_label.add_theme_color_override("font_color", Color(1.0, 0.88, 0.62, 0.95))
+	hole_label.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.6))
+	hole_label.add_theme_constant_override("shadow_offset_x", 1)
+	hole_label.add_theme_constant_override("shadow_offset_y", 1)
+	hole_label.add_theme_font_size_override("font_size", 15)
+	hole_label.set_anchors_and_offsets_preset(Control.PRESET_TOP_LEFT)
+	hole_label.offset_left = 16
+	hole_label.offset_top = 150
+	hole_label.offset_right = 420
+	hole_label.offset_bottom = 174
+	$HUD.add_child(hole_label)
 
 
 ## Tee at spawn, basket sited from the seed.
@@ -197,6 +218,16 @@ func _unhandled_input(event: InputEvent) -> void:
 		_restart_hole()
 		_place_player()
 		_update_hud()
+
+
+func _process(_delta: float) -> void:
+	if hole_label == null or hole == null:
+		return
+	if hole.complete:
+		hole_label.text = "Hole · holed in %d · B for a new one" % hole.strokes
+	else:
+		hole_label.text = "Hole · %.0f m · stroke %d" % [
+			hole.distance_from(player.global_position), hole.strokes]
 
 
 func _place_player() -> void:
