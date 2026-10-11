@@ -132,6 +132,7 @@ static func _ensure_input_actions() -> void:
 		"reset_flat": [KEY_R],
 		"hand": [KEY_H],
 		"basket": [KEY_B],
+		"map": [KEY_M],
 		"ui_bigger": [KEY_EQUAL, KEY_KP_ADD],
 		"ui_smaller": [KEY_MINUS, KEY_KP_SUBTRACT],
 	}

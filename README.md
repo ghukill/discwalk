@@ -76,6 +76,7 @@ A tap moves one fine step (0.5° nose, 1° hyzer, 0.5 m/s, 2 rad/s spin); hold t
 | B | **new hole**: the basket moves to where you're looking, the tee becomes where you stand, and the stroke count starts again |
 | U | hide / show the throw HUD and the help text (screenshots, or just walking in the woods); just the crosshair stays |
 | - / = | HUD smaller / bigger (also `-- --ui-scale=1.5` at launch) |
+| M | **map**: an overhead view of the real world, framing you and the basket together so you can see the line. Your arrow shows which way you're facing; the basket is a gold ring, your last throw an orange dot. M again closes it |
 | N | roll a brand-new world |
 | K | clouds on/off (launch with `-- --no-clouds` to start without them) |
 | Esc | free the mouse (click to grab it again) |

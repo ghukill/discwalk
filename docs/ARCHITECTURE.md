@@ -24,6 +24,7 @@ scripts/basket.gd        A basket: pole, tray, band, and chains that catch (swep
 scripts/hole.gd          One hole: tee, basket, stroke count. Knows the rules, not the physics
 scripts/basket_arrow.gd  Screen-edge arrow pointing at the basket while it is off screen (P)
 scripts/lie_marker.gd    3 ft throwing box behind a rested disc, stepping with the ground (P)
+scripts/map_view.gd      Overhead map (M): a second camera into a SubViewport, markers drawn over it
 scripts/clouds.gd        Fluffy voxel clouds drifting high overhead (K toggles)
 scripts/dials.gd         Heading + horizon dials (in the throw HUD)
 scripts/paths.gd         Flight paths: voxel trail per disc throw; P toggles (off = fall + poof)
@@ -74,6 +75,7 @@ Main (main.gd)
 ├─ Clouds (clouds.gd)            one MeshInstance3D per cloud, drifting
 ├─ Basket (basket.gd)            pole/tray/band meshes + Pole, Tray static bodies
 ├─ Hole (hole.gd)                tee, basket, strokes (no nodes of its own)
+├─ LieMarker (lie_marker.gd)     one ground-hugging mesh, rebuilt per lie
 ├─ Thrower (thrower.gd)
 │  ├─ FollowCam (follow_cam.gd)  chase camera (V)
 │  └─ Paths (paths.gd)           one MultiMeshInstance3D per flight path

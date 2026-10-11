@@ -17,6 +17,7 @@ extends Node3D
 ## K toggles them (thrower/main), `enabled` starts true.
 
 const CELL := 2.0                    ## Cloud block size (m).
+const LAYER := 1 << 1                ## Visual layer 2: the map camera skips it.
 const TOP := Color(1.0, 1.0, 1.0)
 const SIDE := Color(0.93, 0.95, 0.98)
 const UNDER := Color(0.78, 0.82, 0.88)
@@ -67,6 +68,10 @@ func generate(seed: int, size_m: float, canopy := 40.0) -> void:
 		mi.mesh = _cloud_mesh(rng, low_scale if low else 1.0)
 		mi.material_override = _material
 		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON
+		# Clouds get their own visual layer so the overhead map (M) can
+		# leave them out -- otherwise the map is a picture of the weather
+		# with the world hidden underneath it.
+		mi.layers = LAYER
 		# Low puffs start over the world (so you meet them early); the rest anywhere.
 		var spread := 0.0 if low else margin
 		mi.position = Vector3(

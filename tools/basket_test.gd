@@ -14,7 +14,7 @@ var _ran := {}                       ## Test functions that reached their end.
 ## Every test function that must run to completion. A GDScript error aborts
 ## only the function it happens in, so without this a broken test would skip
 ## all its checks and the run would still report PASS.
-const MUST_RUN := ["geometry", "chains", "siting", "strokes", "ace", "arrow", "lie"]
+const MUST_RUN := ["geometry", "chains", "siting", "strokes", "ace", "arrow", "lie", "map"]
 
 
 func _initialize() -> void:
@@ -41,6 +41,7 @@ func _run() -> void:
 	await _test_ace()
 	await _test_arrow()
 	await _test_lie()
+	await _test_map()
 	for name: String in MUST_RUN:
 		if not _ran.has(name):
 			print("BASKET %-22s BAD  (aborted before finishing)" % name)
@@ -366,6 +367,76 @@ func _test_lie() -> void:
 	await _settle()
 	_check("P brings the box back", marker.showing())
 	_done("lie")
+
+
+## The overhead map (M). The one that really matters is that the compass is
+## not mirrored: the map camera looks straight down, which flips an axis, so
+## it is easy to end up with a player arrow that points the wrong way and
+## still looks completely reasonable.
+func _test_map() -> void:
+	var t = _main.get_node("Terrain")
+	var b = t.basket
+	var th = _main.thrower
+	var map = _main.map_view
+	var player: CharacterBody3D = _main.get_node("Player")
+	if map == null or b == null:
+		_check("map present", false)
+		return
+	th.clear()
+	var tee: Vector3 = t.spawn_point()
+	_main.hole.start(tee, tee + Vector3(0, 0, -60.0))
+	var c: Vector3 = b.global_position
+	player.global_position = tee
+
+	_check("map starts closed", not map.is_open())
+	map.toggle()
+	await _settle()
+	_check("M opens the map", map.is_open())
+
+	# Face the basket: the player arrow on the map must then point along
+	# the on-map line from the player to the basket.
+	player.rotation.y = atan2(-(c.x - tee.x), -(c.z - tee.z))
+	await _settle()
+	var here: Vector2 = map.map_pos(player.global_position)
+	var there: Vector2 = map.map_pos(c)
+	var to_basket := (there - here).normalized()
+	var heading: Vector2 = map.heading_on_map()
+	_check("map arrow points at the basket when you face it",
+		heading.dot(to_basket) > 0.95,
+		"dot %.3f" % heading.dot(to_basket))
+
+	# Turn around: it must reverse, not stay put.
+	player.rotation.y += PI
+	await _settle()
+	var back: Vector2 = map.heading_on_map()
+	_check("map arrow reverses when you turn round",
+		back.dot(to_basket) < -0.95, "dot %.3f" % back.dot(to_basket))
+
+	# Turning right must swing the arrow clockwise on screen (screen y is
+	# down, so a clockwise turn is a positive cross product). This is the
+	# check that catches a mirrored map.
+	player.rotation.y = atan2(-(c.x - tee.x), -(c.z - tee.z))
+	await _settle()
+	var before: Vector2 = map.heading_on_map()
+	player.rotation.y -= PI * 0.5          # yaw right in Godot's -Z forward
+	await _settle()
+	var after: Vector2 = map.heading_on_map()
+	var cross := before.x * after.y - before.y * after.x
+	_check("map is not mirrored (turning right swings it clockwise)",
+		cross > 0.5, "cross %.3f" % cross)
+
+	# Both markers have to land inside the drawn panel, or the camera is
+	# not framing the hole the way it claims to.
+	var panel: Rect2 = map.panel_rect()
+	_check("both markers land inside the map panel",
+		panel.has_point(here) and panel.has_point(there)
+		and here.distance_to(there) > 1.0,
+		"player %s basket %s in %s" % [here.round(), there.round(), panel])
+
+	map.toggle()
+	await _settle()
+	_check("M closes the map", not map.is_open())
+	_done("map")
 
 
 func _settle() -> void:

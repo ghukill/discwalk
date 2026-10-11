@@ -8,6 +8,7 @@ const BASKET_SCRIPT := preload("res://scripts/basket.gd")
 const HOLE_SCRIPT := preload("res://scripts/hole.gd")
 const BASKET_ARROW_SCRIPT := preload("res://scripts/basket_arrow.gd")
 const LIE_MARKER_SCRIPT := preload("res://scripts/lie_marker.gd")
+const MAP_VIEW_SCRIPT := preload("res://scripts/map_view.gd")
 
 @onready var terrain: Node3D = $Terrain
 @onready var player: CharacterBody3D = $Player
@@ -17,6 +18,7 @@ var thrower: Node
 var hole: Node                       ## The hole you're playing (scripts/hole.gd).
 var hole_label: Label                ## Top left: distance to the basket and your score.
 var basket_arrow: Control            ## Screen-edge pointer to the basket.
+var map_view: Control                ## Overhead map (M).
 var clouds: Node3D
 var ui_scale := 1.0                  ## On top of the screen's own scale (- / = keys, --ui-scale=).
 
@@ -130,6 +132,14 @@ func _setup_throwing() -> void:
 	add_child(lie)
 	thrower.lie_marker = lie
 
+	map_view = Control.new()
+	map_view.set_script(MAP_VIEW_SCRIPT)
+	map_view.name = "MapView"
+	map_view.terrain = terrain
+	map_view.player = player
+	map_view.thrower = thrower
+	$HUD.add_child(map_view)
+
 	thrower._update_lamps()
 
 
@@ -227,6 +237,11 @@ func _unhandled_input(event: InputEvent) -> void:
 		clouds.visible = not clouds.visible
 		get_viewport().set_input_as_handled()
 		return
+	if event.is_action_pressed("map"):
+		if map_view != null:
+			map_view.toggle()
+		get_viewport().set_input_as_handled()
+		return
 	if event.is_action_pressed("basket"):
 		_place_basket_at_aim()
 		get_viewport().set_input_as_handled()
@@ -261,4 +276,4 @@ func _update_hud() -> void:
 		+ "↑↓ nose · ←→ hyzer · Shift+↑↓ speed · Shift+←→ spin · X spin lock\n"
 		+ "R flat · H hand · Tab disc · click/Enter throw · right-click cube\n"
 		+ "V chase · G goto · L launch · P paths · C collect · U HUD\n"
-		+ "N new world · K clouds · -/= HUD size · Esc free mouse") % terrain.world_seed
+		+ "N new world · K clouds · M map · -/= HUD size · Esc free mouse") % terrain.world_seed
