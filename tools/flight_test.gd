@@ -180,6 +180,11 @@ func _report() -> void:
 		air, expect_air, ground],
 		paths.count() == 1 and air >= expect_air * 0.9 and ground > 0 \
 		and is_instance_valid(wd) and pd.color == wd.color])
+	var first_gap := 1e9
+	if pd.has("points") and not pd.points.is_empty():
+		first_gap = pd.points[0].distance_to(pd.start)
+	checks.append(["path starts near the throw (first cube %.2f m)" % first_gap,
+		first_gap >= paths.START_GAP and first_gap <= 1.25])
 	_main.thrower.set_view(false)                       # the rest of these throws:
 	_main.thrower.set_warp(false)                       # no camera, no warping
 	var block = _main.thrower.throw(5)

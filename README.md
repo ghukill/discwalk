@@ -71,7 +71,7 @@ A tap moves one fine step (0.5° nose, 1° hyzer, 0.5 m/s, 2 rad/s spin); hold t
 |---|---|
 | V | **Chase view** lamp (starts off): the camera chases every throw through its flight and ground play, then snaps back to you, unmoved, once it stops. Off mid-flight snaps back now |
 | G | **Goto** lamp (starts off): once a throw stops, you're moved to it, standing just behind it facing down the fairway (a lake puts you on the shore). Off mid-flight cancels it. **Chase + Goto**: watch the flight, then end up there |
-| P | **Paths** lamp (starts on): flight paths *and* the beams over resting discs. Every disc throw leaves a trail of little cubes in its own colour (bright in the air, dimmer for skips and rolls). The cubes are see-through, start just under 2 m from where you threw (fading in), and fade away when the camera gets within a few metres, so a pile of paths from the same tee never fills your view. Off: beams go out, paths drift down and go *poof* |
+| P | **Paths** lamp (starts on): flight paths *and* the beams over resting discs. Every disc throw leaves a trail of little cubes in its own colour (bright in the air, dimmer for skips and rolls). The cubes are see-through, start about 1 m from where you threw (fading in), and fade away when the camera gets within a few metres, so a pile of paths from the same tee never fills your view. Off: beams go out, paths drift down and go *poof* |
 | C | **collect**: every disc rolls home to you, slow at first then faster. Trunks and cliffs block them unless they have the momentum |
 | U | hide / show the throw HUD and the help text (screenshots, or just walking in the woods); just the crosshair stays |
 | - / = | HUD smaller / bigger (also `-- --ui-scale=1.5` at launch) |
