@@ -78,7 +78,7 @@ var _collected := 0
 
 
 func _ready() -> void:
-	disc_models = DiscModel.load_all(DiscModel.flight_from_args())
+	disc_models = DiscModel.load_all()
 	setup = ThrowSetup.new()
 	setup.name = "ThrowSetup"
 	setup.discs = disc_models
@@ -437,7 +437,7 @@ func _on_rest(disc: Node) -> void:
 		notes.append("splash!")
 	if "model" in disc:
 		_result_text = "last disc (%s): carry %.1f m, rest %.1f m, peak %.1f m, %.1f s in the air%s" % [
-			disc.model.id, disc.flight_dist, disc.distance(), disc.max_height, disc.flight_time,
+			disc.model.label, disc.flight_dist, disc.distance(), disc.max_height, disc.flight_time,
 			("  ·  " + ", ".join(notes)) if notes.size() > 0 else ""]
 		return
 	_result_text = "last cube: %.1f m (peak %.1f m)%s" % [

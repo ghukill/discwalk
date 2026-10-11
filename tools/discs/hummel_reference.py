@@ -30,16 +30,19 @@ import numpy as np
 RHO, G, MASS = 1.225, 9.8, 0.175
 CMQ, CRP, CNR = -1.44e-2, -1.25e-2, -3.41e-5      # Hummel long flight f2302
 SUB = 256                                         # attitude substeps per 60 Hz tick
-DISCS = pathlib.Path(__file__).resolve().parents[2] / "data" / "discs" / "shotshaper"
+DISCS = pathlib.Path(__file__).resolve().parents[2] / "data" / "discs" / "discwalk"
 
 # disc, speed (m/s), spin (rad/s), pitch, nose, roll (deg)
+# (spin = 5.2 x speed, the game's auto spin). All RH backhand.
 CASES = [
-    ("dd2", 24.2, 116.8, 15.5, 0.0, 14.7),
-    ("dd2", 24.0, 124.8, 10.0, 0.0, 0.0),
-    ("dd2", 20.0, 104.0, 10.0, 0.0, -15.0),
-    ("cd1", 20.0, 104.0, 10.0, 0.0, 0.0),
-    ("cd5", 20.0, 104.0, 10.0, 0.0, 0.0),
-    ("fd2", 22.0, 114.4, 8.0, 2.0, 5.0),
+    ("moraine", 24.0, 124.8, 10.0, 0.0, 10.0),   # distance driver, hyzer flip
+    ("moraine", 24.0, 124.8, 10.0, 0.0, 0.0),    # ... flat: turns
+    ("erratic", 24.0, 124.8, 10.0, 0.0, 0.0),    # overstable: fades anyway
+    ("till", 23.0, 119.6, 10.0, 0.0, 25.0),      # very understable: needs hyzer
+    ("outwash", 23.0, 119.6, 10.0, 0.0, 15.0),
+    ("esker", 19.0, 98.8, 10.0, 0.0, 10.0),
+    ("drumlin", 19.0, 98.8, 10.0, 0.0, 10.0),
+    ("kettle", 16.0, 83.2, 10.0, 0.0, 0.0),      # putter
 ]
 
 

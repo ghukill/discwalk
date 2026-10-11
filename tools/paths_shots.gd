@@ -1,6 +1,6 @@
 extends SceneTree
-## Screenshots of flight paths (needs a display): three throws (dd2 hyzer,
-## cd1 flat, cd5 anhyzer) seen from behind the tee and from the side, then
+## Screenshots of flight paths (needs a display): three throws (moraine hyzer,
+## erratic flat, till hyzer) seen from behind the tee and from the side, then
 ## P mid-fall and just after.
 ##
 ##   godot --path . --resolution 1280x720 --script res://tools/paths_shots.gd -- <out_dir>
@@ -10,7 +10,7 @@ var _out := "/tmp/paths_shots"
 var _f := 0
 var _discs: Array = []
 var _done := false
-const THROWS := [[24.0, 12.0, 10.0, "dd2"], [18.0, 8.0, 0.0, "cd1"], [20.0, 10.0, -10.0, "cd5"]]
+const THROWS := [[24.0, 12.0, 10.0, "moraine"], [18.0, 8.0, 0.0, "erratic"], [23.0, 10.0, 25.0, "till"]]
 
 
 func _initialize() -> void:

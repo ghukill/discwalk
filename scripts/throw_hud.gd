@@ -4,7 +4,7 @@ extends Control
 ##
 ##   ┌──────────────────────────────┐
 ##   │  ( disc )✋   ▮ ▯            │  disc tilt (nose + hyzer), hand,
-##   │  dd2 · nose +0 · hyzer 10    │  velocity bar, spin bar (dotted = locked)
+##   │  Moraine · nose +0 · hyzer 10│  velocity bar, spin bar (dotted = locked)
 ##   │  (hdg) (hzn)   o Chase view  │
 ##   │                o Goto        │
 ##   │                o Paths       │
@@ -28,7 +28,8 @@ const CAM_ELEV := 20.0               ## Deg: we look at the disc from a bit abov
 const NOSE_GAIN := 1.8               ## Nose drawn this many times steeper.
 
 ## One colour per disc in the HUD so Tab visibly changes something.
-const DISC_COLORS := [Color(1.0, 0.45, 0.7), Color(0.55, 0.85, 0.4), Color(0.36, 0.62, 1.0), Color(1.0, 0.75, 0.3)]
+const DISC_COLORS := [Color(1.0, 0.45, 0.7), Color(0.55, 0.85, 0.4), Color(0.36, 0.62, 1.0), Color(1.0, 0.75, 0.3),
+	Color(0.7, 0.5, 1.0), Color(0.35, 0.9, 0.85), Color(1.0, 0.4, 0.3)]
 
 const BG := Color(0.09, 0.075, 0.06, 0.72)
 const BRASS := Color(0.66, 0.53, 0.33, 0.6)
@@ -92,7 +93,7 @@ func _draw() -> void:
 	_draw_bars(Vector2(c.x + DISC_R + 40.0, PAD + 2.0))
 	# One line under the instrument: disc, nose, hyzer.
 	var d = setup.disc()
-	var name: String = d.id if d != null else "-"
+	var name: String = d.label if d != null else "-"
 	var r: float = setup.roll
 	var tilt := "flat" if absf(r) < 0.5 else ("hyzer %d°" % int(round(absf(r))) if r > 0 else "anhyzer %d°" % int(round(absf(r))))
 	var y := PAD + DISC_R * 2 + 38.0

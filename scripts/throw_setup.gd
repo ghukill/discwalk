@@ -47,7 +47,7 @@ var _carry := {}                     ## action -> fractional steps owed
 
 func _ready() -> void:
 	for i in discs.size():
-		if discs[i].id == "dd2":         # a distance driver to start
+		if discs[i].id == "moraine":     # the distance driver to start
 			disc_index = i
 	_sync_spin()
 

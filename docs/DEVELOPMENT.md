@@ -2,7 +2,7 @@
 
 ## Standalone macOS app (Apple Silicon and Intel)
 
-This is a GDScript project: **do not run SCons in this repo**. SCons compiles the Godot engine, not discwalk. Export the project with Godot instead. The `macOS` preset in `export_presets.cfg` makes a Universal 2 `.app` (native ARM64 on Apple Silicon, x86_64 on Intel) using an ad-hoc signature for local testing. It bundles the disc JSON tables and their license but excludes docs, tools, and previous builds. `project.godot` enables ETC2/ASTC texture import, which Godot requires for ARM64 exports.
+This is a GDScript project: **do not run SCons in this repo**. SCons compiles the Godot engine, not discwalk. Export the project with Godot instead. The `macOS` preset in `export_presets.cfg` makes a Universal 2 `.app` (native ARM64 on Apple Silicon, x86_64 on Intel) using an ad-hoc signature for local testing. It bundles the disc JSON tables but excludes docs, tools, and previous builds. `project.godot` enables ETC2/ASTC texture import, which Godot requires for ARM64 exports.
 
 1. Install **Godot 4.7.2 standard** (not .NET) and its **matching 4.7.2 export templates**. In the editor, use **Editor → Manage Export Templates → Download and Install**. The templates are installed per user, not in this repo. Alternatively, download `Godot_v4.7.2-stable_export_templates.tpz` from the [official release](https://github.com/godotengine/godot/releases/tag/4.7.2-stable) and extract `templates/macos.zip` and `templates/version.txt` to `~/Library/Application Support/Godot/export_templates/4.7.2.stable/` (the full download is about 1.2 GB; only `macos.zip` is needed afterwards).
 2. Set `config/version` in `project.godot` (`"0.1"` initially), then run from the repo root:
@@ -17,7 +17,7 @@ This is a GDScript project: **do not run SCons in this repo**. SCons compiles th
 
    To check without playing, use `builds/v0.1/discwalk.app/Contents/MacOS/discwalk --quit-after 180 -- --block-size=1` (the coarse blocks shorten startup). The `.app` needs no Godot editor installed to run. For a manual export, run `Godot --headless --path . --editor --import`, create an output directory, then run `Godot --headless --path . --export-release macOS path/to/discwalk.app`.
 
-**Distribution:** This preset uses built-in **ad-hoc signing**, not Apple Developer ID signing or notarization. It runs locally, but Gatekeeper may block copies downloaded on another Mac. Public distribution requires a Developer ID certificate, signing, and notarization (see [Godot's macOS export guide](https://docs.godotengine.org/en/4.7/tutorials/export/exporting_for_macos.html)). The included shotshaper disc tables are GPL-3.0; see `data/discs/README.md` and review license obligations before distributing.
+**Distribution:** This preset uses built-in **ad-hoc signing**, not Apple Developer ID signing or notarization. It runs locally, but Gatekeeper may block copies downloaded on another Mac. Public distribution requires a Developer ID certificate, signing, and notarization (see [Godot's macOS export guide](https://docs.godotengine.org/en/4.7/tutorials/export/exporting_for_macos.html)). The disc tables are our own (built from published measurements; see `docs/PHYSICS.md`), so no third-party data license applies.
 
 ## Checks before committing
 
@@ -39,18 +39,17 @@ Throwing has its own headless check. It throws 4 discs across open ground at pow
 $G --headless --path . --script res://tools/throw_test.gd [-- --block-size=0.5]
 ```
 
-Disc flight has one. It throws real flying discs over an empty flat floor, with both flight models. The `shotshaper` model is compared with shotshaper's own numbers for the same throws (within 10% carry, 4 m drift). The `hummel` model (the game's) is compared with a full 6-DOF integration of Hummel's equations, wobble and all (within 5% carry, 2.5 m drift), which checks the game's quasi-steady shortcut. It also checks (hummel model) that the overstable `cd1` fades left, the understable `cd5` turns right at 22 m/s and ends right of `cd1` at 20 m/s, a forehand mirrors a backhand, more hyzer bends the flight further, spin bleeds off a little (shotshaper's stays constant). Last, it throws from spawn in the real world with the follow cam on, and checks the disc lands and rests, the camera stays close to it all the way, and the view goes back to the walker afterwards.
+Disc flight has one. It throws real flying discs over an empty flat floor and compares carry and drift with a full 6-DOF integration of Hummel's equations, wobble and all (within 5% carry, 2.5 m drift), for 8 throws covering all 7 discs. That checks the game's quasi-steady shortcut and catches changes to the maths or the disc tables. It also checks each disc's character: the overstable Erratic fades even thrown anhyzer, the understable Till turns over flat, the Moraine hyzer-flips long, the Kettle putter is short and straight at putting speed, a driver out-carries the putter, a forehand mirrors a backhand, more hyzer bends the flight further, spin bleeds off. Last, it throws from spawn in the real world with the follow cam on, and checks the disc lands and rests, the camera stays close to it all the way, and the view goes back to the walker afterwards.
 
 ```sh
 $G --headless --path . --script res://tools/flight_test.gd [-- --block-size=0.5]
 DISPLAY=:0 $G --path . --resolution 1280x720 --script res://tools/flight_shots.gd -- /tmp/flight_shots   # HUD, follow cam in flight/on the ground, handed back
 ```
 
-Reference numbers come from shotshaper itself (Python, run as an outside tool) and from our own 6-DOF Hummel integrator (~1 min; 256 attitude substeps per tick):
+The disc tables are generated, and the reference numbers come from our own 6-DOF Hummel integrator (~1.5 min; 256 attitude substeps per tick). If you change the tables or the maths on purpose, rebuild and paste the new numbers into `REFERENCE` in `tools/flight_test.gd`:
 
 ```sh
-git clone https://github.com/kegiljarhus/shotshaper /tmp/shotshaper
-uv run --with numpy --with scipy --with pyyaml --with matplotlib python tools/discs/shotshaper_reference.py /tmp/shotshaper
+python3 tools/discs/build_tables.py                       # data/discs/discwalk/*.json
 uv run --with numpy python tools/discs/hummel_reference.py
 ```
 

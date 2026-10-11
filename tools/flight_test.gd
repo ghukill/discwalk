@@ -1,18 +1,17 @@
 extends SceneTree
-## Headless disc-flight check, in two parts.
+## Headless disc-flight check, in three parts.
 ##
 ## 1. Lab: real FlyingDisc bodies thrown over a flat, empty floor (no trees,
-##    no lakes), compared with reference flights, once per flight model:
-##    - "shotshaper" model vs shotshaper itself (tools/discs/shotshaper_reference.py),
-##      within 10% / 4 m;
-##    - "hummel" model (the game's) vs a full 6-DOF integration of Hummel's
-##      equations, wobble and all (tools/discs/hummel_reference.py), within
-##      5% / 2.5 m. That checks the game's quasi-steady shortcut.
-##    If we change the maths, this catches it. (Only meaningful for the
-##    shotshaper tables; our own tables will need their own reference numbers.)
-## 2. Character (hummel model): overstable cd1 thrown flat must fade left,
-##    understable cd5 must turn right (at 22 m/s), a forehand must mirror a backhand, more
-##    hyzer must bend further left, and spin must bleed off a little.
+##    no lakes), compared with a full 6-DOF integration of Hummel's equations,
+##    wobble and all (tools/discs/hummel_reference.py), within 5% carry and
+##    2.5 m drift. That checks the game's quasi-steady shortcut and catches any
+##    change to the maths or the disc tables (rerun the script if you change
+##    them on purpose).
+## 2. Character: each disc behaves like the real disc its data comes from
+##    (docs/PHYSICS.md): the overstable Erratic fades even thrown anhyzer, the
+##    understable Till turns over flat, the Moraine hyzer-flips long, the
+##    Kettle putter flies short and straight at putting speed, a forehand
+##    mirrors a backhand, more hyzer bends further left, spin bleeds off.
 ## 3. World: a throw from spawn in the generated world flies, lands and rests.
 ##
 ##   godot --headless --path . --script res://tools/flight_test.gd
@@ -20,29 +19,21 @@ extends SceneTree
 const FLYING_DISC := preload("res://scripts/flying_disc.gd")
 const DiscModel := preload("res://scripts/disc_model.gd")
 
-## [disc, speed, spin, pitch, nose, roll] -> shotshaper [carry, drift left]
-## (released 1.3 m up, flight ends when it gets back to y = 0).
+## [disc, speed, spin, pitch, nose, roll] -> full 6-DOF Hummel [carry, drift left]
+## (released 1.3 m up, flight ends when it gets back to y = 0; RH backhand).
+## From tools/discs/hummel_reference.py.
 const REFERENCE := [
-	[["dd2", 24.2, 116.8, 15.5, 0.0, 14.7], [81.9, 4.1]],
-	[["dd2", 24.0, 124.8, 10.0, 0.0, 0.0], [62.5, -19.9]],
-	[["dd2", 20.0, 104.0, 10.0, 0.0, -15.0], [43.7, -13.1]],
-	[["cd1", 20.0, 104.0, 10.0, 0.0, 0.0], [51.0, 11.6]],
-	[["cd5", 20.0, 104.0, 10.0, 0.0, 0.0], [67.1, -8.5]],
-	[["fd2", 22.0, 114.4, 8.0, 2.0, 5.0], [65.6, 18.4]],
+	[["moraine", 24.0, 124.8, 10.0, 0.0, 10.0], [93.9, -4.2]],   # spin 125 -> 105
+	[["moraine", 24.0, 124.8, 10.0, 0.0, 0.0], [72.0, -19.8]],   # spin 125 -> 106
+	[["erratic", 24.0, 124.8, 10.0, 0.0, 0.0], [60.5, 12.5]],   # spin 125 -> 110
+	[["till", 23.0, 119.6, 10.0, 0.0, 25.0], [69.0, -3.6]],   # spin 120 -> 105
+	[["outwash", 23.0, 119.6, 10.0, 0.0, 15.0], [86.0, -6.5]],   # spin 120 -> 102
+	[["esker", 19.0, 98.8, 10.0, 0.0, 10.0], [52.8, -6.1]],   # spin 99 -> 91
+	[["drumlin", 19.0, 98.8, 10.0, 0.0, 10.0], [48.1, 7.5]],   # spin 99 -> 92
+	[["kettle", 16.0, 83.2, 10.0, 0.0, 0.0], [36.9, -3.1]],   # spin 83 -> 79
 ]
 
-## Same throws -> full 6-DOF Hummel [carry, drift left] (tools/discs/hummel_reference.py).
-const HUMMEL_REFERENCE := [
-	[["dd2", 24.2, 116.8, 15.5, 0.0, 14.7], [79.1, 22.6]],   # spin 117 -> 99
-	[["dd2", 24.0, 124.8, 10.0, 0.0, 0.0], [83.6, -24.4]],   # spin 125 -> 104
-	[["dd2", 20.0, 104.0, 10.0, 0.0, -15.0], [48.4, -13.7]],   # spin 104 -> 94
-	[["cd1", 20.0, 104.0, 10.0, 0.0, 0.0], [56.5, 13.6]],   # spin 104 -> 94
-	[["cd5", 20.0, 104.0, 10.0, 0.0, 0.0], [69.9, -3.0]],   # spin 104 -> 93
-	[["fd2", 22.0, 114.4, 8.0, 2.0, 5.0], [69.3, 20.0]],   # spin 114 -> 100
-]
-
-var _models := {}                     # "hummel" flight model (the game's)
-var _shot := {}                       # "shotshaper" flight model
+var _models := {}
 var _lab: Node3D
 var _cases: Array = []               # {name, disc, ref?, check?}
 var _frames := 0
@@ -55,10 +46,8 @@ var _warp_waiting := false
 
 
 func _initialize() -> void:
-	for m in DiscModel.load_all("hummel"):
+	for m in DiscModel.load_all():
 		_models[m.id] = m
-	for m in DiscModel.load_all("shotshaper"):
-		_shot[m.id] = m
 	_lab = Node3D.new()
 	root.add_child(_lab)
 	var floor_body := StaticBody3D.new()
@@ -76,25 +65,25 @@ func _initialize() -> void:
 	# Lab throws go along -Z; "left" is -X.
 	for i in REFERENCE.size():
 		var r: Array = REFERENCE[i]
-		_cases.append({"name": "ref%d_%s" % [i, r[0][0]], "args": r[0], "ref": r[1], "hand": 1.0,
-			"shot": true})
-	for i in HUMMEL_REFERENCE.size():
-		var r: Array = HUMMEL_REFERENCE[i]
-		_cases.append({"name": "hum%d_%s" % [i, r[0][0]], "args": r[0], "ref": r[1], "hand": 1.0})
-	for hand in [1.0, -1.0]:
-		for id in ["cd1", "cd5"]:
-			_cases.append({"name": "%s_%s" % [id, "bh" if hand > 0 else "fh"],
-				"args": [id, 20.0, 104.0, 10.0, 0.0, 0.0], "hand": hand})
-	_cases.append({"name": "cd5_bh22", "args": ["cd5", 22.0, 114.4, 10.0, 0.0, 0.0], "hand": 1.0})
-	_cases.append({"name": "fd2_hyzer25", "args": ["fd2", 22.0, 114.4, 10.0, 0.0, 25.0], "hand": 1.0})
-	_cases.append({"name": "fd2_flat", "args": ["fd2", 22.0, 114.4, 10.0, 0.0, 0.0], "hand": 1.0})
+		_cases.append({"name": "ref%d_%s" % [i, r[0][0]], "args": r[0], "ref": r[1], "hand": 1.0})
+	# [name, disc, speed, pitch, nose, roll, hand]; spin = auto (5.2 x speed)
+	for c in [
+			["moraine_bh", "moraine", 24.0, 10.0, 0.0, 0.0, 1.0],
+			["moraine_fh", "moraine", 24.0, 10.0, 0.0, 0.0, -1.0],
+			["erratic_anhyzer", "erratic", 24.0, 10.0, 0.0, -10.0, 1.0],
+			["till_flat", "till", 23.0, 10.0, 0.0, 0.0, 1.0],
+			["outwash_flat", "outwash", 23.0, 10.0, 0.0, 0.0, 1.0],
+			["outwash_hyzer20", "outwash", 23.0, 10.0, 0.0, 20.0, 1.0],
+			["kettle_24", "kettle", 24.0, 10.0, 0.0, 10.0, 1.0]]:
+		_cases.append({"name": c[0], "args": [c[1], c[2], DiscModel.auto_spin(c[2]), c[3], c[4], c[5]],
+			"hand": c[6]})
 	for i in _cases.size():
 		var c: Dictionary = _cases[i]
 		var a: Array = c.args
 		var d: RigidBody3D = RigidBody3D.new()
 		d.set_script(FLYING_DISC)
 		d.terrain = stub
-		d.model = (_shot if c.get("shot", false) else _models)[a[0]]
+		d.model = _models[a[0]]
 		_lab.add_child(d)
 		# Spread the throws sideways so they never meet.
 		var origin := Vector3(i * 200.0, 1.3, 0)
@@ -137,7 +126,7 @@ func _process(_delta: float) -> bool:
 		_frames = 0
 	if _main != null and _frames == 5:
 		var thrower = _main.thrower
-		var p := {"disc": _models["fd2"], "speed": 20.0, "pitch": 12.0, "nose": 0.0,
+		var p := {"disc": _models["outwash"], "speed": 20.0, "pitch": 12.0, "nose": 0.0,
 			"roll": 10.0, "spin": DiscModel.auto_spin(20.0)}
 		_world_disc = thrower.throw_disc(p)
 		thrower.set_view(true)                     # V lamp on mid-flight
@@ -173,30 +162,30 @@ func _report() -> void:
 			c.name, c.carry, c.left, c.t, c.landed_by]
 		line += "  spin %3.0f -> %3.0f" % [c.args[2], c.omega]
 		if c.has("ref"):
-			var shot: bool = c.get("shot", false)
-			var tol: Array = [0.1, 4.0] if shot else [0.05, 2.5]
-			var good: bool = absf(c.carry - c.ref[0]) <= tol[0] * c.ref[0] and absf(c.left - c.ref[1]) <= tol[1]
-			line += "  %s: carry=%5.1f left=%6.1f  %s" % ["shotshaper" if shot else "6-DOF", c.ref[0], c.ref[1],
-				"ok" if good else "BAD"]
+			var good: bool = absf(c.carry - c.ref[0]) <= 0.05 * c.ref[0] and absf(c.left - c.ref[1]) <= 2.5
+			line += "  6-DOF: carry=%5.1f left=%6.1f  %s" % [c.ref[0], c.ref[1], "ok" if good else "BAD"]
 			ok = ok and good
 		print(line)
 	var checks := [
-		["cd1 backhand fades left", by.cd1_bh.left > 3.0],
-		# Real precession is about half shotshaper's roll rate, so at 20 m/s the
-		# understable cd5 now flies nearly straight (~-2 m); its turn shows up
-		# with a bit more speed (~-19 m at 22 m/s), as understable discs do.
-		["cd5 backhand turns right at 22 m/s (%.1f m)" % by.cd5_bh22.left, by.cd5_bh22.left < -5.0],
-		["cd5 ends right of cd1 at 20 m/s", by.cd5_bh.left < by.cd1_bh.left - 10.0],
-		# Hummel spin down: ~10% over a flight (~1-7 %/s, faster when fast).
-		["spin bleeds off in flight (cd1 104 -> %.0f rad/s)" % by.cd1_bh.omega,
-			by.cd1_bh.omega < 0.97 * 104.0 and by.cd1_bh.omega > 0.8 * 104.0],
-		["shotshaper model keeps spin constant (%.1f rad/s)" % by.ref3_cd1.omega,
-			absf(by.ref3_cd1.omega - 104.0) < 0.01],
-		["cd1 forehand mirrors backhand", absf(by.cd1_fh.left + by.cd1_bh.left) < 1.0],
-		["cd5 forehand mirrors backhand", absf(by.cd5_fh.left + by.cd5_bh.left) < 1.0],
+		["Erratic (overstable) fades left even thrown 10 deg anhyzer (%.1f m)" % by.erratic_anhyzer.left,
+			by.erratic_anhyzer.left > 0.0],
+		["Till (understable) turns over thrown flat at 23 m/s (%.1f m)" % by.till_flat.left,
+			by.till_flat.left < -5.0],
+		["Moraine hyzer-flips long: 10 deg hyzer at 24 m/s carries %.1f m, ends %.1f m off line" % [
+			by.ref0_moraine.carry, by.ref0_moraine.left],
+			by.ref0_moraine.carry > 85.0 and absf(by.ref0_moraine.left) < 10.0],
+		["Kettle putter at 16 m/s: short and straight (%.1f m, %.1f m off line)" % [
+			by.ref7_kettle.carry, by.ref7_kettle.left],
+			by.ref7_kettle.carry > 30.0 and by.ref7_kettle.carry < 45.0 and absf(by.ref7_kettle.left) < 6.0],
+		["a driver out-carries the putter at 24 m/s (%.1f vs %.1f m)" % [by.ref0_moraine.carry, by.kettle_24.carry],
+			by.ref0_moraine.carry > by.kettle_24.carry + 15.0],
+		["forehand mirrors backhand", absf(by.moraine_fh.left + by.moraine_bh.left) < 1.0],
 		# Hyzer also shortens the flight, so compare the bend as an angle.
 		["more hyzer bends further left (angle)",
-			by.fd2_hyzer25.left / by.fd2_hyzer25.carry > by.fd2_flat.left / by.fd2_flat.carry + 0.05],
+			by.outwash_hyzer20.left / by.outwash_hyzer20.carry > by.outwash_flat.left / by.outwash_flat.carry + 0.05],
+		# Hummel spin down: ~15% over a long flight (~1-7 %/s, faster when fast).
+		["spin bleeds off in flight (Moraine 125 -> %.0f rad/s)" % by.moraine_bh.omega,
+			by.moraine_bh.omega < 0.95 * 124.8 and by.moraine_bh.omega > 0.75 * 124.8],
 	]
 	var wd = _world_disc
 	var world_ok: bool = is_instance_valid(wd) and wd.resting and wd.flight_dist > 15.0
