@@ -33,6 +33,22 @@ const CHAIN_BOTTOM := 0.75      ## ...down to just over the tray rim (m).
 const POLE_RADIUS := 0.05
 const CHAIN_COUNT := 12
 
+const BEAM_WIDTH := 0.45        ## Finder beam thickness (m). Readable at 120 m.
+const BEAM_HEIGHT := 40.0       ## Finder beam height (m): above the tallest oaks.
+const BEAM_ALPHA := 0.5
+## The beam draws through trees and hills, which is the point of it -- but
+## that also means it would paint straight over the basket once you walk up.
+## So it fades out as you close, the way flight paths do: gone by NEAR, full
+## strength past FAR. By the time you are putting, the target is unobscured.
+const BEAM_FADE_NEAR := 9.0
+const BEAM_FADE_FAR := 30.0
+## A fixed-width beam shrinks with distance, which is backwards: it gets
+## thinnest exactly when you most need to find it. Instead the beam widens
+## with range to hold a roughly constant size on screen -- about this many
+## radians across, whether the basket is 30 m or 120 m away.
+const BEAM_APPARENT := 0.018
+const BEAM_MAX_SCALE := 4.5
+
 const COLOR_STEEL := Color(0.62, 0.64, 0.66)
 const COLOR_CHAIN := Color(0.78, 0.80, 0.82)
 const COLOR_BAND := Color(0.80, 0.62, 0.22)   ## A warm band, easy to pick out.
@@ -64,6 +80,7 @@ var holed: Node = null          ## The disc parked in the tray, or null.
 var beam_on := true             ## Tall finder beam, on the P toggle.
 
 var _beacon: MeshInstance3D
+var _beam_mat: StandardMaterial3D
 var _rng := RandomNumberGenerator.new()
 
 
@@ -85,6 +102,23 @@ func set_beam(on: bool) -> void:
 	beam_on = on
 	if _beacon != null:
 		_beacon.visible = on
+
+
+## Fade the finder beam out as the camera closes, so it stops hiding the
+## thing it is pointing at.
+func _process(_delta: float) -> void:
+	if _beacon == null or _beam_mat == null or not beam_on:
+		return
+	var cam := get_viewport().get_camera_3d()
+	if cam == null:
+		return
+	var d := Vector2(cam.global_position.x - global_position.x,
+		cam.global_position.z - global_position.z).length()
+	var t := clampf((d - BEAM_FADE_NEAR) / (BEAM_FADE_FAR - BEAM_FADE_NEAR), 0.0, 1.0)
+	_beam_mat.albedo_color = Color(COLOR_BAND, BEAM_ALPHA * t)
+	_beacon.visible = t > 0.01
+	var s := clampf(d * BEAM_APPARENT / BEAM_WIDTH, 1.0, BEAM_MAX_SCALE)
+	_beacon.scale = Vector3(s, 1.0, s)
 
 
 # --- chains ------------------------------------------------------------------
@@ -271,17 +305,26 @@ func _build_visual() -> void:
 			(CHAIN_TOP + CHAIN_BOTTOM) * 0.5, sin(a) * CHAIN_RADIUS * 0.85)
 		add_child(bar)
 
+	# Finder beam. Holes are sited 60-120 m out, often behind oaks, so this
+	# has to read from right across the world: much fatter and taller than
+	# the thin bar over a resting disc, and solid enough to show against a
+	# bright sky.
 	_beacon = MeshInstance3D.new()
 	var beam := BoxMesh.new()
-	beam.size = Vector3(0.08, 12.0, 0.08)
-	var beam_mat := StandardMaterial3D.new()
-	beam_mat.albedo_color = Color(COLOR_BAND, 0.30)
-	beam_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	beam_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	beam.material = beam_mat
+	beam.size = Vector3(BEAM_WIDTH, BEAM_HEIGHT, BEAM_WIDTH)
+	_beam_mat = StandardMaterial3D.new()
+	_beam_mat.albedo_color = Color(COLOR_BAND, BEAM_ALPHA)
+	_beam_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	_beam_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	# Draw through trees and hills: a beam you lose behind a trunk is no use
+	# for finding anything. _process() fades it as you close, so it does not
+	# end up painting over the basket itself.
+	_beam_mat.no_depth_test = true
+	_beam_mat.render_priority = 1
+	beam.material = _beam_mat
 	_beacon.mesh = beam
 	_beacon.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	_beacon.position.y = 6.0
+	_beacon.position.y = BEAM_HEIGHT * 0.5
 	_beacon.visible = beam_on
 	add_child(_beacon)
 

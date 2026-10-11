@@ -64,6 +64,15 @@ func _shoot() -> void:
 	await _frames(10)
 	_grab("2_from_tee")
 
+	# From a real hole's distance: this is what the finder beam is for, and
+	# the only shot that shows it at full strength.
+	var away := c + (tee - c).normalized() * 70.0
+	away.y = t.height_at(away.x, away.z) + 1.6
+	cam.global_position = away
+	cam.look_at(c + Vector3(0, 8.0, 0), Vector3.UP)
+	await _frames(10)
+	_grab("2b_from_70m")
+
 	# A putt, caught in flight and then at rest in the tray. throw_disc aims
 	# where the PLAYER is facing, so turn them at the basket first.
 	# Stand exactly on the tee: the release point is relative to the player,
@@ -80,12 +89,25 @@ func _shoot() -> void:
 	p.pitch = -6.0
 	p.roll = 0.0
 	p.spin = 5.2 * 10.0
-	var disc = th.throw_disc(p)
+	# The chains rattle the disc randomly, so a single scripted putt is not
+	# reliably a make. Retry until one goes in, so shot 4 always shows what
+	# it claims to.
 	cam.global_position = c + Vector3(4.5, 1.4, 2.6)
 	cam.look_at(c + Vector3(0, 1.0, 0), Vector3.UP)
-	await _frames(8)
-	_grab("3_putt")
-	await _frames(90)
+	for attempt in 8:
+		b.release()
+		th.clear()
+		player.global_position = tee
+		await _frames(2)
+		th.throw_disc(p)
+		if attempt == 0:
+			await _frames(8)
+			_grab("3_putt")
+			await _frames(70)
+		else:
+			await _frames(78)
+		if b.holed != null:
+			break
 	_grab("4_in_the_tray")
 	print("BASKET_SHOTS holed=%s strokes=%d" % [b.holed != null, _main.hole.strokes])
 	quit(0)
