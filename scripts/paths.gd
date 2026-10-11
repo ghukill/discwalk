@@ -9,6 +9,11 @@ extends Node3D
 ##
 ## Cubes have no collision (walk through them) and each path is one
 ## MultiMeshInstance3D, so even hundreds of throws are cheap.
+##
+## So they don't crowd you: they're see-through (ALPHA), a path only starts
+## START_GAP metres from where it was thrown and fades in over FADE_IN, and
+## any cube closer than NEAR_FADE_MAX to the camera fades away (so a pile of
+## paths from the same tee never fills the screen).
 
 const AIR_SIZE := 0.08               ## Cube edge in flight (m).
 const GROUND_SIZE := 0.05            ## Cube edge on the ground (m).
@@ -16,6 +21,11 @@ const AIR_SPACING := 0.5             ## A cube every this many metres flown.
 const GROUND_SPACING := 0.25         ## ... and rolled (slower, so closer).
 const GROUND_DIM := 0.5              ## Ground cubes: colour darkened by this.
 const START_CAPACITY := 256
+const ALPHA := 0.55                  ## See-through-ness of path cubes (1 = solid).
+const START_GAP := 3.5               ## No cubes within this many metres of the release.
+const FADE_IN := 4.0                 ## ... then they fade in over this many metres.
+const NEAR_FADE_MIN := 1.0           ## Cubes closer than this to the camera are invisible,
+const NEAR_FADE_MAX := 4.0           ## ... and fully there from this far.
 const FALL_GRAVITY := 3.5            ## m/s^2: a gentle drift, not a drop.
 const FALL_DELAY_MAX := 0.6          ## Cubes let go at slightly different times (s).
 const POOF_TIME := 0.35              ## Swell + fade on landing (s).
@@ -40,9 +50,12 @@ func _ready() -> void:
 	_material.vertex_color_use_as_albedo = true
 	_material.vertex_color_is_srgb = true   # true colours (not washed out)
 	_material.disable_fog = true            # stay vivid far down the fairway
+	_material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	_material.distance_fade_mode = BaseMaterial3D.DISTANCE_FADE_PIXEL_ALPHA
+	_material.distance_fade_min_distance = NEAR_FADE_MIN
+	_material.distance_fade_max_distance = NEAR_FADE_MAX
 	_box.material = _material
 	_fade_material = _material.duplicate()
-	_fade_material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	_rng.randomize()
 
 
@@ -66,7 +79,7 @@ func track(disc: Node3D, color: Color) -> void:
 	mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	add_child(mmi)
 	var path := {"disc": disc, "mmi": mmi, "color": color, "count": 0,
-		"air": 0, "ground": 0, "last": disc.global_position,
+		"air": 0, "ground": 0, "last": disc.global_position, "start": disc.global_position,
 		"points": PackedVector3Array(), "sizes": PackedFloat32Array(), "colors": PackedColorArray()}
 	_paths.append(path)
 	_add(path, disc.global_position, true)
@@ -166,7 +179,7 @@ func _fall_step(f: Dictionary, dt: float) -> void:
 			var e := 1.0 - (1.0 - k) * (1.0 - k)    # ease out
 			var basis := Basis(f.axis[i], f.angle[i]).scaled(Vector3.ONE * size * lerpf(1.0, POOF_SWELL, e))
 			mm.set_instance_transform(i, Transform3D(basis, at))
-			mm.set_instance_color(i, Color(c.lerp(Color.WHITE, 0.6 * e), 1.0 - e))
+			mm.set_instance_color(i, Color(c.lerp(Color.WHITE, 0.6 * e), c.a * (1.0 - e)))
 			continue
 		if f.delay[i] > 0.0:
 			f.delay[i] -= dt
@@ -207,8 +220,13 @@ func _physics_process(_delta: float) -> void:
 
 
 func _add(p: Dictionary, at: Vector3, air: bool) -> void:
+	var from_start: float = at.distance_to(p.start)
+	if from_start < START_GAP:
+		p.last = at                       # breathing room near the thrower
+		return
 	var size := AIR_SIZE if air else GROUND_SIZE
 	var c: Color = p.color if air else p.color.darkened(GROUND_DIM)
+	c.a = ALPHA * clampf((from_start - START_GAP) / FADE_IN, 0.0, 1.0)
 	p.points.append(at)
 	p.sizes.append(size)
 	p.colors.append(c)

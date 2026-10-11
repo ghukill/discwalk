@@ -93,6 +93,9 @@ Notes:
 | `AIR_SIZE`, `GROUND_SIZE` | `paths.gd` | 0.08, 0.05 m | Path cube sizes. |
 | `AIR_SPACING`, `GROUND_SPACING` | `paths.gd` | 0.5, 0.25 m | A path cube every this many metres. |
 | `GROUND_DIM` | `paths.gd` | 0.5 | How much darker ground cubes are. |
+| `ALPHA` | `paths.gd` | 0.55 | Path cube opacity (1 = solid). |
+| `START_GAP`, `FADE_IN` | `paths.gd` | 3.5, 4.0 m | No cubes this close to the release; then a fade-in over this distance. |
+| `NEAR_FADE_MIN`, `NEAR_FADE_MAX` | `paths.gd` | 1.0, 4.0 m | Cubes closer to the camera than MIN are invisible, fully there from MAX. |
 | `FALL_GRAVITY`, `POOF_TIME`, `POOF_SWELL` | `paths.gd` | 3.5 m/s², 0.35 s, 1.8× | The P fall-and-poof. |
 | `launch_min`, `launch_max` | `thrower.gd` | −45°, 85° | Launch angle limits (= view pitch). |
 | `radius`, `PITCH_PX_PER_R` | `dials.gd` | 30 px (set by the HUD), 0.045 | Dial size; horizon scale (px per degree per px of radius). |

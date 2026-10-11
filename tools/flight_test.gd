@@ -175,7 +175,7 @@ func _report() -> void:
 	var pd: Dictionary = paths._paths[0] if paths.count() > 0 else {}
 	var air: int = pd.get("air", 0)
 	var ground: int = pd.get("ground", 0)
-	var expect_air := int(wd.flight_dist / paths.AIR_SPACING) if is_instance_valid(wd) else 0
+	var expect_air := int((wd.flight_dist - paths.START_GAP) / paths.AIR_SPACING) if is_instance_valid(wd) else 0
 	checks.append(["path: %d air cubes (expect ~%d), %d ground cubes, colour = disc colour" % [
 		air, expect_air, ground],
 		paths.count() == 1 and air >= expect_air * 0.9 and ground > 0 \
