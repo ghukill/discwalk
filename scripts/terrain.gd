@@ -51,6 +51,7 @@ var heights := PackedInt32Array()          ## Top surface of each column, in blo
 var lakes: Array[Dictionary] = []          ## {center: Vector2 (m), radius: m, water_y: m}
 
 var flora: Node3D                          ## Oaks + wildflowers (scripts/flora.gd).
+var basket: Node3D                         ## The hole's basket (scripts/basket.gd), if any.
 ## Optional hand-placed trees for tools (see tools/tree_gallery.gd):
 ## [{x: m, z: m, kind, form, crown?}]. Empty = normal generated placement.
 var flora_preset: Array = []
