@@ -39,18 +39,19 @@ Throwing has its own headless check. It throws 4 discs across open ground at pow
 $G --headless --path . --script res://tools/throw_test.gd [-- --block-size=0.5]
 ```
 
-Disc flight has one. It throws real flying discs over an empty flat floor and compares carry and drift with shotshaper's own numbers for the same throws (within 10% carry, 4 m drift). It also checks that the overstable `cd1` fades left, the understable `cd5` turns right, a forehand mirrors a backhand, and more hyzer bends the flight further. Last, it throws from spawn in the real world with the follow cam on, and checks the disc lands and rests, the camera stays close to it all the way, and the view goes back to the walker afterwards.
+Disc flight has one. It throws real flying discs over an empty flat floor, with both flight models. The `shotshaper` model is compared with shotshaper's own numbers for the same throws (within 10% carry, 4 m drift). The `hummel` model (the game's) is compared with a full 6-DOF integration of Hummel's equations, wobble and all (within 5% carry, 2.5 m drift), which checks the game's quasi-steady shortcut. It also checks (hummel model) that the overstable `cd1` fades left, the understable `cd5` turns right at 22 m/s and ends right of `cd1` at 20 m/s, a forehand mirrors a backhand, more hyzer bends the flight further, spin bleeds off a little (shotshaper's stays constant). Last, it throws from spawn in the real world with the follow cam on, and checks the disc lands and rests, the camera stays close to it all the way, and the view goes back to the walker afterwards.
 
 ```sh
 $G --headless --path . --script res://tools/flight_test.gd [-- --block-size=0.5]
 DISPLAY=:0 $G --path . --resolution 1280x720 --script res://tools/flight_shots.gd -- /tmp/flight_shots   # HUD, follow cam in flight/on the ground, handed back
 ```
 
-Reference numbers come from shotshaper itself (Python, run as an outside tool):
+Reference numbers come from shotshaper itself (Python, run as an outside tool) and from our own 6-DOF Hummel integrator (~1 min; 256 attitude substeps per tick):
 
 ```sh
 git clone https://github.com/kegiljarhus/shotshaper /tmp/shotshaper
 uv run --with numpy --with scipy --with pyyaml --with matplotlib python tools/discs/shotshaper_reference.py /tmp/shotshaper
+uv run --with numpy python tools/discs/hummel_reference.py
 ```
 
 Landing has a stress test: 48 discs from spawn in every direction, mixed discs, speeds, angles and hyzer. It fails if any ends up under the ground or lost:

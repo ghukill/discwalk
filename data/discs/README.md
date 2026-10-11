@@ -11,9 +11,13 @@ lists them in the throw panel.
  "J_xy": 0.003755,             // inertia across the disc, per kg (m^2)
  "J_z": 0.007465,              // inertia about the spin axis, per kg (m^2)
  "alpha": [-90, ..., 90],      // angle of attack (deg), ascending
- "Cl": [...], "Cd": [...], "Cm": [...]   // lift, drag, pitching moment
+ "Cl": [...], "Cd": [...], "Cm": [...],  // lift, drag, pitching moment
+ "CMq": -0.0144, "CRp": -0.0125, "CNr": -3.41e-5  // optional: Hummel damping (per rad/s)
 }
 ```
+
+The three damping terms are optional; without them a disc uses Hummel's
+(2003) long-flight values (`HUMMEL_*` in `scripts/disc_model.gd`).
 
 Beyond ±90° the model mirrors the table (an upside-down disc).
 

@@ -7,7 +7,8 @@ extends "res://scripts/disc.gd"
 ## - While airborne it flies: every physics tick DiscModel works out lift,
 ##   drag and the gyroscopic roll (turn/fade) from the disc's tilt, and this
 ##   script keeps the body's orientation glued to that tilt. Spin is just a
-##   number (rad/s) fed to the roll maths; the mesh spins for show only.
+##   number (rad/s) fed to the roll maths (it bleeds off in flight under the
+##   Hummel model); the mesh spins for show only.
 ## - On first contact with anything (ground, trunk, bark, leaves, water) the
 ##   aerodynamics switch off for good and ordinary physics takes over: skips,
 ##   rolls, flips. The disc keeps a little real spin so it can roll on edge.
@@ -170,11 +171,10 @@ func apply_aero(state: PhysicsDirectBodyState3D, v: Vector3) -> Vector3:
 	if splashed:
 		_land("water", state)
 		return v
-	var air := v - wind
-	var r: Array = model.step(air, normal, omega, hand, dt)
+	var r: Array = model.step(v - wind, normal, omega, hand, dt)
 	v += r[0] * dt
 	normal = r[1]
-	omega = model.spin_after(air.length(), omega, dt)
+	omega = r[3]
 	flight_time += dt
 	var xf := state.transform
 	xf.basis = _flight_basis(v)

@@ -30,7 +30,7 @@ tools/smoke_test.gd      Headless PASS/FAIL check
 tools/screenshot.gd      Renders PNG views incl. one portrait per oak form (needs a display/GPU)
 tools/tree_gallery.gd    Flat-ground lineup of every oak form, for tuning trees
 tools/throw_test.gd      Headless throws (open ground, into an oak, into a lake): PASS/FAIL
-tools/flight_test.gd     Headless disc flights vs shotshaper + turn/fade sanity: PASS/FAIL
+tools/flight_test.gd     Headless disc flights vs shotshaper and a 6-DOF Hummel sim + turn/fade sanity: PASS/FAIL
 tools/clouds_shots.gd    Screenshots of the clouds (from spawn, wide view)
 tools/warp_shots.gd      Screenshots: the warp flag over the follow cam, then arrival
 tools/dials_shots.gd     Screenshots of the dials (level, up, down)
@@ -40,7 +40,7 @@ tools/skip_test.gd       48 throws on flat ground: ground play after landing (tu
 tools/landing_test.gd    48 discs all round spawn: none may end up under the ground
 tools/paths_shots.gd     Screenshots: three paths from behind/side/close, then P falling
 tools/flight_shots.gd    Screenshots: HUD, follow cam in flight + on the ground, view handed back
-tools/discs/             Python helpers: shotshaper tables -> JSON, shotshaper reference flights
+tools/discs/             Python helpers: shotshaper tables -> JSON, shotshaper + Hummel 6-DOF reference flights
 tools/collect_test.gd    Headless collect: 8 scattered discs roll home, speed ramps up
 tools/toggles_test.gd    Headless VIEW/WARP/launch/PATH behaviour, scene by scene
 docs/                    These docs + screenshots
@@ -203,8 +203,11 @@ Step 2 of throwing. `flying_disc.gd` extends `disc.gd`, so trees, lakes, beams, 
 - **Flight** (`DiscModel.step()`), every physics tick while `flying`:
   - Angle of attack from the velocity (minus wind) and the disc's normal.
   - Lift ⟂ airflow, drag against it: `C × ½ρv² × area`, coefficients interpolated from the disc's table.
-  - Pitching moment `M = C_m × ½ρv² × area × diameter` is not applied as a torque. A spinning disc precesses instead: the normal rolls about the line of flight at `M / (ω (I_z − I_xy))`. Early in the flight (low α) M is negative → it turns right (RH backhand); as it slows and α grows, M goes positive → it fades left.
-  - The body's orientation is set from `normal` each tick; real angular velocity stays zero. Spin is just a number; the mesh spins at a capped, watchable rate.
+  - Moments are not applied as torques. A spinning disc precesses instead, and that slow roll is turn and fade. Early in the flight (low α) the pitching moment is negative → it turns right (RH backhand); as it slows and α grows, it goes positive → it fades left.
+  - **Two flight models** (`DiscModel.FLIGHTS`, picked with `--flight=`; see [DISC-FLIGHT-PLAN.md](DISC-FLIGHT-PLAN.md#flight-models)):
+    - **`hummel`** (default): Hummel's (2003) moments, each with its damping term: pitch `(C_m(α) + C_Mq q)`, roll `C_Rp p`, spin down `C_Nr r`, all × `½ρv² × area × diameter`. `_attitude_hummel()` solves his Euler equations for the steady precession rates p, q (a 2×2 linear solve; wobble skipped) and turns the normal by them; roll without damping is `M / (I_z r)`, a real gyroscope. Spin decays exponentially, faster when fast (~7 %/s at 24 m/s, ~1 %/s at 10 m/s; about 104 → 94 rad/s over a 4.5 s flight).
+    - **`shotshaper`**: the original approximation. Roll about the line of flight at `M / (ω (I_z − I_xy))` (about twice the true rate for a flat disc), constant spin, no damping.
+  - The body's orientation is set from `normal` each tick; real angular velocity stays zero. Spin (`omega`) is a number fed to the maths; the mesh spins at a capped, watchable rate.
   - Godot's default linear damping is replaced with 0 while flying (the model does drag).
 - **Landing**: first touch of anything (ground/trunk contact, bark, leaves, water) switches the aerodynamics off for good. Ordinary physics takes over with up to 25 rad/s of real spin, so it can skid, roll and flop, with a slicker material than the block (friction 0.3 vs 0.7) so it skips on instead of digging in. `flight_dist` is the carry at first contact; the HUD shows carry, rest distance, peak and airtime.
 - **Disc data**: JSON tables under `data/discs/` (four shotshaper CFD tables for now, GPL-3.0; see `data/discs/README.md` for swapping them out).

@@ -160,6 +160,7 @@ Done:
 - [x] **Clouds**: fluffy voxel clouds, a few low puffs just over the trees (K)
 - [x] **Warp (Z)**: go to your disc once it stops, ready for the next shot
 - [x] **Toggles + launch**: V (view) and Z (warp) are toggles with warm cockpit lamps top right, P covers paths + beams, L launches you with your last throw (replaces F fetch and B beams)
+- [x] **Hummel flight** (branch `hummell-equations`): Hummel's 2003 moment equations replace shotshaper's shortcut: spin decay, pitch/roll damping, and true gyroscopic roll (about half shotshaper's, so drives carry further and understable discs need speed to turn). `--flight=shotshaper` for the old model. Checked against a full 6-DOF sim (`tools/discs/hummel_reference.py`)
 - [x] **Throw HUD** ([spec](docs/THROW-HUD.md)): the T panel is gone. A small warm cockpit block in the lower right shows a tilting 3D disc, ✋ for backhand/forehand, speed + spin bars, heading + horizon dials and the Chase view / Goto / Paths lamps. Arrows tilt, Shift+arrows speed/spin, X spin lock, R flat, H hand, Tab discs, click/Enter throw, right click cube, G goto (was Z), U hides the HUD, -/= resize it. Launch offset removed: the view is the launch angle
 
 Next (pick any):

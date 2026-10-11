@@ -31,6 +31,7 @@ Command-line flags override the scene and the code defaults.
 | `--debug-keys` | off | Prints every key press/release to stdout. Useful for diagnosing remote input (VNC). |
 | `--ui-scale=<x>` | `1.0` | Extra size for the HUD and help text (0.6–3). `-` / `=` change it in game. |
 | `--no-clouds` | off | Start with clouds hidden (K shows them). |
+| `--flight=<model>` | `hummel` | Disc flight model: `hummel` (Hummel 2003: spin decay, pitch/roll damping, true gyroscopic roll) or `shotshaper` (the original: constant spin, about twice the turn/fade roll rate). For A/B-ing. See [DISC-FLIGHT-PLAN.md](DISC-FLIGHT-PLAN.md#flight-models). |
 
 The dev tools accept the same flags, e.g.
 
@@ -110,6 +111,7 @@ Notes:
 | `RANGES`, defaults | `throw_setup.gd` | | Min/max/step for speed, nose, hyzer, spin; starting disc (dd2), 24 m/s, flat, spin locked. |
 | `REPEAT_DELAY`, `REPEAT_RATE`, `REPEAT_RAMP`, `REPEAT_MAX` | `throw_setup.gd` | 0.3 s, 10, 30, 45 /s | Arrow hold-to-repeat: delay, then steps/s ramping up to the max. |
 | disc tables | `data/discs/*/*.json` | | One file per disc; see `data/discs/README.md`. |
+| `HUMMEL_CMQ`, `HUMMEL_CRP`, `HUMMEL_CNR` | `disc_model.gd` | −0.0144, −0.0125, −0.0000341 | Hummel's pitch damping, roll damping, spin down (per rad/s; his long-flight fit for a Frisbee). A disc JSON can override them with `CMq`, `CRp`, `CNr`. More negative `CNr` = spin bleeds off faster (late fade grows). |
 | `leaf_keep_per_metre` | `disc.gd` | 0.72 | Fraction of speed kept per metre of leaves. |
 | `bark_bounce` | `disc.gd` | 0.4 | Speed kept along the hit axis when bouncing off bark. |
 | `SIZE` | `disc.gd` | 0.22 | Disc block edge (m). |
