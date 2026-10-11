@@ -31,7 +31,7 @@ func _process(_d: float) -> bool:
 	if k >= 0:
 		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 		var s: Array = THROWS[k]
-		var p: Dictionary = th.panel.params()
+		var p: Dictionary = th.setup.params()
 		p.speed = s[0]
 		p.pitch = s[1]
 		p.roll = s[2]

@@ -1,64 +1,63 @@
 extends Node
-## Throwing discs.
+## Throwing discs (and orange cubes). Keys (docs/THROW-HUD.md):
 ##
-##   T        show/hide the throw panel (lower right): pick a disc, set speed,
-##            launch angle, nose, hyzer/anhyzer, spin, press Throw. A real
-##            flying disc (flying_disc.gd) leaves along where you're looking.
-##   1-9, 0   set power 1..10 (0 = 10) for the orange blocks
-##   click    fire an orange block at the current power (step 1, kept as-is)
+##   Left click / Enter   throw the disc you've set up (throw_setup.gd: arrows,
+##                        Shift+arrows, X, R, H, Tab), where you're looking:
+##                        left/right is the direction, up/down the launch angle
+##   Right click          throw an orange cube at the same release speed (the
+##                        original cannon, kept for fun and physics testing)
 ##
-## Two toggles (warm lamps top right, both start off) decide what happens
-## with every throw, discs and blocks alike:
-##   V        VIEW: the camera chases each throw through its flight and
+## Two toggles (warm lamps in the HUD, both start off) decide what happens
+## with every throw, discs and cubes alike:
+##   V        CHASE VIEW: the camera chases each throw through its flight and
 ##            ground play, then snaps back to you (you never moved) once it
 ##            fully stops. Off mid-flight = back to you now.
-##   Z        WARP: once each throw fully stops, you're moved to it, standing
-##            behind it facing down the fairway. Off mid-flight = no warp.
-##            VIEW + WARP: watch the flight, then end up there.
+##   G        GOTO: once each throw fully stops, you're moved to it, standing
+##            behind it facing down the fairway. Off mid-flight = no goto.
+##            Chase + Goto: watch the flight, then end up there.
 ## And one quick action:
 ##   L        LAUNCH: while your last throw is still moving (flying, skipping
 ##            or rolling), you take on its position and velocity and fly on
-##            with it until you land. For that throw only, VIEW and WARP
+##            with it until you land. For that throw only, chase and goto
 ##            stand down. Does nothing once it has stopped.
 ##
-##   P        PATH lamp: flight paths + rest beams on/off (starts on). On:
+##   P        PATHS lamp: flight paths + rest beams on/off (starts on). On:
 ##            every disc throw leaves a path (bright cubes in the air,
 ##            dimmer for skips and rolls) and resting discs get a beam. Off:
 ##            paths drift down and go poof, beams go out, new throws leave
-##            none. Also a checkbox in the throw panel.
-##   H / J    heading / horizon dials on or off (top right)
+##            none.
+##   U        hide / show the throw HUD
 ##   C        collect: every disc rolls home to you, building up speed
-##            (ignores VIEW and WARP)
+##            (ignores chase and goto)
 ##
-## Power p launches at p x speed_per_level m/s (default 4 m/s per level, so
-## 0 = 40 m/s, about a strong disc golf drive). Aim is your view direction.
+## (In code "warp" is the old name for goto.)
 
 const DISC_SCRIPT := preload("res://scripts/disc.gd")
 const FLYING_DISC_SCRIPT := preload("res://scripts/flying_disc.gd")
 const DiscModel := preload("res://scripts/disc_model.gd")
-const ThrowPanel := preload("res://scripts/throw_panel.gd")
+const ThrowSetup := preload("res://scripts/throw_setup.gd")
+const ThrowHud := preload("res://scripts/throw_hud.gd")
 const FollowCam := preload("res://scripts/follow_cam.gd")
 const Paths := preload("res://scripts/paths.gd")
 
-@export var speed_per_level := 4.0
+@export var speed_per_level := 4.0      ## Old block power levels (tests): m/s per level.
 @export var max_discs := 12          ## Older discs are cleared away.
 
 var terrain: Node3D
 var player: CharacterBody3D
 var camera: Camera3D
 var label: Label
-var status_label: Label                  ## Upper-right: block power.
-var hud: CanvasLayer                     ## Where the throw panel goes.
-var panel: PanelContainer
+var hud: CanvasLayer                     ## Where the throw HUD goes.
+var setup: Node                          ## The throw you've set up (throw_setup.gd).
+var throw_hud: Control                   ## Lower-right instrument block (throw_hud.gd).
 var follow_cam: Camera3D
 var paths: Node3D
 var disc_models: Array = []
 
-var power := 5
 var paths_on := true                     ## Paths + rest beams (P).
 var view_on := false                     ## VIEW toggle (V).
-var warp_on := false                     ## WARP toggle (Z).
-var lamps: Control                       ## Top-right warm lamps (lamps.gd).
+var warp_on := false                     ## GOTO toggle (G).
+var lamps: Control                       ## Warm lamps in the HUD (lamps.gd).
 var launch_label: Label                  ## Under the crosshair: "launch 12°".
 var warp_label: Label                    ## Top centre: brief notes ("warped 42 m").
 var warp_flash: ColorRect                ## Soft white fade when you arrive.
@@ -68,10 +67,11 @@ var warps := 0                           ## Warps so far (tests count them).
 var _warp_t := 0.0
 var _warp_note := ""                     ## Brief "warp cancelled" etc.
 var _warp_note_t := 0.0
-var dials: Control                       ## Heading + horizon (dials.gd).
+var dials: Control                       ## Heading + horizon, in the HUD (dials.gd).
 @export var launch_min := -45.0          ## Launch angle limits (deg).
 @export var launch_max := 85.0
 var discs: Array = []
+var assume_captured := false             ## Tests: treat the mouse as captured (headless can't).
 var _last: Node = null
 var _flying_text := ""
 var _result_text := ""
@@ -80,13 +80,25 @@ var _collected := 0
 
 func _ready() -> void:
 	disc_models = DiscModel.load_all()
-	panel = ThrowPanel.new()
-	panel.name = "ThrowPanel"
-	panel.discs = disc_models
-	panel.throw_requested.connect(func(p: Dictionary) -> void: throw_disc(p))
-	panel.paths_toggled.connect(func(on: bool) -> void: set_paths(on))
+	setup = ThrowSetup.new()
+	setup.name = "ThrowSetup"
+	setup.discs = disc_models
+	add_child(setup)
+	throw_hud = Control.new()
+	throw_hud.set_script(ThrowHud)
+	throw_hud.name = "ThrowHud"
+	throw_hud.setup = setup
+	throw_hud.camera = camera
 	if hud != null:
-		hud.add_child(panel)
+		hud.add_child(throw_hud)
+		throw_hud.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
+		throw_hud.position = Vector2.ZERO
+		throw_hud.offset_left = -throw_hud.size.x - 16
+		throw_hud.offset_top = -throw_hud.size.y - 16
+		throw_hud.offset_right = -16
+		throw_hud.offset_bottom = -16
+		dials = throw_hud.dials
+		lamps = throw_hud.lamps
 	follow_cam = FollowCam.new()
 	follow_cam.name = "FollowCam"
 	follow_cam.terrain = terrain
@@ -101,74 +113,82 @@ func _ready() -> void:
 
 
 func _unhandled_input(event: InputEvent) -> void:
-	for level in range(1, 11):
-		if event.is_action_pressed("throw_%d" % level):
-			power = level
-			_update_label()
-			get_viewport().set_input_as_handled()
-			return
+	var captured := assume_captured or Input.mouse_mode == Input.MOUSE_MODE_CAPTURED
 	if event.is_action_pressed("launch"):
 		launch_self()
-		get_viewport().set_input_as_handled()
 	elif event.is_action_pressed("warp"):
 		set_warp(not warp_on)
-		get_viewport().set_input_as_handled()
-	elif event.is_action_pressed("dial_heading") and dials != null:
-		dials.show_heading = not dials.show_heading
-		get_viewport().set_input_as_handled()
-	elif event.is_action_pressed("dial_horizon") and dials != null:
-		dials.show_horizon = not dials.show_horizon
-		get_viewport().set_input_as_handled()
 	elif event.is_action_pressed("paths"):
 		set_paths(not paths_on)
-		get_viewport().set_input_as_handled()
 	elif event.is_action_pressed("view"):
 		set_view(not view_on)
-		get_viewport().set_input_as_handled()
-	elif event.is_action_pressed("throw_panel"):
-		if panel.is_inside_tree():
-			panel.toggle()
-		get_viewport().set_input_as_handled()
+	elif event.is_action_pressed("hud"):
+		set_hud(not hud_shown())
 	elif event.is_action_pressed("collect"):
 		collect()
-		get_viewport().set_input_as_handled()
-	elif event is InputEventMouseButton and event.pressed \
-			and event.button_index == MOUSE_BUTTON_LEFT \
-			and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
-		throw(power)
-		get_viewport().set_input_as_handled()
+	elif event.is_action_pressed("throw_disc") and not event.is_echo():
+		throw_disc(setup.params())
+	elif event is InputEventMouseButton and event.pressed and captured \
+			and event.button_index == MOUSE_BUTTON_LEFT:
+		throw_disc(setup.params())
+	elif event is InputEventMouseButton and event.pressed and captured \
+			and event.button_index == MOUSE_BUTTON_RIGHT:
+		throw_cube()
+	else:
+		return
+	get_viewport().set_input_as_handled()
 
 
-## Launches a disc from just in front of the camera.
-func throw(level: int) -> Node:
+func hud_shown() -> bool:
+	return throw_hud != null and throw_hud.visible
+
+
+## U: hide / show the throw HUD and the key help, top left (the launch
+## readout under the crosshair stays).
+func set_hud(on: bool) -> void:
+	if throw_hud != null:
+		throw_hud.visible = on
+	if hud != null and hud.has_node("Help"):
+		hud.get_node("Help").visible = on
+
+
+## Fires an orange cube from just in front of the camera at `speed` m/s
+## (default: the release speed you've set up for discs).
+func throw_cube(speed := -1.0) -> Node:
+	if speed < 0.0:
+		speed = setup.speed
 	var fwd := -camera.global_transform.basis.z
 	var origin := camera.global_position + fwd * 0.5
 	var disc: RigidBody3D = RigidBody3D.new()
 	disc.set_script(DISC_SCRIPT)
 	disc.name = "Disc"
 	disc.terrain = terrain
-	disc.power = level
+	disc.power = int(round(speed / speed_per_level))
 	disc.beam_on = paths_on
 	get_parent().add_child(disc)
 	disc.add_collision_exception_with(player)   # don't bonk yourself
-	var vel := fwd * level * speed_per_level + player.velocity
+	var vel := fwd * speed + player.velocity
 	var spin := Vector3(randf_range(-1, 1), randf_range(-1, 1), randf_range(-1, 1)) * 8.0
 	disc.launch(origin, vel, spin)
 	_track(disc)
 	return disc
 
 
-## Launch angle (deg) for a throw right now: where you're looking, up or
-## down, plus the panel's launch offset.
+## Old block-power API (tests): level 1..10 at speed_per_level m/s each.
+func throw(level: int) -> Node:
+	return throw_cube(level * speed_per_level)
+
+
+## Launch angle (deg) for a throw right now: where you're looking, up or down.
 func launch_angle() -> float:
 	var look := -camera.global_transform.basis.z
 	var view := rad_to_deg(asin(clampf(look.y, -1.0, 1.0)))
-	return clampf(view + panel.launch_offset(), launch_min, launch_max)
+	return clampf(view, launch_min, launch_max)
 
 
-## Throws a real flying disc. p: {disc, speed, offset, nose, roll, spin,
-## hand?}. Direction is where you're looking (left/right AND up/down, plus
-## the offset); p.pitch, if given, overrides the angle (tests use it).
+## Throws a real flying disc. p: {disc, speed, nose, roll, spin, hand?}.
+## Direction is where you're looking (left/right AND up/down); p.pitch, if
+## given, overrides the angle (tests use it).
 func throw_disc(p: Dictionary) -> Node:
 	var look := -camera.global_transform.basis.z
 	var fwd := Vector3(look.x, 0, look.z)
@@ -237,7 +257,7 @@ func _on_collected(_disc: Node) -> void:
 	_result_text = "collected %d disc%s" % [_collected, "" if _collected == 1 else "s"]
 
 
-## P / panel checkbox: flight paths and rest beams together. Off: every
+## P: flight paths and rest beams together. Off: every
 ## existing path falls and poofs and the beams go out. On: beams come back
 ## on resting discs and the next throws leave paths again.
 func set_paths(on: bool) -> void:
@@ -247,7 +267,6 @@ func set_paths(on: bool) -> void:
 	for d in discs:
 		if is_instance_valid(d):
 			d.set_beam(on)
-	panel.set_paths_shown(on)
 	_update_lamps()
 	_update_label()
 
@@ -270,7 +289,7 @@ func set_view(on: bool) -> void:
 	_update_label()
 
 
-## Z: WARP toggle. On mid-flight applies to the throw already in the air
+## G: GOTO toggle. On mid-flight applies to the throw already in the air
 ## (unless you launched with it); off mid-flight cancels that warp.
 func set_warp(on: bool) -> void:
 	warp_on = on
@@ -330,7 +349,7 @@ func _do_warp() -> void:
 	warps += 1
 	if warp_flash != null:
 		warp_flash.color.a = 0.55
-	_note("warped %.0f m" % Vector2(at.x - d.start.x, at.z - d.start.z).length(), 1.2)
+	_note("goto %.0f m" % Vector2(at.x - d.start.x, at.z - d.start.z).length(), 1.2)
 
 
 func _flat_forward() -> Vector3:
@@ -348,7 +367,7 @@ func _update_warp(delta: float) -> void:
 	if _warp_target != null:
 		if not is_instance_valid(_warp_target) or _warp_target.collecting:
 			_warp_target = null
-			_note("warp cancelled (disc gone)")
+			_note("goto cancelled (disc gone)")
 		elif _warp_target.resting:
 			_do_warp()
 		else:
@@ -356,7 +375,7 @@ func _update_warp(delta: float) -> void:
 	if warp_flash != null and warp_flash.color.a > 0.0:
 		warp_flash.color.a = maxf(warp_flash.color.a - delta * 1.6, 0.0)
 	if lamps != null:
-		lamps.pulse_warp = _warp_target != null     # WARP lamp breathes while armed
+		lamps.pulse_warp = _warp_target != null     # GOTO lamp breathes while armed
 	if warp_label == null:
 		return
 	if _warp_note_t > 0.0:
@@ -394,8 +413,6 @@ func _process(_delta: float) -> void:
 	if launch_label != null:
 		launch_label.visible = not following
 		launch_label.text = "launch %+d°" % int(round(launch_angle()))
-	if dials != null:
-		dials.visible = not following
 	var rolling := 0
 	for d in discs:
 		if is_instance_valid(d) and d.collecting:
@@ -427,19 +444,17 @@ func _on_rest(disc: Node) -> void:
 			disc.model.id, disc.flight_dist, disc.distance(), disc.max_height, disc.flight_time,
 			("  ·  " + ", ".join(notes)) if notes.size() > 0 else ""]
 		return
-	_result_text = "last throw: %.1f m at power %d (peak %.1f m)%s" % [
-		disc.distance(), disc.power, disc.max_height,
+	_result_text = "last cube: %.1f m (peak %.1f m)%s" % [
+		disc.distance(), disc.max_height,
 		("  ·  " + ", ".join(notes)) if notes.size() > 0 else ""]
 
 
 func _update_label() -> void:
 	if label == null:
 		return
-	if status_label != null:
-		status_label.text = "Velocity: %d  (%d m/s)" % [power, int(power * speed_per_level)]
-	var lines := ["T throw panel  ·  1-9, 0 block power  ·  click block  ·  V view  ·  Z warp  ·  L launch yourself  ·  P path  ·  H/J dials  ·  C collect"]
+	var lines := []
 	if follow_cam != null and follow_cam.active():
-		lines[0] = "watching your throw  ·  L launch with it  ·  V view off"
+		lines.append("watching your throw  ·  L launch with it  ·  V chase off")
 	if _flying_text != "":
 		lines.append(_flying_text)
 	elif _result_text != "":

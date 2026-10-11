@@ -1,6 +1,6 @@
 extends CharacterBody3D
-## First-person walker. WASD / arrows to move, mouse to look, Shift to stroll
-## faster, Space to hop. Esc frees the mouse; click to grab it again.
+## First-person walker. WASD to move (arrows set up the throw now), mouse to
+## look, Shift to stroll faster, Space to hop. Esc frees the mouse; click to grab it again.
 
 @export var walk_speed := 4.0
 @export var sprint_speed := 7.5
@@ -107,27 +107,32 @@ func _head_bob(delta: float) -> void:
 
 static func _ensure_input_actions() -> void:
 	var bindings := {
-		"move_forward": [KEY_W, KEY_UP],
-		"move_back": [KEY_S, KEY_DOWN],
-		"move_left": [KEY_A, KEY_LEFT],
-		"move_right": [KEY_D, KEY_RIGHT],
+		"move_forward": [KEY_W],
+		"move_back": [KEY_S],
+		"move_left": [KEY_A],
+		"move_right": [KEY_D],
 		"jump": [KEY_SPACE],
 		"sprint": [KEY_SHIFT],
 		"new_world": [KEY_N],
 		"launch": [KEY_L],
-		"throw_panel": [KEY_T],
 		"collect": [KEY_C],
 		"view": [KEY_V],
+		"warp": [KEY_G],                 # "goto" in the HUD
 		"paths": [KEY_P],
-		"dial_heading": [KEY_H],
-		"dial_horizon": [KEY_J],
+		"hud": [KEY_U],
 		"clouds": [KEY_K],
-		"warp": [KEY_Z],
-		"throw_1": [KEY_1, KEY_KP_1], "throw_2": [KEY_2, KEY_KP_2],
-		"throw_3": [KEY_3, KEY_KP_3], "throw_4": [KEY_4, KEY_KP_4],
-		"throw_5": [KEY_5, KEY_KP_5], "throw_6": [KEY_6, KEY_KP_6],
-		"throw_7": [KEY_7, KEY_KP_7], "throw_8": [KEY_8, KEY_KP_8],
-		"throw_9": [KEY_9, KEY_KP_9], "throw_10": [KEY_0, KEY_KP_0],
+		# Throw setup (throw_setup.gd). Shift + up/down = speed, + left/right = spin.
+		"tilt_up": [KEY_UP],
+		"tilt_down": [KEY_DOWN],
+		"tilt_left": [KEY_LEFT],
+		"tilt_right": [KEY_RIGHT],
+		"throw_disc": [KEY_ENTER, KEY_KP_ENTER],
+		"next_disc": [KEY_TAB],          # Shift+Tab = previous
+		"spin_lock": [KEY_X],
+		"reset_flat": [KEY_R],
+		"hand": [KEY_H],
+		"ui_bigger": [KEY_EQUAL, KEY_KP_ADD],
+		"ui_smaller": [KEY_MINUS, KEY_KP_SUBTRACT],
 	}
 	for action in bindings:
 		if InputMap.has_action(action):

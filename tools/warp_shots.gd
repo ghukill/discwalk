@@ -29,7 +29,7 @@ func _process(_dt: float) -> bool:
 		_main.get_node("Player/Head").rotation.x = deg_to_rad(12)
 		th.set_view(true)
 		th.set_warp(true)
-		_d = th.throw_disc(th.panel.params())
+		_d = th.throw_disc(th.setup.params())
 	if _f == 100:
 		_grab("1_waiting")
 	if _arrived < 0 and _f > 20 and not th.warp_pending():

@@ -43,7 +43,7 @@ Disc flight has one. It throws real flying discs over an empty flat floor and co
 
 ```sh
 $G --headless --path . --script res://tools/flight_test.gd [-- --block-size=0.5]
-DISPLAY=:0 $G --path . --resolution 1280x720 --script res://tools/flight_shots.gd -- /tmp/flight_shots   # panel, follow cam in flight/on the ground, handed back
+DISPLAY=:0 $G --path . --resolution 1280x720 --script res://tools/flight_shots.gd -- /tmp/flight_shots   # HUD, follow cam in flight/on the ground, handed back
 ```
 
 Reference numbers come from shotshaper itself (Python, run as an outside tool):
@@ -66,10 +66,17 @@ Ground play (skips and skids) has a tuning check: 48 throws over flat ground, re
 $G --headless --path . --script res://tools/skip_test.gd
 ```
 
-The VIEW / WARP toggles and launch (L) have their own, run as a string of little scenes from spawn: view only, warp only, both, launch mid-flight (overrides both, no warp after), L after the throw stopped (does nothing), L while a disc skids/rolls (still works), toggles off mid-flight, a second throw taking over, collect ignoring the toggles, and P putting beams out with the paths:
+The chase view (V) / goto (G) toggles and launch (L) have their own, run as a string of little scenes from spawn: view only, warp only, both, launch mid-flight (overrides both, no warp after), L after the throw stopped (does nothing), L while a disc skids/rolls (still works), toggles off mid-flight, a second throw taking over, collect ignoring the toggles, and P putting beams out with the paths:
 
 ```sh
 $G --headless --path . --script res://tools/toggles_test.gd [-- --block-size=0.5]
+```
+
+The throw setup keys and HUD have one. It presses the real keys (arrows, Shift+arrows, X, R, H, Tab, Enter, clicks, U, G) and checks the setup values, the hold-to-repeat, that the arrows no longer walk, that throws carry the setup and keep it, and that right click throws a cube at the disc speed:
+
+```sh
+$G --headless --path . --script res://tools/hud_test.gd [-- --block-size=1]
+DISPLAY=:0 $G --path . --resolution 1600x900 --script res://tools/hud_shots.gd -- /tmp/hud_shots   # hud.png, hud_corner.png, hud_strip.png (five setups)
 ```
 
 Collecting has one too. It scatters 8 discs around spawn, presses C, and passes if at least 6 make it home and they start slow (under 3 m/s in the first second):

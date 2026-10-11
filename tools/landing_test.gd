@@ -34,7 +34,7 @@ func _process(_d: float) -> bool:
 	if _f >= 10 and _f < 10 + 48 * 3 and (_f - 10) % 3 == 0:
 		var k := (_f - 10) / 3
 		_main.get_node("Player").rotation.y = TAU * k / 48.0
-		var p: Dictionary = th.panel.params()
+		var p: Dictionary = th.setup.params()
 		p.disc = th.disc_models[k % th.disc_models.size()]
 		p.speed = 14.0 + (k % 5) * 3.0
 		p.pitch = 6.0 + (k % 3) * 5.0

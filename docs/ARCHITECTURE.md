@@ -7,20 +7,21 @@ A short tour of how discwalk is put together. It is written for "future us" open
 ```
 project.godot            Godot project settings (window, physics tick, MSAA)
 scenes/main.tscn         The one scene: sky/environment, sun, Terrain, Player, HUD
-scripts/main.gd          Glue: spawns the player, HUD text, N = new world, --debug-keys
+scripts/main.gd          Glue: spawns the player, help text, HUD scale (-/=, --ui-scale), N = new world, --debug-keys
 scripts/terrain.gd       Height field, kettle lakes, chunk meshes, water, collision
 scripts/flora.gd         Oaks (voxel trees) and wildflowers (MultiMesh)
 scripts/voxel_mesh.gd    Greedy face merging + quad/mesh helpers (shared)
 scripts/player.gd        First-person walker: input bindings, movement, head bob
-scripts/thrower.gd       Throw input (T panel, 1-0 + click for blocks), VIEW/WARP/PATH toggles, launch (L), throw HUD line
-scripts/lamps.gd         Warm toggle lamps top right: VIEW, WARP, PATH
+scripts/thrower.gd       Throw input (click/Enter disc, right-click cube), chase/goto/paths toggles, launch (L), U, status line
+scripts/throw_setup.gd   The throw you have set up (disc, speed, nose, hyzer, spin, hand) + its keys
+scripts/throw_hud.gd     Lower-right cockpit block: tilting disc, ✋, speed/spin bars, holds dials + lamps
+scripts/lamps.gd         Warm toggle lamps in the HUD: Chase view, Goto, Paths
 scripts/disc.gd          The thrown block (RigidBody3D): physics + tree/water interaction
 scripts/flying_disc.gd   A real disc (extends disc.gd): flat collider, pixel-circle mesh, flight
 scripts/disc_model.gd    Disc aerodynamics: coefficient tables, lift/drag, gyroscopic roll
-scripts/throw_panel.gd   Lower-right throw panel (sliders + Throw button)
 scripts/follow_cam.gd    Follow cam (V): chase camera for the last disc
 scripts/clouds.gd        Fluffy voxel clouds drifting high overhead (K toggles)
-scripts/dials.gd         Heading + horizon dials (top right; H / J toggle)
+scripts/dials.gd         Heading + horizon dials (in the throw HUD)
 scripts/paths.gd         Flight paths: voxel trail per disc throw; P toggles (off = fall + poof)
 data/discs/              Disc coefficient tables (JSON); see data/discs/README.md
 shaders/voxel.gdshader   Terrain + tree shading: base colour + per-block jitter
@@ -32,11 +33,13 @@ tools/throw_test.gd      Headless throws (open ground, into an oak, into a lake)
 tools/flight_test.gd     Headless disc flights vs shotshaper + turn/fade sanity: PASS/FAIL
 tools/clouds_shots.gd    Screenshots of the clouds (from spawn, wide view)
 tools/warp_shots.gd      Screenshots: the warp flag over the follow cam, then arrival
-tools/dials_shots.gd     Screenshots of the dials (level, up, down + offset)
+tools/dials_shots.gd     Screenshots of the dials (level, up, down)
+tools/hud_shots.gd       Screenshots of the throw HUD: full frame + a strip of five setups
+tools/hud_test.gd        Headless throw-setup keys + HUD: PASS/FAIL
 tools/skip_test.gd       48 throws on flat ground: ground play after landing (tunes friction)
 tools/landing_test.gd    48 discs all round spawn: none may end up under the ground
 tools/paths_shots.gd     Screenshots: three paths from behind/side/close, then P falling
-tools/flight_shots.gd    Screenshots: panel, follow cam in flight + on the ground, view handed back
+tools/flight_shots.gd    Screenshots: HUD, follow cam in flight + on the ground, view handed back
 tools/discs/             Python helpers: shotshaper tables -> JSON, shotshaper reference flights
 tools/collect_test.gd    Headless collect: 8 scattered discs roll home, speed ramps up
 tools/toggles_test.gd    Headless VIEW/WARP/launch/PATH behaviour, scene by scene
@@ -165,14 +168,14 @@ Caveat: greedy meshes have T-junctions (a big quad's edge meeting several small 
 
 Step 1 is deliberately simple: the disc is a 22 cm bright-orange block fired out of your face like a cannonball.
 
-- **Launch (blocks)**: keys 1–9 and 0 *set* power 1–10 (top-right HUD: `Velocity: #` and the m/s). Left click throws. The speed is `power × speed_per_level` (4 m/s per level, so 0 = 40 m/s, a strong drive), along the camera's forward direction, plus your walking velocity. It gets a random tumble spin, and it never collides with you.
+- **Launch (cubes)**: right click (`thrower.throw_cube()`) fires one at the release speed you've set up for discs (Shift+↑/↓, the SPD bar), along the camera's forward direction, plus your walking velocity. (Tests still use `throw(level)` = `level × speed_per_level` m/s.) It gets a random tumble spin, and it never collides with you.
 - **Ground and trunks**: plain Godot rigid-body physics. The terrain heightmap and trunk boxes are real collision shapes, so it bounces (0.35), slides and rolls downhill on its own. Continuous collision detection stops it tunnelling through the ground at speed.
 - **Branches and leaves**: tree voxels aren't physics bodies (there are millions), so each physics tick `_integrate_forces()` walks the disc's path through the tree voxel grid (`flora.voxel_at()`) in steps smaller than a block:
   - **Bark**: reflect the velocity on the axis it crossed (×0.4) and put the disc back just outside the bark. That's how it clatters off limbs.
   - **Leaves**: keep 72% of speed per metre of leaves, plus a small random knock. A hard throw punches through a crown; a soft one gets swallowed and drops out underneath.
 - **Water**: on entry, speed ×0.35 (splash). After that, heavy drag and buoyancy float it at the surface.
 - **Coming to rest**: when it's barely moving (horizontally, if floating) for 0.6 s, it plants a faint beam (in its colour) so you can find it, and the HUD shows distance, peak height and what it hit. Beams go with the paths: **P** (`thrower.set_paths()`) turns both on/off, remembered for new discs.
-- **Launch (L, `thrower.launch_self()`)**: only while the last throw is still moving (flying, skipping or rolling; not resting or being collected). `player.fling()` puts your eyes where it is and gives you its exact velocity. While flung, the player keeps momentum (gravity, a whisper of drag, a little air steering) instead of the usual walk-speed lerp, until you land. So you ride the throw's arc. That throw is remembered as `_launched`: the VIEW camera lets go, its pending warp is dropped, and turning V/Z on again won't pick it back up.
+- **Launch (L, `thrower.launch_self()`)**: only while the last throw is still moving (flying, skipping or rolling; not resting or being collected). `player.fling()` puts your eyes where it is and gives you its exact velocity. While flung, the player keeps momentum (gravity, a whisper of drag, a little air steering) instead of the usual walk-speed lerp, until you land. So you ride the throw's arc. That throw is remembered as `_launched`: the chase camera lets go, its pending goto is dropped, and turning V/G on again won't pick it back up.
 - **Collect (C)**: `disc.start_collect(player)` swaps the box collider for a ball, drops the beam, and each tick `_roll_home()` steers the horizontal velocity toward you:
   - The target speed grows as `1 + 0.6t + 0.35t²` m/s. That's a quarter of walking pace at first, passing sprint speed after ~3.5 s, capped at 25.
   - Acceleration is limited (`collect_accel`, 14 m/s²), so it can't just teleport through the world. It rolls up one-block steps, but two-block cliffs, trunks and lakes stop it unless it has built up the momentum to get over them.
@@ -191,11 +194,11 @@ Everything is driven by `world_seed`: `RandomNumberGenerator` seeds and `FastNoi
 - Discs don't land *on* leaves or branches. They pass through leaves (slowing) and bounce off bark, but can't rest in a tree.
 - Over some VNC setups, held keys arrive as instant taps, so WASD won't move you (N still works). An auto-walk toggle is a candidate fix.
 
-## Flying discs (`flying_disc.gd`, `disc_model.gd`, `throw_panel.gd`)
+## Flying discs (`flying_disc.gd`, `disc_model.gd`, `throw_setup.gd`)
 
 Step 2 of throwing. `flying_disc.gd` extends `disc.gd`, so trees, lakes, beams, fetch and collect all work the same; what changes is the shape and the flight. Design notes: [DISC-FLIGHT-PLAN.md](DISC-FLIGHT-PLAN.md).
 
-- **Panel (T)**: lower right, frees the mouse while open. Disc, speed, launch offset, nose (disc tilt relative to the flight path), hyzer (+) / anhyzer (−), spin (auto = 5.2 rad/s per m/s, about 1200 rpm at 24 m/s), Throw. Aim is where you look: left/right sets the direction, up/down sets the launch angle (`thrower.launch_angle()` = view pitch + offset, clamped to −45..85°; shown as `launch +N°` under the crosshair). Tests can pass `pitch` to override; release is 1.3 m up, 0.6 m ahead. Right-hand backhand for now (`hand = +1`; forehand is `hand = -1`, which mirrors everything).
+- **Setting up a throw** (`throw_setup.gd`, spec in [THROW-HUD.md](THROW-HUD.md)): disc (Tab), speed, nose (disc tilt relative to the flight path), hyzer (+) / anhyzer (−), spin (locked = auto, 5.2 rad/s per m/s, about 1200 rpm at 24 m/s), hand (H: `+1` backhand, `-1` forehand, which mirrors the flight). The arrows are polled in `_process` so a hold repeats: one step on press, then after 0.3 s at 10 steps/s ramping to 45. Nothing resets after a throw. Left click or Enter calls `thrower.throw_disc(setup.params())`. Aim is where you look: left/right sets the direction, up/down the launch angle (`thrower.launch_angle()` = view pitch, clamped to −45..85°; shown as `launch +N°` under the crosshair). There is no launch offset any more. Tests can pass `pitch` to override; release is 1.3 m up, 0.6 m ahead.
 - **Body**: a 21 cm × 3 cm cylinder collider, drawn as a 7×7 pixel circle with a darker rim and a white stamp so you can see it spin. Blue, except the overstable `cd1` which is pink.
 - **Flight** (`DiscModel.step()`), every physics tick while `flying`:
   - Angle of attack from the velocity (minus wind) and the disc's normal.
@@ -206,29 +209,39 @@ Step 2 of throwing. `flying_disc.gd` extends `disc.gd`, so trees, lakes, beams, 
 - **Landing**: first touch of anything (ground/trunk contact, bark, leaves, water) switches the aerodynamics off for good. Ordinary physics takes over with up to 25 rad/s of real spin, so it can skid, roll and flop, with a slicker material than the block (friction 0.3 vs 0.7) so it skips on instead of digging in. `flight_dist` is the carry at first contact; the HUD shows carry, rest distance, peak and airtime.
 - **Disc data**: JSON tables under `data/discs/` (four shotshaper CFD tables for now, GPL-3.0; see `data/discs/README.md` for swapping them out).
 
-### Toggles: VIEW, WARP, PATH (`thrower.gd`, `lamps.gd`)
+### Toggles: Chase view, Goto, Paths (`thrower.gd`, `lamps.gd`)
 
-Throw behaviour is set by toggles rather than per throw. Every throw (disc or block) goes through `thrower._track()`, which makes it `_last` and, if **VIEW** (`view_on`, V) is on, starts the follow cam on it; if **WARP** (`warp_on`, Z) is on, sets it as `_warp_target`. Only the latest throw counts: a new throw takes over the camera and the warp. `set_view()` / `set_warp()` turned on mid-flight pick up the throw already moving (unless you launched with it); turned off, they hand the camera back now / drop the pending warp. **C** collect stops the camera and drops any warp, so rolling discs home never steals the view. **N** keeps the toggles as they are. Both start off; PATH (`paths_on`) starts on.
+In the code these are still `view`, `warp` and `path`: `view_on` / `set_view()`, `warp_on` / `set_warp()`, `paths_on` / `set_paths()`. The HUD calls them Chase view (V), Goto (G) and Paths (P).
 
-The state shows as three lamps under the `Velocity` line (`lamps.gd`, drawn with `_draw`): a dark bezel with a faint brass edge, a lens that warms from dark brown to amber with a soft halo over ~0.1 s, and a small label. While a warp is armed for a moving throw, the WARP lamp breathes gently (`pulse_warp`).
+Throw behaviour is set by toggles rather than per throw. Every throw (disc or block) goes through `thrower._track()`, which makes it `_last` and, if **Chase view** (`view_on`, V) is on, starts the follow cam on it; if **Goto** (`warp_on`, G) is on, sets it as `_warp_target`. Only the latest throw counts: a new throw takes over the camera and the warp. `set_view()` / `set_warp()` turned on mid-flight pick up the throw already moving (unless you launched with it); turned off, they hand the camera back now / drop the pending warp. **C** collect stops the camera and drops any warp, so rolling discs home never steals the view. **N** keeps the toggles as they are. Both start off; Paths (`paths_on`) starts on.
+
+The state shows as three lamps stacked in the lower right of the throw HUD (`lamps.gd`, drawn with `_draw`): a dark bezel with a faint brass edge, a lens that warms from dark brown to amber with a soft halo over ~0.1 s, a label and its key. While a goto is armed for a moving throw, the Goto lamp breathes gently (`pulse_warp`).
 
 ### Follow cam (`follow_cam.gd`)
 
-With **VIEW** on, the view switches to a Camera3D (child of the Thrower, `top_level`) that trails the last disc: 1.8 m behind its horizontal direction of travel and 0.5 m above, looking a few metres ahead, smoothed. It never dips below the terrain. While the disc is barely moving the heading is held, so rolling to a stop doesn't spin the view. It hands back to the walker's camera when the disc is `resting` (still for 0.6 s, so skips and rolls are included), when it disappears (collected, cleared), on V off, or when you launch with it (L). The walker keeps standing (and can still be moved) where you threw from. Knobs (`back`, `up`, `lead`, `follow_rate`, `aim_rate`) are exports on the script.
+With **Chase view** on, the view switches to a Camera3D (child of the Thrower, `top_level`) that trails the last disc: 1.8 m behind its horizontal direction of travel and 0.5 m above, looking a few metres ahead, smoothed. It never dips below the terrain. While the disc is barely moving the heading is held, so rolling to a stop doesn't spin the view. It hands back to the walker's camera when the disc is `resting` (still for 0.6 s, so skips and rolls are included), when it disappears (collected, cleared), on V off, or when you launch with it (L). The walker keeps standing (and can still be moved) where you threw from. Knobs (`back`, `up`, `lead`, `follow_rate`, `aim_rate`) are exports on the script.
 
 ### Flight paths (`paths.gd`)
 
 Every real disc throw (not blocks) is tracked from release: a cube every 0.5 m in the air (8 cm, full colour) and every 0.25 m on the ground (5 cm, darkened by half). Each throw gets the next colour on a golden-ratio hue walk, and the disc and its beam share it. One `MultiMeshInstance3D` per path, unshaded, no fog, no shadows, no collision; it doubles its capacity as needed. Recording stops when the disc rests, is collected, or disappears; the path stays.
 
-**P** toggles paths and rest beams together (`thrower.set_paths()`, starts on; mirrored by a "flight paths + beams" checkbox in the throw panel and the PATH lamp top right). Off: existing paths `clear(true)` and new throws aren't tracked until it's back on. On clearing, each cube lets go after a random 0–0.6 s, drifts down at 3.5 m/s² with a little sideways breeze and a slow tumble, and when it reaches the ground (or the lake surface) it swells to 1.8×, whitens and fades out over 0.35 s. **N** (new world) clears paths instantly.
+**P** toggles paths and rest beams together (`thrower.set_paths()`, starts on; shown by the Paths lamp in the HUD). Off: existing paths `clear(true)` and new throws aren't tracked until it's back on. On clearing, each cube lets go after a random 0–0.6 s, drifts down at 3.5 m/s² with a little sideways breeze and a slow tumble, and when it reaches the ground (or the lake surface) it swells to 1.8×, whitens and fades out over 0.35 s. **N** (new world) clears paths instantly.
 
 ## Physics engine
 
 The project uses **Jolt** (`physics/3d/physics_engine`). With Godot's default engine, about 40% of thin (3 cm) discs tunnelled through the heightmap on landing; with Jolt, none in `tools/landing_test.gd`. As a last-resort safety net, `disc.gd` pops any disc that ends up clearly below the ground back onto it (`rescues`; about 1 in 50 throws at 0.5 m blocks, after a slow tumble out of a tree).
 
-### Dials (`dials.gd`)
+### Throw HUD (`throw_hud.gd`, `dials.gd`, `lamps.gd`)
 
-Two faint 84 px instruments under the top-right status lines, drawn with `_draw` (no textures). **Heading** (H): a compass card turning under a fixed mark, N = −Z, E = +X, with the heading in degrees. **Horizon** (J): sky/ground split that moves 1.6 px per degree of view pitch, a ladder every 10°, fixed yellow wings (your view) and an orange chevron at view + launch offset. Both hide while the follow cam is on, as does the launch readout.
+One 300×244 px block in the lower right, anchored 16 px from the corner, drawn with `_draw` (no textures): a dark warm panel with a thin brass edge.
+
+- **Disc instrument**: a circle with a faint level line. The disc is a real 3D circle (with a rim of thickness) projected orthographically from behind and 20° above: hyzer/anhyzer rotates it about the flight direction (`setup.visual_tilt()` = roll × hand, so the edge on the arrow's side drops), nose rotates it about the right axis, drawn 1.8× steeper so small angles read. Seeing the underside draws it darker. A white dot marks the leading edge. Each disc has its own HUD colour so Tab visibly changes something. ✋ (from a system colour-emoji font, or a drawn mitten if there isn't one) sits right for backhand, left for forehand, with BH/FH under it.
+- **Bars**: SPD and SPIN fill from the bottom with a needle and value; SPIN is dimmed with a dotted border while locked.
+- **Status line**: disc id, nose, hyzer/anhyzer/flat.
+- **Dials** (`dials.gd`, 30 px radius, always shown): heading (compass card under a fixed mark, N = −Z, E = +X) and horizon (sky/ground split moving with view pitch, ladder every 10°, fixed wings = your view = the launch angle).
+- **Lamps** (`lamps.gd`), see above.
+
+**U** (`thrower.set_hud()`) hides the block and the top-left help. **Scale**: `main._apply_ui_scale()` sets the root `content_scale_factor` (all 2D) to `max(1, window_height / 900) × ui_scale`, re-run on window resize; `ui_scale` is 1.0 by default, `-`/`=` step it by 0.1 (0.6–3.0), and `--ui-scale=` sets it at launch.
 
 ### Clouds (`clouds.gd`)
 
@@ -236,6 +249,6 @@ Eleven clouds, each a heap of 3–6 round overlapping blobs voxelised into 2 m b
 
 Altitudes: the 3 lowest (`low_count`) are smaller puffs (0.6×) 18–30 m above the tallest treetop (`flora.canopy_top()`, ~37 m on seed 1848, so ~55–65 m), placed over the world so you meet them; the rest step up evenly (±4 m jitter) from just above those to `height_max` (110 m). They drift at `drift` (1.1, 0.35) m/s and wrap around a box 120 m bigger than the world. Built from the world seed in `main.gd`, rebuilt on N. **K** toggles; `-- --no-clouds` starts with them off. No measurable frame cost on the T480.
 
-### Warp (Z toggle, `thrower.set_warp()`)
+### Goto (G toggle, `thrower.set_warp()`)
 
-The first piece of "walk to your lie". With WARP on, each throw becomes `_warp_target` and the WARP lamp breathes while everything else (VIEW, walking, throwing) carries on. When it rests, `_do_warp()` stands you 1.2 m behind it on the line back to where it was thrown from, facing down that line, with a brief soft white flash and a "warped N m" note. A disc floating in a lake puts you on the nearest dry ground back along that line. Z off while waiting cancels; the disc being collected or removed, or launching with it (L), also cancels. If VIEW is on, the camera hands back on rest in the same frame, so you see the arrival from the walker's eyes.
+The first piece of "walk to your lie". With Goto on, each throw becomes `_warp_target` and the Goto lamp breathes while everything else (chase view, walking, throwing) carries on. When it rests, `_do_warp()` stands you 1.2 m behind it on the line back to where it was thrown from, facing down that line, with a brief soft white flash and a "goto N m" note. A disc floating in a lake puts you on the nearest dry ground back along that line. G off while waiting cancels; the disc being collected or removed, or launching with it (L), also cancels. If chase view is on, the camera hands back on rest in the same frame, so you see the arrival from the walker's eyes.

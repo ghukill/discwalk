@@ -1,9 +1,9 @@
 extends SceneTree
-## Screenshots of the throw panel and the follow cam (needs a display).
+## Screenshots of the throw HUD and the follow cam (needs a display).
 ##
 ##   godot --path . --resolution 1280x720 --script res://tools/flight_shots.gd -- <out_dir>
 ##
-## 1 panel:   throw panel open, looking out from spawn.
+## 1 hud:     throw HUD, looking out from spawn.
 ## 2 follow:  VIEW (V) half a second into the flight.
 ## 3 late:    follow cam a few seconds in (watch the fade).
 ## 4 ground:  follow cam during ground play, just after landing.
@@ -37,13 +37,11 @@ func _process(_delta: float) -> bool:
 	var thrower = _main.thrower
 	var player: CharacterBody3D = _main.get_node("Player")
 	if _frames == 10:
-		thrower.panel.toggle()
 		player.get_node("Head").rotation.x = deg_to_rad(12)   # launch angle = view
 	if _frames == 40:
-		_grab("1_panel")
+		_grab("1_hud")
 		thrower.set_view(true)
-		_disc = thrower.throw_disc(thrower.panel.params())
-		thrower.panel.toggle()
+		_disc = thrower.throw_disc(thrower.setup.params())
 		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	if _frames == 70:
 		_grab("2_follow")

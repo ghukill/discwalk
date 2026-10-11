@@ -191,30 +191,28 @@ func _report() -> void:
 		paths._process(0.05)
 	checks.append(["P off: %d cubes fall + poof, then gone (%d left)" % [falling, paths.fading()],
 		paths.count() == 0 and falling == air + ground and paths.fading() == 0 \
-		and not th.panel._paths.button_pressed])
-	th.throw_disc(th.panel.params())
+		])
+	th.throw_disc(th.setup.params())
 	checks.append(["paths off: a new throw leaves no path", paths.count() == 0])
-	th.panel._paths.button_pressed = true               # click the checkbox
-	th.throw_disc(th.panel.params())
-	checks.append(["paths back on (checkbox): next throw leaves a path",
+	th.set_paths(true)                                  # P again
+	th.throw_disc(th.setup.params())
+	checks.append(["paths back on (P): next throw leaves a path",
 		th.paths_on and paths.count() == 1])
 	var pl: Node3D = _main.get_node("Player")
 	var gap := Vector2(pl.global_position.x - wd.global_position.x, pl.global_position.z - wd.global_position.z).length() if is_instance_valid(wd) else 1e9
-	checks.append(["warp (Z on mid-flight): waits (lamp breathing), then lands you %.1f m from the rested disc" % gap,
+	checks.append(["goto (G on mid-flight): waits (lamp breathing), then lands you %.1f m from the rested disc" % gap,
 		_warp_waiting and not _main.thrower.warp_pending() and gap < 2.5])
-	# Launch angle = view angle + panel offset (no pitch in the params).
+	# Launch angle = where you look (no pitch in the params, no offset).
 	var head: Node3D = _main.get_node("Player/Head")
 	var angles := []
-	for setup in [[12.0, 0.0], [-5.0, 8.0], [30.0, -10.0]]:
-		head.rotation.x = deg_to_rad(setup[0])
-		th.panel._sliders.offset.value = setup[1]
-		var d = th.throw_disc(th.panel.params())
+	for look in [12.0, -5.0, 30.0]:
+		head.rotation.x = deg_to_rad(look)
+		var d = th.throw_disc(th.setup.params())
 		var v: Vector3 = d.linear_velocity - _main.get_node("Player").velocity * Vector3(1, 0, 1)
 		angles.append(rad_to_deg(atan2(v.y, Vector2(v.x, v.z).length())))
-	th.panel._sliders.offset.value = 0.0
 	head.rotation.x = 0.0
-	checks.append(["launch angle = view + offset (12+0, -5+8, 30-10 -> %.1f, %.1f, %.1f)" % angles,
-		absf(angles[0] - 12.0) < 0.5 and absf(angles[1] - 3.0) < 0.5 and absf(angles[2] - 20.0) < 0.5])
+	checks.append(["launch angle = view (12, -5, 30 -> %.1f, %.1f, %.1f)" % angles,
+		absf(angles[0] - 12.0) < 0.5 and absf(angles[1] + 5.0) < 0.5 and absf(angles[2] - 30.0) < 0.5])
 	checks.append(["view (V on mid-flight) chases the disc (%d frames, max %.1f m away), hands back at rest" % [
 		_follow_seen, _follow_far], _follow_seen > 60 and _follow_far < 8.0 and back_home])
 	for ch in checks:

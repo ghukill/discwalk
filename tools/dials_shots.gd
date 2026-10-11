@@ -3,7 +3,7 @@ extends SceneTree
 ##
 ##   godot --path . --resolution 1280x720 --script res://tools/dials_shots.gd -- <out_dir>
 ##
-## Looks level, up 15 deg, down 10 deg (offset +5), then throws at +15 to
+## Looks level, up 15 deg, down 10 deg, then throws at +15 to
 ## check the disc really leaves at the view angle.
 
 var _main: Node
@@ -35,16 +35,14 @@ func _process(_d: float) -> bool:
 	if _f == 45:
 		_grab("2_up15")
 		head.rotation.x = deg_to_rad(-10)
-		th.panel._sliders.offset.value = 5.0
 	if _f == 65:
-		_grab("3_down10_offset5")
-		th.panel._sliders.offset.value = 0.0
+		_grab("3_down10")
 		head.rotation.x = deg_to_rad(15)
 	if _f == 70:
-		var d = th.throw_disc(th.panel.params())
+		var d = th.throw_disc(th.setup.params())
 		var v: Vector3 = d.linear_velocity
 		var ang := rad_to_deg(atan2(v.y, Vector2(v.x, v.z).length()))
-		print("DIALS launch angle at view +15, offset 0: %.1f deg (readout %s)" % [ang, th.launch_label.text])
+		print("DIALS launch angle at view +15: %.1f deg (readout %s)" % [ang, th.launch_label.text])
 	if _f == 80:
 		quit()
 	return false
@@ -53,5 +51,5 @@ func _process(_d: float) -> bool:
 func _grab(name: String) -> void:
 	var img := root.get_viewport().get_texture().get_image()
 	img.save_png("%s/%s.png" % [_out, name])
-	img.get_region(Rect2i(1280 - 300, 0, 300, 220)).save_png("%s/%s_corner.png" % [_out, name])
+	img.get_region(Rect2i(img.get_width() - 340, img.get_height() - 270, 340, 270)).save_png("%s/%s_corner.png" % [_out, name])
 	print("SHOT ", name)

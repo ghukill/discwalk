@@ -213,7 +213,7 @@ func _process(_dt: float) -> bool:
 				_th.set_paths(true)
 				var beam_on: bool = _d._beacon.visible
 				_check("10 P: beams out with the paths, back on with them; lamps follow",
-					beam_off and beam_on and lamps and _th.panel._paths.button_pressed)
+					beam_off and beam_on and lamps)
 				_report()
 				return true
 	if _f > 60 * 40:

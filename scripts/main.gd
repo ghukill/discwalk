@@ -3,9 +3,7 @@ extends Node3D
 ## throwing, and lets you press N to roll a brand-new world.
 
 const THROWER_SCRIPT := preload("res://scripts/thrower.gd")
-const DIALS_SCRIPT := preload("res://scripts/dials.gd")
 const CLOUDS_SCRIPT := preload("res://scripts/clouds.gd")
-const LAMPS_SCRIPT := preload("res://scripts/lamps.gd")
 
 @onready var terrain: Node3D = $Terrain
 @onready var player: CharacterBody3D = $Player
@@ -13,6 +11,11 @@ const LAMPS_SCRIPT := preload("res://scripts/lamps.gd")
 
 var thrower: Node
 var clouds: Node3D
+var ui_scale := 1.0                  ## On top of the screen's own scale (- / = keys, --ui-scale=).
+
+const UI_SCALE_MIN := 0.6
+const UI_SCALE_MAX := 3.0
+const UI_REF_HEIGHT := 900.0         ## Window height (px) where the overlay is 1x.
 
 
 func _ready() -> void:
@@ -24,9 +27,28 @@ func _ready() -> void:
 	if "--no-clouds" in OS.get_cmdline_user_args():
 		clouds.visible = false
 	clouds.generate(terrain.world_seed, terrain.world_size, terrain.flora.canopy_top())
+	for a in OS.get_cmdline_user_args():
+		if a.begins_with("--ui-scale="):
+			ui_scale = clampf(a.get_slice("=", 1).to_float(), UI_SCALE_MIN, UI_SCALE_MAX)
+	_apply_ui_scale()
+	get_tree().root.size_changed.connect(_apply_ui_scale)
 	_setup_throwing()
 	_place_player()
 	_update_hud()
+
+
+## All the 2D overlay (HUD, labels, crosshair) grows with the window: 1x up
+## to UI_REF_HEIGHT pixels tall, then in proportion (so fullscreen on a
+## Retina Mac isn't tiny), times ui_scale (- / = keys, --ui-scale=).
+func _apply_ui_scale() -> void:
+	var h := float(get_tree().root.size.y)     # window height in real pixels
+	get_tree().root.content_scale_factor = maxf(1.0, h / UI_REF_HEIGHT) * ui_scale
+
+
+func set_ui_scale(v: float) -> void:
+	ui_scale = clampf(snappedf(v, 0.05), UI_SCALE_MIN, UI_SCALE_MAX)
+	_apply_ui_scale()
+	thrower._note("HUD size %d%%" % int(round(ui_scale * 100)), 1.0)
 
 
 ## Crosshair, a throw-status line, and the thrower itself.
@@ -55,20 +77,6 @@ func _setup_throwing() -> void:
 	status.vertical_alignment = VERTICAL_ALIGNMENT_BOTTOM
 	$HUD.add_child(status)
 
-	var corner := Label.new()
-	corner.name = "ThrowStatus"
-	corner.add_theme_color_override("font_color", Color(1, 0.85, 0.7, 0.95))
-	corner.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.6))
-	corner.add_theme_constant_override("shadow_offset_x", 1)
-	corner.add_theme_constant_override("shadow_offset_y", 1)
-	corner.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
-	corner.offset_left = -260
-	corner.offset_right = -16
-	corner.offset_top = 12
-	corner.offset_bottom = 36
-	corner.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	$HUD.add_child(corner)
-
 	thrower = Node.new()
 	thrower.set_script(THROWER_SCRIPT)
 	thrower.name = "Thrower"
@@ -76,7 +84,6 @@ func _setup_throwing() -> void:
 	thrower.player = player
 	thrower.camera = $Player/Head/Camera3D
 	thrower.label = status
-	thrower.status_label = corner
 	thrower.hud = $HUD
 	add_child(thrower)
 
@@ -121,32 +128,7 @@ func _setup_throwing() -> void:
 	$HUD.add_child(warp)
 	thrower.warp_label = warp
 
-	# Warm toggle lamps (VIEW, WARP, PATH), top right under the power line.
-	var lamps := Control.new()
-	lamps.set_script(LAMPS_SCRIPT)
-	lamps.name = "Lamps"
-	lamps.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
-	lamps.offset_left = -200
-	lamps.offset_right = -16
-	lamps.offset_top = 40
-	lamps.offset_bottom = 76
-	$HUD.add_child(lamps)
-	thrower.lamps = lamps
 	thrower._update_lamps()
-
-	# Heading + horizon dials, top right under the lamps.
-	var dials := Control.new()
-	dials.set_script(DIALS_SCRIPT)
-	dials.name = "Dials"
-	dials.camera = $Player/Head/Camera3D
-	dials.offset_source = thrower.panel.launch_offset
-	dials.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
-	dials.offset_left = -200
-	dials.offset_right = -16
-	dials.offset_top = 84
-	dials.offset_bottom = 192
-	$HUD.add_child(dials)
-	thrower.dials = dials
 
 
 func _input(event: InputEvent) -> void:
@@ -159,6 +141,10 @@ func _input(event: InputEvent) -> void:
 
 
 func _unhandled_input(event: InputEvent) -> void:
+	if event.is_action_pressed("ui_bigger") or event.is_action_pressed("ui_smaller"):
+		set_ui_scale(ui_scale + (0.1 if event.is_action_pressed("ui_bigger") else -0.1))
+		get_viewport().set_input_as_handled()
+		return
 	if event.is_action_pressed("clouds"):
 		clouds.visible = not clouds.visible
 		get_viewport().set_input_as_handled()
@@ -177,4 +163,9 @@ func _place_player() -> void:
 
 
 func _update_hud() -> void:
-	hud.text = "discwalk  ·  seed %d\nWASD walk · mouse look · Shift stroll faster · Space hop\nN new world · K clouds · Esc free mouse" % terrain.world_seed
+	hud.text = ("discwalk  ·  seed %d\n"
+		+ "WASD walk · mouse look/aim · Shift faster · Space hop\n"
+		+ "↑↓ nose · ←→ hyzer · Shift+↑↓ speed · Shift+←→ spin · X spin lock\n"
+		+ "R flat · H hand · Tab disc · click/Enter throw · right-click cube\n"
+		+ "V chase · G goto · L launch · P paths · C collect · U HUD\n"
+		+ "N new world · K clouds · -/= HUD size · Esc free mouse") % terrain.world_seed

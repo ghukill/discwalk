@@ -29,6 +29,8 @@ Command-line flags override the scene and the code defaults.
 |---|---|---|
 | `--block-size=<m>` | `0.25` | Edge length of one voxel. Bigger = chunkier but faster to build and lighter on memory (`0.5`, `1`). Valid range: 0.125 to 4. |
 | `--debug-keys` | off | Prints every key press/release to stdout. Useful for diagnosing remote input (VNC). |
+| `--ui-scale=<x>` | `1.0` | Extra size for the HUD and help text (0.6–3). `-` / `=` change it in game. |
+| `--no-clouds` | off | Start with clouds hidden (K shows them). |
 
 The dev tools accept the same flags, e.g.
 
@@ -80,7 +82,7 @@ Notes:
 
 | Setting | Where | Default | Meaning |
 |---|---|---|---|
-| `speed_per_level` | `thrower.gd` | 4.0 | m/s per power level (power 10 = 40 m/s). |
+| `speed_per_level` | `thrower.gd` | 4.0 | Tests only now: m/s per level in `throw(level)`. Cubes use the HUD speed. |
 | `max_discs` | `thrower.gd` | 12 | Older discs get cleared away (blocks and flying discs together). |
 | `VISUAL_SPIN_MAX` | `flying_disc.gd` | 14 rad/s | How fast the disc *looks* like it spins (real spin would strobe). |
 | `landed_friction` | `flying_disc.gd` | 0.3 | Grip after landing. Lower = more skip and skid. Flat-grass ground play averages ~8 m at 0.7, ~16 m at 0.3, ~26 m at 0.15 (`tools/skip_test.gd`). |
@@ -92,13 +94,18 @@ Notes:
 | `AIR_SPACING`, `GROUND_SPACING` | `paths.gd` | 0.5, 0.25 m | A path cube every this many metres. |
 | `GROUND_DIM` | `paths.gd` | 0.5 | How much darker ground cubes are. |
 | `FALL_GRAVITY`, `POOF_TIME`, `POOF_SWELL` | `paths.gd` | 3.5 m/s², 0.35 s, 1.8× | The P fall-and-poof. |
-| `launch_min`, `launch_max` | `thrower.gd` | −45°, 85° | Launch angle limits (view + offset). |
-| `SIZE`, `ALPHA`, `PITCH_PX` | `dials.gd` | 84 px, 0.55, 1.6 px/° | Dial size, faintness, horizon scale. |
+| `launch_min`, `launch_max` | `thrower.gd` | −45°, 85° | Launch angle limits (= view pitch). |
+| `radius`, `PITCH_PX_PER_R` | `dials.gd` | 30 px (set by the HUD), 0.045 | Dial size; horizon scale (px per degree per px of radius). |
+| `W`, `H`, `DISC_R`, `BAR_H` | `throw_hud.gd` | 300, 244, 46, 80 px | HUD block size, disc instrument radius, bar height (before scaling). |
+| `CAM_ELEV`, `NOSE_GAIN` | `throw_hud.gd` | 20°, 1.8 | How far above we see the HUD disc from; how much nose is exaggerated. |
+| `UI_REF_HEIGHT` | `main.gd` | 900 px | Window height where the overlay is 1×; taller windows scale it up. |
+| `--ui-scale=<x>` | command line | 1.0 | Extra HUD scale on top (0.6–3); `-` / `=` change it in game. |
 | `count`, `height_max` | `clouds.gd` | 11, 110 m | How many clouds; the highest one's altitude. |
 | `low_count`, `low_above_trees`, `low_scale` | `clouds.gd` | 3, 18–30 m, 0.6 | The low, close puffs: how many, how far over the tallest treetop, how big. |
 | `drift` | `clouds.gd` | (1.1, 0.35) m/s | Cloud drift (x, z); wind will drive this later. |
 | `--no-clouds` | command line | | Start with clouds hidden (K shows them). |
-| panel sliders | `throw_panel.gd` `ROWS` | | Ranges and defaults for speed, launch angle, nose, hyzer, spin. |
+| `RANGES`, defaults | `throw_setup.gd` | | Min/max/step for speed, nose, hyzer, spin; starting disc (dd2), 24 m/s, flat, spin locked. |
+| `REPEAT_DELAY`, `REPEAT_RATE`, `REPEAT_RAMP`, `REPEAT_MAX` | `throw_setup.gd` | 0.3 s, 10, 30, 45 /s | Arrow hold-to-repeat: delay, then steps/s ramping up to the max. |
 | disc tables | `data/discs/*/*.json` | | One file per disc; see `data/discs/README.md`. |
 | `leaf_keep_per_metre` | `disc.gd` | 0.72 | Fraction of speed kept per metre of leaves. |
 | `bark_bounce` | `disc.gd` | 0.4 | Speed kept along the hit axis when bouncing off bark. |

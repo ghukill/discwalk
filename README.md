@@ -29,24 +29,57 @@ Or from a terminal:
 
 ### Controls
 
+The mouse only ever looks. Where you look is where the disc goes, left/right **and** up/down: how high you look is your launch angle (`launch +8°` under the crosshair). The keyboard sets up the throw, and the **throw HUD** in the lower right shows it. Everything you set carries over from throw to throw, so you can repeat a shot and fine-tune it. Full spec: [docs/THROW-HUD.md](docs/THROW-HUD.md).
+
+![Throw HUD](docs/screenshots/hud.jpg)
+
+**Walk and look**
+
 | Key | Action |
 |---|---|
-| WASD / arrows | walk |
-| Mouse | look |
+| WASD | walk (the arrows don't walk any more) |
+| Mouse | look and aim |
 | Shift | stroll faster |
 | Space | hop |
-| T | **throw panel** (lower right): pick a disc, set speed, launch offset, nose, hyzer/anhyzer and spin, press **Throw**. A real flying disc leaves where you're looking, left/right **and up/down** (right-hand backhand); the launch offset (0° by default) tilts it above or below your view. `launch +12°` under the crosshair shows the angle you'd throw at. T again closes it |
-| H / J | heading (compass) / horizon (attitude) dials on or off, top right. The orange chevron on the horizon dial is your launch angle (view + offset) |
-| 1–9, 0 | set block power 1–10 (0 = 10), shown top-right as `Velocity: #` |
-| Left click | fire an orange **block** at the current power (the original cannon, kept for fun) |
-| V | **VIEW toggle** (warm lamp top right, starts off): the camera chases every throw (disc or block) through its flight and ground play, then snaps back to you, unmoved, once it fully stops. Off mid-flight snaps back now |
-| Z | **WARP toggle** (lamp, starts off): once every throw fully stops, you're moved to it, standing just behind it facing down the fairway (a lake puts you on the shore). Off mid-flight cancels that warp. **VIEW + WARP**: watch the flight, then end up there |
-| L | **launch yourself** (one-shot): while your last throw is still moving (flying, skipping or rolling), you take on its position and velocity and fly on with it until you land. For that throw only, VIEW and WARP stand down. Does nothing once it has stopped |
-| P | **PATH toggle** (lamp, starts on; also a checkbox in the throw panel): flight paths *and* the beams over resting discs. On: every disc throw leaves a trail of little cubes in its own colour (bright in the air, smaller and dimmer for skips and rolls). Off: the beams go out, the paths drift down and go *poof*, and new throws leave none until P again |
-| C | **collect**: every disc rolls home to you, slow at first and then faster and faster. Trunks and cliffs block them unless they have the momentum |
+
+**Set up the throw**
+
+| Key | Action |
+|---|---|
+| ↑ / ↓ | nose up / down |
+| ← / → | tilt the disc: the edge on that side drops. Backhand: ← = hyzer, → = anhyzer (forehand is mirrored) |
+| Shift + ↑ / ↓ | release speed (discs **and** cubes) |
+| Shift + ← / → | spin, when unlocked |
+| X | spin lock / unlock. Locked (dotted bar) = spin follows speed, like a real throw |
+| R | reset to flat (nose 0, hyzer 0) |
+| H | backhand ↔ forehand. The ✋ sits right of the disc for backhand, left for forehand |
+| Tab / Shift+Tab | next / previous disc |
+
+A tap moves one fine step (0.5° nose, 1° hyzer, 0.5 m/s, 2 rad/s spin); hold to sweep, faster the longer you hold.
+
+**Throw**
+
+| Key | Action |
+|---|---|
+| Left click / Enter | throw the disc |
+| Right click | throw an orange **cube** at the same speed (the original cannon, kept for fun and for testing physics) |
+| L | **launch yourself** (one-shot): while your last throw (disc or cube) is still moving, you take on its position and velocity and fly on with it until you land. Chase and goto stand down for that throw. Does nothing once it has stopped |
+
+**Lamps and the rest**
+
+| Key | Action |
+|---|---|
+| V | **Chase view** lamp (starts off): the camera chases every throw through its flight and ground play, then snaps back to you, unmoved, once it stops. Off mid-flight snaps back now |
+| G | **Goto** lamp (starts off): once a throw stops, you're moved to it, standing just behind it facing down the fairway (a lake puts you on the shore). Off mid-flight cancels it. **Chase + Goto**: watch the flight, then end up there |
+| P | **Paths** lamp (starts on): flight paths *and* the beams over resting discs. Every disc throw leaves a trail of little cubes in its own colour (bright in the air, dimmer for skips and rolls). Off: beams go out, paths drift down and go *poof* |
+| C | **collect**: every disc rolls home to you, slow at first then faster. Trunks and cliffs block them unless they have the momentum |
+| U | hide / show the throw HUD and the help text (screenshots, or just walking in the woods) |
+| - / = | HUD smaller / bigger (also `-- --ui-scale=1.5` at launch) |
 | N | roll a brand-new world |
 | K | clouds on/off (launch with `-- --no-clouds` to start without them) |
 | Esc | free the mouse (click to grab it again) |
+
+The HUD grows with the window (1× up to 900 px tall, then in proportion), so fullscreen on a big or Retina screen stays readable. If it's still small or too big, - / = adjust it.
 
 ### Block size (performance)
 
@@ -79,9 +112,13 @@ All shot at the default 0.25 m blocks with the `tools/*_shots.gd` scripts (see [
 
 ![Flight paths](docs/screenshots/paths.jpg)
 
-**Throw panel, chase cam (V) and warp (Z):** setting up a throw, the camera chasing the disc, threading the trees, and warped to where it landed.
+**Throw HUD:** flat, hyzer, nose up with spin unlocked, a forehand anhyzer (✋ on the left), and a steep hyzer. Each disc has its own colour in the HUD.
 
-![Chase cam and warp](docs/screenshots/chase.jpg)
+![Throw HUD setups](docs/screenshots/hud_strip.jpg)
+
+**Chase view (V) and goto (G):** setting up a throw (with the old panel), the camera chasing the disc, threading the trees, and moved to where it landed.
+
+![Chase view and goto](docs/screenshots/chase.jpg)
 
 ## How the world works
 
@@ -123,11 +160,12 @@ Done:
 - [x] **Clouds**: fluffy voxel clouds, a few low puffs just over the trees (K)
 - [x] **Warp (Z)**: go to your disc once it stops, ready for the next shot
 - [x] **Toggles + launch**: V (view) and Z (warp) are toggles with warm cockpit lamps top right, P covers paths + beams, L launches you with your last throw (replaces F fetch and B beams)
+- [x] **Throw HUD** ([spec](docs/THROW-HUD.md)): the T panel is gone. A small warm cockpit block in the lower right shows a tilting 3D disc, ✋ for backhand/forehand, speed + spin bars, heading + horizon dials and the Chase view / Goto / Paths lamps. Arrows tilt, Shift+arrows speed/spin, X spin lock, R flat, H hand, Tab discs, click/Enter throw, right click cube, G goto (was Z), U hides the HUD, -/= resize it. Launch offset removed: the view is the launch angle
 
 Next (pick any):
 - [ ] **Menu** (Esc?): Resume, Help (screen of key bindings), New world, **Display** sub-menu (fullscreen toggle to start), Quit
 - [ ] **Wind**: static vector to start (the flight model already subtracts it), maybe gusts; a wind arrow on the dials; drives cloud drift
-- [ ] Throw panel rework (it freezes the view while open); forehand toggle. **Full spec: [docs/THROW-HUD.md](docs/THROW-HUD.md).** **Graham's idea (2026-10):** a little 3D disc you tilt by click-drag or arrow keys (up/down = nose, left/right = hyzer/anhyzer), a tall release-speed slider next to it, and a thinner spin slider (dimmed while auto-spin is locked to speed). Every input is a 2-axis tilt or a 1-axis slider, so it maps straight onto a controller later. Decided: arrows come off walking (WASD only) and tilt the disc; **hold T** = mouse tilts the disc, **scroll** = release speed, and the panel dropdown is usable while T is held; **Tab** cycles discs; the disc preview is a real 3D mesh seen from the thrower's side; the launch angle HUD stays (view pitch = launch angle, disc tilt = nose). **Sketch** ([docs/mockups/throw-hud-sketch.png](docs/mockups/throw-hud-sketch.png)): one lower-right HUD cluster with the disc in a circle (hand emoji = forehand/backhand), a velocity bar and a spin bar (dotted when locked), heading + horizon dials below, and labelled lamps Chase view (V), Goto (G, was Z warp), Paths (P). Mouse is always view/POV; launch offset goes away. **Keys (decided):** mouse = view only; arrows (off walking) = nose ↑↓ / hyzer-anhyzer ←→; Shift+↑↓ = velocity; Shift+←→ = spin when unlocked; Enter = throw disc; L = launch yourself with any projectile; orange cubes stay (fun + wind/physics testing); chase view + goto work for cubes and discs; **H** = backhand ↔ forehand (✋ sits right of the disc circle for backhand, left for forehand). H no longer toggles the heading dial
+- [ ] Throw HUD follow-ups: a better nose display (try it, iterate), a mouse-drag option, controller mapping
 - [ ] More discs / our own coefficient tables (replace the GPL shotshaper ones, see `data/discs/README.md`)
 - [ ] Picture-in-picture follow cam
 - [ ] Discs resting in trees; baskets
@@ -137,7 +175,7 @@ Next (pick any):
 
 Explore later:
 - [ ] **Export + import worlds**: write a world to a file (seed + settings, plus anything hand-edited or placed, e.g. discs, baskets) and load it back. That's the foundation for **pre-made worlds** shipped as files you pick at startup, e.g. a **flat distance world**: long and narrow, no plants, no lakes, distance markings in the ground
-- [ ] **Game controller support** (Graham has ideas): left stick walk, right stick look, triggers/buttons for throw, follow cam, paths, warp; the throw panel navigable with the d-pad
+- [ ] **Game controller support** (Graham has ideas): left stick walk, right stick look, triggers/buttons for throw, chase, paths, goto; d-pad for tilt, shoulder buttons for speed (the throw HUD keys map straight across)
 - [ ] **Disc golf mechanics**: baskets, holes/tees, stroke counting (warp is the first piece)
 - [ ] **Single-file builds**: Godot export for Linux (one binary with the game data embedded) and macOS (a universal .app, zipped), built headless on the T480
 - [ ] **Web build (WASM)**: Godot web export, single-threaded so it works on GitHub Pages/itch. Needs the Compatibility (WebGL2) renderer instead of Forward+ (check shadows, lakes, shaders), URL params instead of CLI flags (`?block=0.25&clouds=0`), a loading screen, probably 0.5 m blocks by default on the web, and a check that Jolt is in the web build
