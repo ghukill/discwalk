@@ -60,6 +60,7 @@ var warp_on := false                     ## GOTO toggle (G).
 var lamps: Control                       ## Warm lamps in the HUD (lamps.gd).
 var hole: Node                           ## The hole being played (hole.gd), if any.
 var basket_arrow: Control                ## Screen-edge pointer to the basket (P).
+var lie_marker: Node3D                   ## Throwing box behind your lie (P).
 var note_label: Label                    ## Top centre: brief notes ("goto 42 m", "Holed in 4").
 var warp_flash: ColorRect                ## Soft white fade when you arrive.
 var _warp_target: Node = null            ## Throw we'll warp to when it stops.
@@ -231,6 +232,8 @@ func _track(disc: Node) -> void:
 		if is_instance_valid(old):
 			old.queue_free()
 	_result_text = ""
+	if lie_marker != null:
+		lie_marker.clear()               # thrown: the old lie is history
 	_warp_target = disc if warp_on else null
 	if view_on:
 		follow_cam.follow(disc)
@@ -274,6 +277,8 @@ func set_paths(on: bool) -> void:
 		hole.basket.set_beam(on)
 	if basket_arrow != null:
 		basket_arrow.enabled = on
+	if lie_marker != null:
+		lie_marker.set_shown(on)
 	_update_lamps()
 	_update_label()
 
@@ -402,6 +407,8 @@ func clear() -> void:
 		if is_instance_valid(d):
 			d.queue_free()
 	discs.clear()
+	if lie_marker != null:
+		lie_marker.clear()
 	_last = null
 	_launched = null
 	_result_text = ""
@@ -435,6 +442,23 @@ func _process(_delta: float) -> void:
 	_update_label()
 
 
+## Put the throwing box behind the disc that just came to rest. "Behind" is
+## measured from the BASKET, not from the way the disc was travelling: you
+## stand behind your lie looking down the line at the target, which is a
+## different spot whenever the throw curved or finished past the pin. With
+## no basket in the world, fall back to the direction of the throw.
+func _mark_lie(disc: Node) -> void:
+	if lie_marker == null:
+		return
+	if disc.in_basket:
+		lie_marker.clear()           # it is in the hole; there is no next lie
+		return
+	var toward: Vector3 = disc.start
+	if hole != null and hole.basket != null:
+		toward = hole.basket.global_position
+	lie_marker.place(disc.global_position, toward)
+
+
 ## A disc found the chains. Report the score and stop counting.
 func _on_holed(_disc: Node) -> void:
 	if hole == null or hole.complete:
@@ -449,6 +473,7 @@ func _on_holed(_disc: Node) -> void:
 func _on_rest(disc: Node) -> void:
 	if disc != _last or _collected > 0:
 		return
+	_mark_lie(disc)
 	var notes := []
 	if disc.bark_hits > 0:
 		notes.append("hit bark x%d" % disc.bark_hits)

@@ -14,7 +14,7 @@ var _ran := {}                       ## Test functions that reached their end.
 ## Every test function that must run to completion. A GDScript error aborts
 ## only the function it happens in, so without this a broken test would skip
 ## all its checks and the run would still report PASS.
-const MUST_RUN := ["geometry", "chains", "siting", "strokes", "ace", "arrow"]
+const MUST_RUN := ["geometry", "chains", "siting", "strokes", "ace", "arrow", "lie"]
 
 
 func _initialize() -> void:
@@ -40,6 +40,7 @@ func _run() -> void:
 	_test_strokes()
 	await _test_ace()
 	await _test_arrow()
+	await _test_lie()
 	for name: String in MUST_RUN:
 		if not _ran.has(name):
 			print("BASKET %-22s BAD  (aborted before finishing)" % name)
@@ -303,6 +304,68 @@ func _test_arrow() -> void:
 	th.set_paths(true)
 	await _settle()
 	_done("arrow")
+
+
+## The throwing box: appears behind a rested disc, measured from the
+## BASKET and not from the way the disc was flying. Those two differ
+## whenever a throw curves, so the test throws a disc that finishes off to
+## one side and checks the box went to the basket-relative spot.
+func _test_lie() -> void:
+	var t = _main.get_node("Terrain")
+	var b = t.basket
+	var th = _main.thrower
+	var marker = th.lie_marker
+	var player: CharacterBody3D = _main.get_node("Player")
+	if marker == null or b == null:
+		_check("lie marker present", false)
+		return
+	th.clear()
+	var tee: Vector3 = t.spawn_point()
+	_main.hole.start(tee, tee + Vector3(0, 0, -40.0))
+	var c: Vector3 = b.global_position
+	player.global_position = tee
+	await _settle()
+	_check("no box before a throw", not marker.showing())
+
+	# Drop a disc to rest well off to the side of the tee->basket line, so
+	# "behind relative to the basket" and "behind relative to travel" give
+	# clearly different answers.
+	var lie := tee + Vector3(25.0, 0, -20.0)
+	lie.y = t.height_at(lie.x, lie.z) + 0.1
+	marker.place(lie, c)
+	await _settle()
+	_check("box appears at a lie", marker.showing())
+
+	# It must sit on the far side of the disc from the basket.
+	var box: Vector3 = marker._mesh.mesh.get_aabb().get_center() \
+		+ marker._mesh.global_position
+	var to_basket := Vector3(c.x - lie.x, 0, c.z - lie.z).normalized()
+	var to_box := Vector3(box.x - lie.x, 0, box.z - lie.z).normalized()
+	_check("box is on the far side from the basket", to_box.dot(to_basket) < -0.9,
+		"dot %.2f" % to_box.dot(to_basket))
+	var gap := Vector2(box.x - lie.x, box.z - lie.z).length()
+	_check("box is about half a side behind", absf(gap - 0.914 * 0.5) < 0.2,
+		"%.2f m" % gap)
+
+	# Roughly 3 ft on a side. The square is rotated to face the basket, so
+	# its world-axis AABB is somewhere between the side (axis-aligned) and
+	# the diagonal, side * sqrt(2) -- hence the bracket rather than an
+	# equality.
+	var aabb: AABB = marker._mesh.mesh.get_aabb()
+	var side := 0.914
+	_check("box is about 3 ft on a side",
+		aabb.size.x > side * 0.9 and aabb.size.x < side * 1.45
+		and aabb.size.z > side * 0.9 and aabb.size.z < side * 1.45,
+		"AABB %.2f x %.2f m (side %.2f, diagonal %.2f)" % [
+			aabb.size.x, aabb.size.z, side, side * sqrt(2.0)])
+
+	th.set_paths(false)
+	await _settle()
+	_check("P hides the box", not marker.showing())
+	th.set_paths(true)
+	await _settle()
+	_check("P brings the box back", marker.showing())
+	_done("lie")
 
 
 func _settle() -> void:

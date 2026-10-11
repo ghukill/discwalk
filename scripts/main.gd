@@ -7,6 +7,7 @@ const CLOUDS_SCRIPT := preload("res://scripts/clouds.gd")
 const BASKET_SCRIPT := preload("res://scripts/basket.gd")
 const HOLE_SCRIPT := preload("res://scripts/hole.gd")
 const BASKET_ARROW_SCRIPT := preload("res://scripts/basket_arrow.gd")
+const LIE_MARKER_SCRIPT := preload("res://scripts/lie_marker.gd")
 
 @onready var terrain: Node3D = $Terrain
 @onready var player: CharacterBody3D = $Player
@@ -119,6 +120,15 @@ func _setup_throwing() -> void:
 	warp.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	$HUD.add_child(warp)
 	thrower.note_label = warp
+
+	# The throwing box behind your lie. Lives outside _setup_basket so it
+	# still works with --no-hole, where it falls back to the throw line.
+	var lie := Node3D.new()
+	lie.set_script(LIE_MARKER_SCRIPT)
+	lie.name = "LieMarker"
+	lie.terrain = terrain
+	add_child(lie)
+	thrower.lie_marker = lie
 
 	thrower._update_lamps()
 
