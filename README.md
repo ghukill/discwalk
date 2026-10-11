@@ -127,7 +127,7 @@ Done:
 Next (pick any):
 - [ ] **Menu** (Esc?): Resume, Help (screen of key bindings), New world, **Display** sub-menu (fullscreen toggle to start), Quit
 - [ ] **Wind**: static vector to start (the flight model already subtracts it), maybe gusts; a wind arrow on the dials; drives cloud drift
-- [ ] Throw panel rework (it freezes the view while open); forehand toggle. **Graham's idea (2026-10):** a little 3D disc you tilt by click-drag or arrow keys (up/down = nose, left/right = hyzer/anhyzer), a tall release-speed slider next to it, and a thinner spin slider (dimmed while auto-spin is locked to speed). Every input is a 2-axis tilt or a 1-axis slider, so it maps straight onto a controller later. Arrow keys currently walk, so they need to belong to the disc while it's in focus
+- [ ] Throw panel rework (it freezes the view while open); forehand toggle. **Graham's idea (2026-10):** a little 3D disc you tilt by click-drag or arrow keys (up/down = nose, left/right = hyzer/anhyzer), a tall release-speed slider next to it, and a thinner spin slider (dimmed while auto-spin is locked to speed). Every input is a 2-axis tilt or a 1-axis slider, so it maps straight onto a controller later. Decided: arrows come off walking (WASD only) and tilt the disc; **hold T** = mouse tilts the disc, **scroll** = release speed, and the panel dropdown is usable while T is held; **Tab** cycles discs; the disc preview is a real 3D mesh seen from the thrower's side; the launch angle HUD stays (view pitch = launch angle, disc tilt = nose)
 - [ ] More discs / our own coefficient tables (replace the GPL shotshaper ones, see `data/discs/README.md`)
 - [ ] Picture-in-picture follow cam
 - [ ] Discs resting in trees; baskets
