@@ -62,8 +62,8 @@ func _process(_d: float) -> bool:
 	if _f in [6, 7, 9, 10, 12, 13, 15, 16, 18, 19]:
 		return false
 	if _f == 5:
-		_check("starts: dd2, flat, 24 m/s, spin locked, backhand",
-			s.disc().id == "dd2" and s.nose == 0.0 and s.roll == 0.0 and s.speed == 24.0 and s.spin_locked and s.hand == 1.0)
+		_check("starts: moraine, flat, 24 m/s, spin locked, backhand",
+			s.disc().id == "moraine" and s.nose == 0.0 and s.roll == 0.0 and s.speed == 24.0 and s.spin_locked and s.hand == 1.0)
 		# Arrows: polled in throw_setup._process, so hold one frame each.
 		_key(KEY_UP)
 		return false

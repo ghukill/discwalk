@@ -28,7 +28,7 @@ var _home := Vector3.ZERO
 var _seen_follow := 0
 var _note := {}
 var _checks: Array = []
-var _fd2
+var _driver
 
 
 func _initialize() -> void:
@@ -64,8 +64,8 @@ func _process(_dt: float) -> bool:
 		_cam = _main.get_node("Player/Head/Camera3D")
 		_home = _main.terrain.spawn_point()
 		for m in _th.disc_models:
-			if m.id == "fd2":
-				_fd2 = m
+			if m.id == "outwash":
+				_driver = m
 		_scene = 1
 		_reset()
 		var lamps0: bool = _th.lamps.glow("view") == 0.0 and _th.lamps.glow("warp") == 0.0 \
@@ -142,7 +142,7 @@ func _process(_dt: float) -> bool:
 				_next()
 		6:  # L during ground play (a real disc, skidding after landing)
 			if _f == 2:
-				_d = _th.throw_disc({"disc": _fd2, "speed": 22.0, "pitch": 8.0, "nose": 0.0,
+				_d = _th.throw_disc({"disc": _driver, "speed": 22.0, "pitch": 8.0, "nose": 0.0,
 					"roll": 0.0, "spin": 110.0})
 			if _f > 3 and not _d.flying and not _d.resting and _d.linear_velocity.length() > 1.0:
 				var ok: bool = _th.launch_self()

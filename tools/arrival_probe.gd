@@ -14,10 +14,10 @@ var _started := false
 const MARKS := [20.0, 40.0, 60.0, 80.0, 100.0, 120.0]
 ## [release speed (m/s), pitch (deg), hyzer (deg), disc id]
 const THROWS := [
-	[24.0, 12.0, 0.0, "dd2"],
-	[24.0, 16.0, -8.0, "dd2"],
-	[20.0, 14.0, 0.0, "cd1"],
-	[18.0, 12.0, 0.0, "cd5"],
+	[24.0, 12.0, 0.0, "moraine"],
+	[24.0, 16.0, -8.0, "moraine"],
+	[20.0, 14.0, 0.0, "erratic"],
+	[18.0, 12.0, 0.0, "till"],
 ]
 
 
@@ -59,9 +59,16 @@ func _throw(t, th, player, spec: Array) -> void:
 	p.pitch = spec[1]
 	p.roll = spec[2]
 	p.spin = 5.2 * spec[0]
+	var found := false
 	for m in th.disc_models:
 		if m.id == spec[3]:
 			p.disc = m
+			found = true
+	# Loud, not silent: an id that no longer exists would otherwise quietly
+	# run the default disc and look like a real measurement.
+	if not found:
+		print("DIST %s: no such disc -- skipped" % spec[3])
+		return
 	var d = th.throw_disc(p)
 	var launch_y: float = d.global_position.y
 	var next := 0

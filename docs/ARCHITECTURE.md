@@ -35,7 +35,7 @@ tools/smoke_test.gd      Headless PASS/FAIL check
 tools/screenshot.gd      Renders PNG views incl. one portrait per oak form (needs a display/GPU)
 tools/tree_gallery.gd    Flat-ground lineup of every oak form, for tuning trees
 tools/throw_test.gd      Headless throws (open ground, into an oak, into a lake): PASS/FAIL
-tools/flight_test.gd     Headless disc flights vs shotshaper + turn/fade sanity: PASS/FAIL
+tools/flight_test.gd     Headless disc flights vs a 6-DOF Hummel sim + per-disc character checks: PASS/FAIL
 tools/clouds_shots.gd    Screenshots of the clouds (from spawn, wide view)
 tools/warp_shots.gd      Screenshots: the warp flag over the follow cam, then arrival
 tools/dials_shots.gd     Screenshots of the dials (level, up, down)
@@ -45,7 +45,7 @@ tools/skip_test.gd       48 throws on flat ground: ground play after landing (tu
 tools/landing_test.gd    48 discs all round spawn: none may end up under the ground
 tools/paths_shots.gd     Screenshots: three paths from behind/side/close, then P falling
 tools/flight_shots.gd    Screenshots: HUD, follow cam in flight + on the ground, view handed back
-tools/discs/             Python helpers: shotshaper tables -> JSON, shotshaper reference flights
+tools/discs/             Python: Kamaruddin data, disc-table builder, 6-DOF Hummel reference flights
 tools/collect_test.gd    Headless collect: 8 scattered discs roll home, speed ramps up
 tools/basket_test.gd     Headless basket: geometry, chains, siting, strokes: PASS/FAIL
 tools/basket_shots.gd    Screenshots of the basket: close up, from the tee, a putt going in
@@ -212,15 +212,16 @@ Everything is driven by `world_seed`: `RandomNumberGenerator` seeds and `FastNoi
 Step 2 of throwing. `flying_disc.gd` extends `disc.gd`, so trees, lakes, beams, fetch and collect all work the same; what changes is the shape and the flight. Design notes: [DISC-FLIGHT-PLAN.md](DISC-FLIGHT-PLAN.md).
 
 - **Setting up a throw** (`throw_setup.gd`, spec in [THROW-HUD.md](THROW-HUD.md)): disc (Tab), speed, nose (disc tilt relative to the flight path), hyzer (+) / anhyzer (−), spin (locked = auto, 5.2 rad/s per m/s, about 1200 rpm at 24 m/s), hand (H: `+1` backhand, `-1` forehand, which mirrors the flight). The arrows are polled in `_process` so a hold repeats: one step on press, then after 0.3 s at 10 steps/s ramping to 45. Nothing resets after a throw. Left click or Enter calls `thrower.throw_disc(setup.params())`. Aim is where you look: left/right sets the direction, up/down the launch angle (`thrower.launch_angle()` = view pitch, clamped to −45..85°; the horizon dial in the HUD shows it). There is no launch offset any more. Tests can pass `pitch` to override; release is 1.3 m up, 0.6 m ahead.
-- **Body**: a 21 cm × 3 cm cylinder collider, drawn as a 7×7 pixel circle with a darker rim and a white stamp so you can see it spin. Blue, except the overstable `cd1` which is pink.
+- **Body**: a 21 cm × 3 cm cylinder collider, drawn as a 7×7 pixel circle with a darker rim and a white stamp so you can see it spin. Its colour comes from the path palette (disc, beam and path share it).
 - **Flight** (`DiscModel.step()`), every physics tick while `flying`:
   - Angle of attack from the velocity (minus wind) and the disc's normal.
   - Lift ⟂ airflow, drag against it: `C × ½ρv² × area`, coefficients interpolated from the disc's table.
-  - Pitching moment `M = C_m × ½ρv² × area × diameter` is not applied as a torque. A spinning disc precesses instead: the normal rolls about the line of flight at `M / (ω (I_z − I_xy))`. Early in the flight (low α) M is negative → it turns right (RH backhand); as it slows and α grows, M goes positive → it fades left.
-  - The body's orientation is set from `normal` each tick; real angular velocity stays zero. Spin is just a number; the mesh spins at a capped, watchable rate.
+  - Moments are not applied as torques. A spinning disc precesses instead, and that slow roll is turn and fade. Early in the flight (low α) the pitching moment is negative → it turns right (RH backhand); as it slows and α grows, it goes positive → it fades left.
+  - **The model is Hummel's (2003)**; the full rationale and every number's source: [PHYSICS.md](PHYSICS.md). Moments, each with its damping term: pitch `(C_m(α) + C_Mq q)`, roll `C_Rp p`, spin down `C_Nr r`, all × `½ρv² × area × diameter`. `_attitude()` solves his Euler equations for the steady precession rates p, q (a 2×2 linear solve; wobble skipped) and turns the normal by them; roll without damping is `M / (I_z r)`, a real gyroscope. Spin decays exponentially, faster when fast (~7 %/s at 24 m/s, ~1 %/s at 10 m/s; ~15 % over a long drive).
+  - The body's orientation is set from `normal` each tick; real angular velocity stays zero. Spin (`omega`) is a number fed to the maths; the mesh spins at a capped, watchable rate.
   - Godot's default linear damping is replaced with 0 while flying (the model does drag).
 - **Landing**: first touch of anything (ground/trunk contact, bark, leaves, water) switches the aerodynamics off for good. Ordinary physics takes over with up to 25 rad/s of real spin, so it can skid, roll and flop, with a slicker material than the block (friction 0.3 vs 0.7) so it skips on instead of digging in. `flight_dist` is the carry at first contact; the HUD shows carry, rest distance, peak and airtime.
-- **Disc data**: JSON tables under `data/discs/` (four shotshaper CFD tables for now, GPL-3.0; see `data/discs/README.md` for swapping them out).
+- **Disc data**: seven discs, JSON tables under `data/discs/discwalk/`, built by `tools/discs/build_tables.py` from Kamaruddin's (2011) wind-tunnel data for real golf discs (see `data/discs/README.md` and [PHYSICS.md](PHYSICS.md#the-discs)). They load sorted by `order` (putter, mids, then drivers from understable to overstable); the HUD shows each disc's `label`, with `kind` and `stability` in small print above it. Player's guide: [DISCS.md](DISCS.md).
 
 ### Toggles: Chase view, Goto, Paths (`thrower.gd`, `lamps.gd`)
 

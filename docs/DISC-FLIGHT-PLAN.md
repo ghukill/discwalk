@@ -1,6 +1,6 @@
 # Disc Flight: Design Notes
 
-> **Status:** step 2 landed (flat disc, lift/drag/gyroscopic roll, throw panel, four shotshaper tables). See [ARCHITECTURE.md](ARCHITECTURE.md#flying-discs-flying_discgd-disc_modelgd-throw_panelgd). Since then: follow cam (V), flight paths (P), launch angle from your view, Jolt physics for landings, slicker ground play, warp (Z). Still to do from this plan: wind, forehand, our own coefficient tables.
+> **Status (2026-10-11):** superseded by [PHYSICS.md](PHYSICS.md) (Hummel's equations, our own disc tables); see [What happened next](#what-happened-next-2026-10-11). This page is the original plan. Earlier: step 2 landed (flat disc, lift/drag/gyroscopic roll, throw panel, four shotshaper tables). See [ARCHITECTURE.md](ARCHITECTURE.md#flying-discs-flying_discgd-disc_modelgd-throw_panelgd). Since then: follow cam (V), flight paths (P), launch angle from your view, Jolt physics for landings, slicker ground play, warp (Z). Still to do from this plan: wind, forehand, our own coefficient tables.
 
 High-level plan for adding realistic disc golf disc flight to the voxel game (Godot).
 
@@ -28,6 +28,17 @@ What it **doesn't** do (vs. Hummel's 2003 6-DOF frisbee model):
 - No pitch, roll, or spin damping terms
 
 Start with the shotshaper-style model. If flights feel too "on rails," borrow Hummel's damping terms and spin decay later.
+
+## What happened next (2026-10-11)
+
+- The shotshaper-style model was replaced by **Hummel's (2003) equations**:
+  spin decay, pitch and roll damping, and the true gyroscopic roll rate
+  `M / (I_z r)`, about half of shotshaper's `M / (ω (I_z − I_xy))`.
+- The four GPL shotshaper tables were replaced by **seven discs of our own**,
+  built from Kamaruddin's (2011) wind-tunnel measurements of real golf discs.
+- The current model, every number's source and the reasoning are in
+  **[PHYSICS.md](PHYSICS.md)**. Everything else on this page is the original plan,
+  kept for history.
 
 **License note:** shotshaper is GPL-3.0. Porting the equations is fine; porting code directly would carry the license into the game.
 

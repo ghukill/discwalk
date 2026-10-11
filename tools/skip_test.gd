@@ -15,7 +15,7 @@ func _initialize():
 	var models := {}
 	for m in DM.load_all(): models[m.id] = m
 	var i := 0
-	for id in ["dd2", "fd2", "cd1", "cd5"]:
+	for id in ["moraine", "outwash", "erratic", "kettle"]:
 		for sp in [16.0, 22.0]:
 			for pitch in [4.0, 10.0]:
 				for roll in [-15.0, 0.0, 20.0]:

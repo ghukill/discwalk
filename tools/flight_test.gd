@@ -1,15 +1,17 @@
 extends SceneTree
-## Headless disc-flight check, in two parts.
+## Headless disc-flight check, in three parts.
 ##
 ## 1. Lab: real FlyingDisc bodies thrown over a flat, empty floor (no trees,
-##    no lakes), compared with reference flights from shotshaper itself
-##    (numbers below, from tools/discs/shotshaper_reference.py). Carry and
-##    drift must land within 10% / 4 m: if we change the maths, this catches it.
-##    (Only meaningful for the shotshaper tables; our own tables will need
-##    their own reference numbers.)
-## 2. Character: overstable cd1 thrown flat must fade left, understable cd5
-##    must turn right, a forehand must mirror a backhand, and more hyzer must
-##    bend further left.
+##    no lakes), compared with a full 6-DOF integration of Hummel's equations,
+##    wobble and all (tools/discs/hummel_reference.py), within 5% carry and
+##    2.5 m drift. That checks the game's quasi-steady shortcut and catches any
+##    change to the maths or the disc tables (rerun the script if you change
+##    them on purpose).
+## 2. Character: each disc behaves like the real disc its data comes from
+##    (docs/PHYSICS.md): the overstable Erratic fades even thrown anhyzer, the
+##    understable Till turns over flat, the Moraine hyzer-flips long, the
+##    Kettle putter flies short and straight at putting speed, a forehand
+##    mirrors a backhand, more hyzer bends further left, spin bleeds off.
 ## 3. World: a throw from spawn in the generated world flies, lands and rests.
 ##
 ##   godot --headless --path . --script res://tools/flight_test.gd
@@ -17,15 +19,18 @@ extends SceneTree
 const FLYING_DISC := preload("res://scripts/flying_disc.gd")
 const DiscModel := preload("res://scripts/disc_model.gd")
 
-## [disc, speed, spin, pitch, nose, roll] -> shotshaper [carry, drift left]
-## (released 1.3 m up, flight ends when it gets back to y = 0).
+## [disc, speed, spin, pitch, nose, roll] -> full 6-DOF Hummel [carry, drift left]
+## (released 1.3 m up, flight ends when it gets back to y = 0; RH backhand).
+## From tools/discs/hummel_reference.py.
 const REFERENCE := [
-	[["dd2", 24.2, 116.8, 15.5, 0.0, 14.7], [81.9, 4.1]],
-	[["dd2", 24.0, 124.8, 10.0, 0.0, 0.0], [62.5, -19.9]],
-	[["dd2", 20.0, 104.0, 10.0, 0.0, -15.0], [43.7, -13.1]],
-	[["cd1", 20.0, 104.0, 10.0, 0.0, 0.0], [51.0, 11.6]],
-	[["cd5", 20.0, 104.0, 10.0, 0.0, 0.0], [67.1, -8.5]],
-	[["fd2", 22.0, 114.4, 8.0, 2.0, 5.0], [65.6, 18.4]],
+	[["moraine", 24.0, 124.8, 10.0, 0.0, 10.0], [93.9, -4.2]],   # spin 125 -> 105
+	[["moraine", 24.0, 124.8, 10.0, 0.0, 0.0], [72.0, -19.8]],   # spin 125 -> 106
+	[["erratic", 24.0, 124.8, 10.0, 0.0, 0.0], [60.5, 12.5]],   # spin 125 -> 110
+	[["till", 23.0, 119.6, 10.0, 0.0, 25.0], [69.0, -3.6]],   # spin 120 -> 105
+	[["outwash", 23.0, 119.6, 10.0, 0.0, 15.0], [86.0, -6.5]],   # spin 120 -> 102
+	[["esker", 19.0, 98.8, 10.0, 0.0, 10.0], [52.8, -6.1]],   # spin 99 -> 91
+	[["drumlin", 19.0, 98.8, 10.0, 0.0, 10.0], [48.1, 7.5]],   # spin 99 -> 92
+	[["kettle", 16.0, 83.2, 10.0, 0.0, 0.0], [36.9, -3.1]],   # spin 83 -> 79
 ]
 
 var _models := {}
@@ -61,12 +66,17 @@ func _initialize() -> void:
 	for i in REFERENCE.size():
 		var r: Array = REFERENCE[i]
 		_cases.append({"name": "ref%d_%s" % [i, r[0][0]], "args": r[0], "ref": r[1], "hand": 1.0})
-	for hand in [1.0, -1.0]:
-		for id in ["cd1", "cd5"]:
-			_cases.append({"name": "%s_%s" % [id, "bh" if hand > 0 else "fh"],
-				"args": [id, 20.0, 104.0, 10.0, 0.0, 0.0], "hand": hand})
-	_cases.append({"name": "fd2_hyzer25", "args": ["fd2", 22.0, 114.4, 10.0, 0.0, 25.0], "hand": 1.0})
-	_cases.append({"name": "fd2_flat", "args": ["fd2", 22.0, 114.4, 10.0, 0.0, 0.0], "hand": 1.0})
+	# [name, disc, speed, pitch, nose, roll, hand]; spin = auto (5.2 x speed)
+	for c in [
+			["moraine_bh", "moraine", 24.0, 10.0, 0.0, 0.0, 1.0],
+			["moraine_fh", "moraine", 24.0, 10.0, 0.0, 0.0, -1.0],
+			["erratic_anhyzer", "erratic", 24.0, 10.0, 0.0, -10.0, 1.0],
+			["till_flat", "till", 23.0, 10.0, 0.0, 0.0, 1.0],
+			["outwash_flat", "outwash", 23.0, 10.0, 0.0, 0.0, 1.0],
+			["outwash_hyzer20", "outwash", 23.0, 10.0, 0.0, 20.0, 1.0],
+			["kettle_24", "kettle", 24.0, 10.0, 0.0, 10.0, 1.0]]:
+		_cases.append({"name": c[0], "args": [c[1], c[2], DiscModel.auto_spin(c[2]), c[3], c[4], c[5]],
+			"hand": c[6]})
 	for i in _cases.size():
 		var c: Dictionary = _cases[i]
 		var a: Array = c.args
@@ -99,6 +109,7 @@ func _process(_delta: float) -> bool:
 			c.left = 0.0
 			c.t = 0.0
 			c.landed_by = "lost"
+			c.omega = 0.0
 			continue
 		if not d.flying:
 			c.done = true
@@ -106,6 +117,7 @@ func _process(_delta: float) -> bool:
 			c.left = c.x0 - d.global_position.x
 			c.t = d.flight_time
 			c.landed_by = d.landed_by
+			c.omega = d.omega
 	var lab_done := _cases.all(func(c) -> bool: return c.done)
 	if lab_done and _main == null:
 		_lab.queue_free()
@@ -114,7 +126,7 @@ func _process(_delta: float) -> bool:
 		_frames = 0
 	if _main != null and _frames == 5:
 		var thrower = _main.thrower
-		var p := {"disc": _models["fd2"], "speed": 20.0, "pitch": 12.0, "nose": 0.0,
+		var p := {"disc": _models["outwash"], "speed": 20.0, "pitch": 12.0, "nose": 0.0,
 			"roll": 10.0, "spin": DiscModel.auto_spin(20.0)}
 		_world_disc = thrower.throw_disc(p)
 		thrower.set_view(true)                     # V lamp on mid-flight
@@ -148,19 +160,32 @@ func _report() -> void:
 		by[c.name] = c
 		var line := "FLIGHT %-12s carry=%5.1f m  left=%6.1f m  t=%.2f s  (%s)" % [
 			c.name, c.carry, c.left, c.t, c.landed_by]
+		line += "  spin %3.0f -> %3.0f" % [c.args[2], c.omega]
 		if c.has("ref"):
-			var good: bool = absf(c.carry - c.ref[0]) <= 0.1 * c.ref[0] and absf(c.left - c.ref[1]) <= 4.0
-			line += "  shotshaper: carry=%5.1f left=%6.1f  %s" % [c.ref[0], c.ref[1], "ok" if good else "BAD"]
+			var good: bool = absf(c.carry - c.ref[0]) <= 0.05 * c.ref[0] and absf(c.left - c.ref[1]) <= 2.5
+			line += "  6-DOF: carry=%5.1f left=%6.1f  %s" % [c.ref[0], c.ref[1], "ok" if good else "BAD"]
 			ok = ok and good
 		print(line)
 	var checks := [
-		["cd1 backhand fades left", by.cd1_bh.left > 3.0],
-		["cd5 backhand turns right", by.cd5_bh.left < -3.0],
-		["cd1 forehand mirrors backhand", absf(by.cd1_fh.left + by.cd1_bh.left) < 1.0],
-		["cd5 forehand mirrors backhand", absf(by.cd5_fh.left + by.cd5_bh.left) < 1.0],
+		["Erratic (overstable) fades left even thrown 10 deg anhyzer (%.1f m)" % by.erratic_anhyzer.left,
+			by.erratic_anhyzer.left > 0.0],
+		["Till (understable) turns over thrown flat at 23 m/s (%.1f m)" % by.till_flat.left,
+			by.till_flat.left < -5.0],
+		["Moraine hyzer-flips long: 10 deg hyzer at 24 m/s carries %.1f m, ends %.1f m off line" % [
+			by.ref0_moraine.carry, by.ref0_moraine.left],
+			by.ref0_moraine.carry > 85.0 and absf(by.ref0_moraine.left) < 10.0],
+		["Kettle putter at 16 m/s: short and straight (%.1f m, %.1f m off line)" % [
+			by.ref7_kettle.carry, by.ref7_kettle.left],
+			by.ref7_kettle.carry > 30.0 and by.ref7_kettle.carry < 45.0 and absf(by.ref7_kettle.left) < 6.0],
+		["a driver out-carries the putter at 24 m/s (%.1f vs %.1f m)" % [by.ref0_moraine.carry, by.kettle_24.carry],
+			by.ref0_moraine.carry > by.kettle_24.carry + 15.0],
+		["forehand mirrors backhand", absf(by.moraine_fh.left + by.moraine_bh.left) < 1.0],
 		# Hyzer also shortens the flight, so compare the bend as an angle.
 		["more hyzer bends further left (angle)",
-			by.fd2_hyzer25.left / by.fd2_hyzer25.carry > by.fd2_flat.left / by.fd2_flat.carry + 0.05],
+			by.outwash_hyzer20.left / by.outwash_hyzer20.carry > by.outwash_flat.left / by.outwash_flat.carry + 0.05],
+		# Hummel spin down: ~15% over a long flight (~1-7 %/s, faster when fast).
+		["spin bleeds off in flight (Moraine 125 -> %.0f rad/s)" % by.moraine_bh.omega,
+			by.moraine_bh.omega < 0.95 * 124.8 and by.moraine_bh.omega > 0.75 * 124.8],
 	]
 	var wd = _world_disc
 	var world_ok: bool = is_instance_valid(wd) and wd.resting and wd.flight_dist > 15.0
