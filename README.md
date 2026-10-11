@@ -10,6 +10,8 @@ Built with **Godot 4.7** in plain GDScript. There are no native plugins or C#, s
 
 ## Quick start
 
+Prefer a precompiled app? Check the [Releases page](https://github.com/ghukill/discwalk/releases) for downloads (when available). To run from source:
+
 1. Get the code: `git clone https://github.com/ghukill/discwalk.git`
 2. Install Godot 4.7.x (standard build, not .NET): <https://godotengine.org/download>
    - **macOS:** download, unzip, drag `Godot.app` to Applications.

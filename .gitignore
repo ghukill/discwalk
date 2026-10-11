@@ -5,6 +5,7 @@
 
 # Exports
 /build/
+/builds/
 *.dmg
 *.app
 *.zip

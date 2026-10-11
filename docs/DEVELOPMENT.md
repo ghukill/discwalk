@@ -5,18 +5,17 @@
 This is a GDScript project: **do not run SCons in this repo**. SCons compiles the Godot engine, not discwalk. Export the project with Godot instead. The `macOS` preset in `export_presets.cfg` makes a Universal 2 `.app` (native ARM64 on Apple Silicon, x86_64 on Intel) using an ad-hoc signature for local testing. It bundles the disc JSON tables and their license but excludes docs, tools, and previous builds. `project.godot` enables ETC2/ASTC texture import, which Godot requires for ARM64 exports.
 
 1. Install **Godot 4.7.2 standard** (not .NET) and its **matching 4.7.2 export templates**. In the editor, use **Editor → Manage Export Templates → Download and Install**. The templates are installed per user, not in this repo. Alternatively, download `Godot_v4.7.2-stable_export_templates.tpz` from the [official release](https://github.com/godotengine/godot/releases/tag/4.7.2-stable) and extract `templates/macos.zip` and `templates/version.txt` to `~/Library/Application Support/Godot/export_templates/4.7.2.stable/` (the full download is about 1.2 GB; only `macos.zip` is needed afterwards).
-2. From the repo root, import resources, then export (the output directory must exist):
+2. Set `config/version` in `project.godot` (`"0.1"` initially), then run from the repo root:
 
    ```sh
-   G=/Applications/Godot.app/Contents/MacOS/Godot
-   "$G" --version                          # should start with 4.7.2.stable
-   "$G" --headless --path . --editor --import
-   mkdir -p build
-   "$G" --headless --path . --export-release macOS build/discwalk.app
-   open build/discwalk.app
+   ./tools/build_macos.sh
+   # If Godot is installed elsewhere:
+   GODOT_BIN="$HOME/Applications/Godot.app/Contents/MacOS/Godot" ./tools/build_macos.sh
    ```
 
-   To check without playing, use `build/discwalk.app/Contents/MacOS/discwalk --quit-after 180 -- --block-size=1` (the coarse blocks shorten startup). The `.app` needs no Godot editor installed to run. `build/` is gitignored; Godot may also generate `.uid` files when importing for the first time (keep those in version control for stable resource IDs).
+   The script imports resources, exports the app, verifies its version, Apple Silicon binary and signature, then packages it with `ditto`. For version `0.1` it creates `builds/v0.1/discwalk.app` and `builds/v0.1/discwalk-v0.1-macos-universal.zip`. Upload the ZIP to a release; the `.app` is for local play. To rebuild the same version, remove that version's `.app` and `.zip` first. Bump `config/version` for the next release; the folder name, ZIP name, and macOS app version all come from it. `builds/` is gitignored, as is the old `build/` output. Godot may also generate `.uid` files when importing for the first time (keep those in version control for stable resource IDs).
+
+   To check without playing, use `builds/v0.1/discwalk.app/Contents/MacOS/discwalk --quit-after 180 -- --block-size=1` (the coarse blocks shorten startup). The `.app` needs no Godot editor installed to run. For a manual export, run `Godot --headless --path . --editor --import`, create an output directory, then run `Godot --headless --path . --export-release macOS path/to/discwalk.app`.
 
 **Distribution:** This preset uses built-in **ad-hoc signing**, not Apple Developer ID signing or notarization. It runs locally, but Gatekeeper may block copies downloaded on another Mac. Public distribution requires a Developer ID certificate, signing, and notarization (see [Godot's macOS export guide](https://docs.godotengine.org/en/4.7/tutorials/export/exporting_for_macos.html)). The included shotshaper disc tables are GPL-3.0; see `data/discs/README.md` and review license obligations before distributing.
 
