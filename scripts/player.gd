@@ -213,6 +213,7 @@ static func _ensure_input_actions() -> void:
 		"spin_lock": [KEY_X],
 		"reset_flat": [KEY_R],
 		"hand": [KEY_H],
+		"basket": [KEY_B],
 		"ui_bigger": [KEY_EQUAL, KEY_KP_ADD],
 		"ui_smaller": [KEY_MINUS, KEY_KP_SUBTRACT],
 	}
