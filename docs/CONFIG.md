@@ -161,30 +161,48 @@ the tray would be two and a half blocks across.
 
 Roughly, the catchable arrival speed goes as `sqrt(3.4 * chain_max_force)`, so
 80 N catches a disc arriving at up to about **17 m/s** and spits out anything
-faster. Measured at 80 N: a putt arriving at 8 m/s is caught in 5 ticks, while a
-point-blank 25 m/s drive leaves the far side at 7.7 m/s.
+faster. Measured at 80 N: a putt arriving at 8 m/s is caught in 5 ticks and
+leaves at 2.8 m/s, while a point-blank 25 m/s drive leaves the far side at
+7.8 m/s. Those numbers are unchanged by the move to Hummel's flight model —
+what reaches the chains changed, how the chains answer did not.
 
 ### Throw-ins and aces
 
 They are possible, and they have to be earned. A disc only passes through the
 chain window (0.75–1.30 m up) for a metre or two of its flight — the rest of the
-time it is either well overhead or already down and skidding. So an ace needs
-the disc to arrive **on line, at chain height, and slowed below the ceiling**.
-Measured on seed 1848, throwing a `dd2` at 24 m/s with 8° of hyzer:
+time it is either well overhead or already down and skidding. And the chains
+only reach 0.30 m from the pole, so an ace needs the disc to cross that window
+**on line, at chain height, and slow enough to hold**.
 
-| Hole | Launch angle | What happens |
+Measured on seed 1848 with `tools/ace_probe.gd`, which searches the aim for each
+shot (a thrown disc turns and fades, so aiming at the pin misses by metres):
+
+| Hole | Shot | What happens |
 |---|---|---|
-| 40 m | +5° | arrives on line at chain height but at 19 m/s — spits out |
-| 44 m | +6° | arrives slowed and in the window — **goes in, repeatably** |
-| 50 m | +6° | on line at chain height, 19 m/s — spits out |
-| any | +10° or more | balloons on lift and sails metres over the band |
-| any | +3° or less | lands short and skids into the pole at ground level |
+| 44 m | Kettle, 18 m/s, +12°, 8° hyzer | crosses dead centre at 3.2 m/s — **goes in, every time** |
+| 44 m | the same with +11° | right height, 0.39 m off the pole at 6.9 m/s — misses |
+| 60 m | Drumlin, 21 m/s, +10° | drops through the window 1.8 m from the pole |
+| 90 m | Moraine, 24 m/s, +12° | drops through the window 1.1 m from the pole |
 
-`tools/basket_test.gd` keeps the 44 m ace as a regression: if `chain_max_force`
-drops much, that is the first check to fail.
+One degree of launch angle is the difference between an ace and a miss by a
+disc's width, which is about right for a hole in one.
+
+The two long holes miss on **range**, not aim: the disc descends through the
+chain window a metre short of the pole, and no amount of steering moves where
+along the flight it drops. Matching the carry to the hole that precisely is a
+power-and-loft problem, so long aces are currently out of reach — not because
+the chains reject them, but because nothing arrives at the right place.
+
+`tools/basket_test.gd` keeps the 44 m ace as a regression. It fixes the club
+(measured) and sweeps the aim ±4°, because the aim that works depends on the
+terrain under the flight and a player aims anyway; it reports how close the best
+aim came, so a failure is a number you can read. The previous version hardcoded
+a 24 m/s `dd2` drive, and when that disc stopped existing the check failed
+without telling anyone why.
 
 Three probes measure all of this, and are worth re-running after changing any
-knob above:
+knob above — or after changing the flight model, which invalidates every number
+on this page even though it touches none of these files:
 
 ```sh
 $G --headless --path . --script res://tools/putt_probe.gd    -- --block-size=1  # putts

@@ -218,11 +218,29 @@ func _test_strokes() -> void:
 	_done("strokes")
 
 
-## A throw-in must be possible, or the chains are too strong. The shot needs
-## to arrive on line, at chain height, and far enough out to have slowed
-## below what the chains can absorb -- 44 m with a touch of loft is that
-## shot on this seed. If chain_max_force drops much, this is the first thing
-## that breaks, which is the point of testing it.
+## A throw-in must be possible, or the chains are too strong.
+##
+## The shot has to arrive on line, at chain height (0.75-1.32 m), and slowed
+## below what the chains can absorb. Measured with tools/ace_probe.gd: the
+## Kettle putter at 18 m/s with 12 deg of loft and 8 deg of hyzer crosses the
+## chains dead centre at 3.2 m/s from 44 m, and goes in every time. One degree
+## less loft arrives at the same height but 0.39 m off the pole at 6.9 m/s and
+## misses, so this is a narrow shot -- which is the point: aces are possible
+## and earned.
+##
+## The CLUB is fixed because it was measured; the AIM is swept, because the
+## aim that works depends on the terrain under the flight (the probe runs at
+## --block-size=1, this test at 0.25 m, and those are different worlds) and a
+## player aims anyway. Passing means "some aim within a couple of degrees of
+## the line goes in", which is the behaviour worth guarding. Hardcoding one
+## sub-degree aim instead would make this fail for reasons that have nothing
+## to do with the chains -- the previous version of this test encoded a
+## 24 m/s dd2 drive, and when that disc stopped existing it failed silently
+## without anyone learning anything.
+const ACE_DIST := 44.0
+const ACE_AIM := -3.0                ## deg, centre of the swept window
+const ACE_AIM_SPAN := 4.0            ## deg either side
+const ACE_AIM_STEP := 0.15           ## deg (~0.12 m of lateral travel at 44 m)
 func _test_ace() -> void:
 	var t = _main.get_node("Terrain")
 	var b = t.basket
@@ -231,38 +249,71 @@ func _test_ace() -> void:
 	if b == null or _main.hole == null:
 		_check("ace: hole present", false)
 		return
+	var putter = null
+	for m in th.disc_models:
+		if m.id == "kettle":
+			putter = m
+	if putter == null:
+		_check("ace: the Kettle putter exists", false)
+		_done("ace")
+		return
+	th.max_discs = 400
+	var made := false
+	var best := 1e9
+	var aim := 0.0
+	var tries := int(round(ACE_AIM_SPAN * 2.0 / ACE_AIM_STEP)) + 1
+	for i in tries:
+		var off := ACE_AIM - ACE_AIM_SPAN + i * ACE_AIM_STEP
+		var r: Dictionary = await _ace_throw(t, th, b, player, putter, off)
+		if r.made:
+			made = true
+			aim = off
+			break
+		best = minf(best, r.closest)
+	_check("ace from %.0f m is possible" % ACE_DIST, made,
+		"Kettle 18 m/s, +12 deg loft, 8 deg hyzer, aim %+.2f deg" % aim if made
+		else "closest any aim came: %.2f m (need %.2f m)" % [best, b.CHAIN_RADIUS])
+	_done("ace")
+
+
+## One ace attempt at a given aim offset. Returns whether it went in, and how
+## close to the pole it came while inside the chain window -- the only part of
+## the flight where a catch is possible, so the only honest measure of a miss.
+func _ace_throw(t, th, b, player, putter, aim_deg: float) -> Dictionary:
 	th.clear()
 	b.release()
 	var tee: Vector3 = t.spawn_point()
-	_main.hole.start(tee, tee + Vector3(0, 0, -44.0))
+	_main.hole.start(tee, tee + Vector3(0, 0, -ACE_DIST))
 	var c: Vector3 = b.global_position
 	player.global_position = tee
 	var to := (c - tee) * Vector3(1, 0, 1)
-	# Aimed off to the right, because the disc fades left over 44 m.
-	player.rotation.y = atan2(-to.x, -to.z) + deg_to_rad(9.0)
+	player.rotation.y = atan2(-to.x, -to.z) + deg_to_rad(aim_deg)
 	await process_frame
 	var p: Dictionary = th.setup.params()
-	p.speed = 24.0
-	p.pitch = 6.0
-	p.roll = -8.0
-	p.spin = 5.2 * 24.0
+	p.disc = putter
+	p.speed = 18.0
+	p.pitch = 12.0
+	p.roll = 8.0                        # hyzer is positive
+	p.spin = 5.2 * 18.0
 	var d = th.throw_disc(p)
-	var made := false
-	# Generous: a drive now stays up nearly 7 s (Moraine's reference flight is
-	# 6.73 s) and then skids, so a tight budget stops watching mid-air and
-	# reports a miss the disc never made. That is what this loop used to do.
+	var closest := 1e9
+	# Generous: a throw now stays up for seconds and then skids, so a tight
+	# budget stops watching mid-air and reports a miss the disc never made.
+	# That is what this loop used to do.
 	for i in FLIGHT_FRAMES:
 		await process_frame
 		if not is_instance_valid(d):
 			break
 		if b.holed != null:
-			made = true
-			break
+			return {"made": true, "closest": 0.0}
+		var rel: Vector3 = d.global_position - c
+		if rel.y >= b.CHAIN_BOTTOM and rel.y <= b.BAND_Y:
+			closest = minf(closest, Vector2(rel.x, rel.z).length())
 		if d.resting:
 			break
-	_check("ace from 44 m is possible", made,
-		"strokes=%d" % _main.hole.strokes)
-	_done("ace")
+	if is_instance_valid(d):
+		d.queue_free()
+	return {"made": false, "closest": closest}
 
 
 ## The screen-edge arrow: hidden when you can see the basket, shown when you

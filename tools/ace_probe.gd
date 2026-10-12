@@ -20,17 +20,9 @@ var _started := false
 
 ## [distance (m), disc, release speed (m/s), launch pitch (deg), hyzer (deg)]
 const CASES := [
-	[44.0, "kettle", 18.0, 10.0, 8.0],
 	[44.0, "kettle", 18.0, 12.0, 8.0],
-	[44.0, "kettle", 19.0, 10.0, 8.0],
-	[44.0, "drumlin", 17.0, 10.0, 8.0],
-	[60.0, "esker", 21.0, 10.0, 10.0],
-	[60.0, "esker", 22.0, 12.0, 10.0],
+	[44.0, "kettle", 18.0, 11.0, 8.0],
 	[60.0, "drumlin", 21.0, 10.0, 8.0],
-	[75.0, "moraine", 21.0, 10.0, 10.0],
-	[75.0, "moraine", 21.0, 12.0, 10.0],
-	[75.0, "outwash", 22.0, 10.0, 14.0],
-	[90.0, "moraine", 23.0, 12.0, 10.0],
 	[90.0, "moraine", 24.0, 12.0, 10.0],
 ]
 const TRIALS := 6
@@ -116,16 +108,44 @@ func _model(th, id: String):
 	return null
 
 
-## Sweep aim offsets and keep the best one, judged on how close the disc came
-## to the pole WHILE IT WAS IN THE CHAIN WINDOW, falling back to plain closest
-## approach for shots that never got there at all. Judging on closest approach
-## alone picks the aim that rolls the disc nicely into the base of the pole,
-## which is not an ace and tells you nothing about the chains.
+## Find the aim that gets the disc closest to the pole while it is INSIDE the
+## chain window, in two stages: a coarse sweep to find the right neighbourhood,
+## then a fine one inside it.
+##
+## Two stages because one coarse sweep cannot do this. The target is a 0.30 m
+## catch radius; 3 deg of aim at 44 m moves the disc 2.3 m sideways, so a 3 deg
+## sweep steps straight over the basket and reports a near miss no matter how
+## good the shot is. The fine step is therefore set as a LATERAL resolution in
+## metres and converted to an angle per hole, because a fixed angle fine enough
+## at 44 m is twice as coarse as it needs to be at 90 m.
+##
+## Judged on the in-window distance, falling back to plain closest approach for
+## shots that never got there at all. Judging on closest approach alone picks
+## the aim that rolls the disc neatly into the base of the pole, which is not
+## an ace and says nothing about the chains.
+const COARSE_STEP := 3.0             ## deg
+const COARSE_SPAN := 24.0            ## deg either side
+const FINE_ARC := 0.12               ## m of lateral travel per fine step
+
+
 func _best_aim(t, th, b, player, case: Array, disc) -> Dictionary:
-	var best := {"off": 0.0, "r": 1e9, "win": 1e9}
-	for step in 17:
-		var off := deg_to_rad(-24.0 + step * 3.0)
+	var best := await _sweep(t, th, b, player, case, disc,
+		-COARSE_SPAN, COARSE_SPAN, COARSE_STEP, {"off": 0.0, "r": 1e9, "win": 1e9})
+	# Fine sweep across one coarse step either side of the winner.
+	var c0: float = rad_to_deg(best.off)
+	var fine := rad_to_deg(FINE_ARC / maxf(float(case[0]), 1.0))
+	return await _sweep(t, th, b, player, case, disc,
+		c0 - COARSE_STEP, c0 + COARSE_STEP, fine, best)
+
+
+func _sweep(t, th, b, player, case: Array, disc, from_deg: float, to_deg: float,
+		step_deg: float, best: Dictionary) -> Dictionary:
+	var n := int(round((to_deg - from_deg) / step_deg)) + 1
+	for i in n:
+		var off := deg_to_rad(from_deg + i * step_deg)
 		var r: Dictionary = await _drive(t, th, b, player, case, disc, off)
+		if r.made:
+			return {"off": off, "r": 0.0, "win": 0.0}
 		var better: bool = r.win_r < best.win if r.win_r < 1e8 or best.win < 1e8 \
 			else r.closest < best.r
 		if better:
