@@ -15,6 +15,7 @@ extends Node
 ##   Tab / Shift+Tab  next / previous disc
 ##
 ## A tap nudges one fine step; holding repeats, faster the longer you hold.
+## Controller: the D-pad is the arrows, RB is Shift, LB is H.
 
 const DiscModel := preload("res://scripts/disc_model.gd")
 
@@ -126,7 +127,7 @@ func _unhandled_input(event: InputEvent) -> void:
 
 ## Arrows are polled so a hold repeats (and Shift can change mid-hold).
 func _process(delta: float) -> void:
-	var shift := Input.is_key_pressed(KEY_SHIFT)
+	var shift := Input.is_key_pressed(KEY_SHIFT) or Input.is_action_pressed("setup_alt")
 	for action in ["tilt_up", "tilt_down", "tilt_left", "tilt_right"]:
 		if not InputMap.has_action(action) or not Input.is_action_pressed(action):
 			_held.erase(action)

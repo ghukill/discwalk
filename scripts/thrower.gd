@@ -127,6 +127,8 @@ func _unhandled_input(event: InputEvent) -> void:
 		collect()
 	elif event.is_action_pressed("throw_disc") and not event.is_echo():
 		throw_disc(setup.params())
+	elif event.is_action_pressed("throw_cube"):
+		throw_cube()
 	elif event is InputEventMouseButton and event.pressed and captured \
 			and event.button_index == MOUSE_BUTTON_LEFT:
 		throw_disc(setup.params())

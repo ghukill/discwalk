@@ -1,12 +1,14 @@
 extends CharacterBody3D
 ## First-person walker. WASD to move (arrows set up the throw now), mouse to
 ## look, Shift to stroll faster, Space to hop. Esc frees the mouse; click to grab it again.
+## Controller: left stick walks, right stick looks, View toggles running.
 
 @export var walk_speed := 4.0
 @export var sprint_speed := 7.5
 @export var jump_velocity := 5.0
 @export var acceleration := 10.0
 @export var mouse_sensitivity := 0.0025
+@export var stick_look_speed := 3.0    ## Right stick, fully pushed (rad/s).
 @export var bob_amount := 0.04
 @export var bob_frequency := 1.8
 
@@ -17,6 +19,7 @@ var _bob_time := 0.0
 var _flung := false              ## Carrying momentum from a launch (L).
 var _fling_t := 0.0
 var _head_base_y := 0.0
+var _run_on := false             ## Controller View button: run until pressed again.
 
 
 func _ready() -> void:
@@ -34,6 +37,8 @@ func _unhandled_input(event: InputEvent) -> void:
 		rotate_y(-event.relative.x * mouse_sensitivity)
 		head.rotate_x(-event.relative.y * mouse_sensitivity)
 		head.rotation.x = clampf(head.rotation.x, deg_to_rad(-88), deg_to_rad(88))
+	elif event.is_action_pressed("run_toggle"):
+		_run_on = not _run_on
 	elif event.is_action_pressed("ui_cancel"):
 		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	elif event is InputEventMouseButton and event.pressed \
@@ -50,6 +55,17 @@ func _mouse_ui_open() -> bool:
 	return false
 
 
+## Right stick look, squared so small pushes aim finely.
+func _process(delta: float) -> void:
+	var look := Input.get_vector("look_left", "look_right", "look_up", "look_down")
+	if look == Vector2.ZERO:
+		return
+	look *= look.length() * stick_look_speed * delta
+	rotate_y(-look.x)
+	head.rotate_x(-look.y)
+	head.rotation.x = clampf(head.rotation.x, deg_to_rad(-88), deg_to_rad(88))
+
+
 func _physics_process(delta: float) -> void:
 	if not is_on_floor():
 		velocity.y -= _gravity * delta
@@ -58,7 +74,7 @@ func _physics_process(delta: float) -> void:
 
 	var input := Input.get_vector("move_left", "move_right", "move_forward", "move_back")
 	var dir := (transform.basis * Vector3(input.x, 0, input.y)).normalized()
-	var speed := sprint_speed if Input.is_action_pressed("sprint") else walk_speed
+	var speed := sprint_speed if _run_on or Input.is_action_pressed("sprint") else walk_speed
 	if _flung:
 		# Riding a disc's momentum: keep it until we land, with a touch of
 		# air control (and the same whisper of drag the disc has).
@@ -134,11 +150,38 @@ static func _ensure_input_actions() -> void:
 		"ui_bigger": [KEY_EQUAL, KEY_KP_ADD],
 		"ui_smaller": [KEY_MINUS, KEY_KP_SUBTRACT],
 	}
-	for action in bindings:
+	# Xbox-style controller (scratch/controller.md). Buttons join the keyboard
+	# actions; sticks are [axis, direction]. Clicking a stick toggles what it
+	# steers: left (walking) = GOTO, right (looking) = chase view.
+	var pad := {
+		"move_forward": [[JOY_AXIS_LEFT_Y, -1.0]],
+		"move_back": [[JOY_AXIS_LEFT_Y, 1.0]],
+		"move_left": [[JOY_AXIS_LEFT_X, -1.0]],
+		"move_right": [[JOY_AXIS_LEFT_X, 1.0]],
+		"look_up": [[JOY_AXIS_RIGHT_Y, -1.0]],
+		"look_down": [[JOY_AXIS_RIGHT_Y, 1.0]],
+		"look_left": [[JOY_AXIS_RIGHT_X, -1.0]],
+		"look_right": [[JOY_AXIS_RIGHT_X, 1.0]],
+		"tilt_up": [JOY_BUTTON_DPAD_UP],
+		"tilt_down": [JOY_BUTTON_DPAD_DOWN],
+		"tilt_left": [JOY_BUTTON_DPAD_LEFT],
+		"tilt_right": [JOY_BUTTON_DPAD_RIGHT],
+		"setup_alt": [JOY_BUTTON_RIGHT_SHOULDER],   # held: D-pad = speed/spin, like Shift
+		"throw_disc": [JOY_BUTTON_A],
+		"throw_cube": [JOY_BUTTON_B],
+		"collect": [JOY_BUTTON_X],
+		"launch": [JOY_BUTTON_Y],
+		"paths": [JOY_BUTTON_MISC1],                # Share: the discs share where they went
+		"warp": [JOY_BUTTON_LEFT_STICK],
+		"view": [JOY_BUTTON_RIGHT_STICK],
+		"hand": [JOY_BUTTON_LEFT_SHOULDER],
+		"run_toggle": [JOY_BUTTON_BACK],
+	}
+	for action in bindings.keys() + pad.keys():
 		if InputMap.has_action(action):
 			continue
-		InputMap.add_action(action)
-		for key in bindings[action]:
+		InputMap.add_action(action, 0.2)
+		for key in bindings.get(action, []):
 			# Physical keycode: layout-independent (WASD stays put on AZERTY etc.).
 			var phys := InputEventKey.new()
 			phys.physical_keycode = key
@@ -149,3 +192,14 @@ static func _ensure_input_actions() -> void:
 			var logical := InputEventKey.new()
 			logical.keycode = key
 			InputMap.action_add_event(action, logical)
+		for b in pad.get(action, []):
+			var ev: InputEvent
+			if b is Array:
+				ev = InputEventJoypadMotion.new()
+				ev.axis = b[0]
+				ev.axis_value = b[1]
+			else:
+				ev = InputEventJoypadButton.new()
+				ev.button_index = b
+			ev.device = -1   # any controller
+			InputMap.action_add_event(action, ev)
