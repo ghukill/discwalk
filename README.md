@@ -4,7 +4,7 @@ A voxel walking sim through a generated glacial landscape (kettle lakes, rolling
 
 Built with **Godot 4.7** in plain GDScript. There are no native plugins or C#, so the same project runs on Linux, macOS and Windows.
 
-**Docs:** [Screenshots](#screenshots) · [Configuration](docs/CONFIG.md) · [Architecture](docs/ARCHITECTURE.md) · [Development](docs/DEVELOPMENT.md) · [Disc flight plan](docs/DISC-FLIGHT-PLAN.md)
+**Docs:** [Screenshots](#screenshots) · [Configuration](docs/CONFIG.md) · [Architecture](docs/ARCHITECTURE.md) · [Development](docs/DEVELOPMENT.md) · [Discs](docs/DISCS.md) · [Physics](docs/PHYSICS.md) · [Disc flight plan](docs/DISC-FLIGHT-PLAN.md)
 
 ![Oak grove with lupine and coneflowers](docs/screenshot-oak.png)
 
@@ -160,13 +160,14 @@ Done:
 - [x] **Clouds**: fluffy voxel clouds, a few low puffs just over the trees (K)
 - [x] **Warp (Z)**: go to your disc once it stops, ready for the next shot
 - [x] **Toggles + launch**: V (view) and Z (warp) are toggles with warm cockpit lamps top right, P covers paths + beams, L launches you with your last throw (replaces F fetch and B beams)
+- [x] **Real physics, real discs** ([PHYSICS.md](docs/PHYSICS.md)): Hummel's 2003 flight equations (spin decay, pitch/roll damping, true gyroscopic turn/fade) and seven discs built from wind-tunnel measurements of real golf discs (Kamaruddin 2011), with glacial names: Kettle (putter), Drumlin and Esker (mids), Till, Outwash, Moraine and Erratic (drivers, understable to overstable). No more GPL shotshaper tables. Checked against a full 6-DOF sim (`tools/discs/hummel_reference.py`)
 - [x] **Throw HUD** ([spec](docs/THROW-HUD.md)): the T panel is gone. A small warm cockpit block in the lower right shows a tilting 3D disc, ✋ for backhand/forehand, speed + spin bars, heading + horizon dials and the Chase view / Goto / Paths lamps. Arrows tilt, Shift+arrows speed/spin, X spin lock, R flat, H hand, Tab discs, click/Enter throw, right click cube, G goto (was Z), U hides the HUD, -/= resize it. Launch offset removed: the view is the launch angle
 
 Next (pick any):
 - [ ] **Menu** (Esc?): Resume, Help (screen of key bindings), New world, **Display** sub-menu (fullscreen toggle to start), Quit
 - [ ] **Wind**: static vector to start (the flight model already subtracts it), maybe gusts; a wind arrow on the dials; drives cloud drift
 - [ ] Throw HUD follow-ups: a better nose display (try it, iterate), a mouse-drag option, controller mapping
-- [ ] More discs / our own coefficient tables (replace the GPL shotshaper ones, see `data/discs/README.md`)
+- [ ] Golf-disc damping coefficients (Turner 2025, requested) in place of Hummel's Frisbee values; per-disc mass
 - [ ] Picture-in-picture follow cam
 - [ ] Discs resting in trees; baskets
 - [ ] **Wind grass**: instanced voxel tufts, reusing the flower sway shader
