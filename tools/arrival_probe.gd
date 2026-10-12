@@ -73,7 +73,7 @@ func _throw(t, th, player, spec: Array) -> void:
 	var launch_y: float = d.global_position.y
 	var next := 0
 	var out := []
-	for i in 600:
+	for i in 1800:        # the whole flight: a drive stays up nearly 7 s
 		await process_frame
 		if not is_instance_valid(d):
 			break

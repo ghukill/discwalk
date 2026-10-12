@@ -1,25 +1,43 @@
 extends SceneTree
-## TEMPORARY: can you ace a hole? Throws drives at a basket set at a range
-## of distances and counts how many go in, plus how fast and how high the
-## disc was when it got there.
+## TEMPORARY: can you ace a hole? Throws real shots at a basket set at a range
+## of distances and counts how many go in, plus how fast and how high the disc
+## was when it got there.
 ##
 ##   godot --headless --path . --script res://tools/ace_probe.gd -- --block-size=1
+##
+## Each case names a disc, a power and a hyzer angle, because with seven discs
+## "can you ace it" is no longer one question: a 44 m hole is a putter shot and
+## a 90 m hole is a driver shot, and throwing the driver at the putter's hole
+## just measures a disc landing long. The shapes come from docs/DISCS.md.
+##
+## Hyzer is POSITIVE (throw_hud.gd prints r > 0 as hyzer). The understable
+## discs need it: thrown flat or anhyzer they turn over and dive, which is a
+## short, crooked flight, not an ace attempt.
 
 var _main: Node
 var _f := 0
 var _started := false
 
-## [distance (m), launch pitch (deg)] -- low pitches keep the disc under the
-## 1.32 m band instead of sailing over it at apex.
-## [distance (m), launch pitch (deg), release speed (m/s)]. Power matched to
-## the hole: a full-power drive at a 30 m basket lands short and skids in at
-## ground level, which is not what an ace looks like.
+## [distance (m), disc, release speed (m/s), launch pitch (deg), hyzer (deg)]
 const CASES := [
-	[40.0, 3.0, 24.0], [40.0, 4.0, 24.0], [40.0, 5.0, 24.0],
-	[44.0, 4.0, 24.0], [44.0, 5.0, 24.0], [44.0, 6.0, 24.0],
-	[50.0, 5.0, 24.0], [50.0, 6.0, 24.0],
+	[44.0, "kettle", 18.0, 10.0, 8.0],
+	[44.0, "kettle", 18.0, 12.0, 8.0],
+	[44.0, "kettle", 19.0, 10.0, 8.0],
+	[44.0, "drumlin", 17.0, 10.0, 8.0],
+	[60.0, "esker", 21.0, 10.0, 10.0],
+	[60.0, "esker", 22.0, 12.0, 10.0],
+	[60.0, "drumlin", 21.0, 10.0, 8.0],
+	[75.0, "moraine", 21.0, 10.0, 10.0],
+	[75.0, "moraine", 21.0, 12.0, 10.0],
+	[75.0, "outwash", 22.0, 10.0, 14.0],
+	[90.0, "moraine", 23.0, 12.0, 10.0],
+	[90.0, "moraine", 24.0, 12.0, 10.0],
 ]
 const TRIALS := 6
+## Long enough for the whole flight plus the ground play. A drive is airborne
+## for nearly 7 s under this model; stopping sooner measures the budget, not
+## the shot, and does it convincingly (every case misses by the same amount).
+const FLIGHT_FRAMES := 1800
 
 
 func _initialize() -> void:
@@ -43,47 +61,80 @@ func _run() -> void:
 	th.max_discs = 400
 	print("ACE chain_max_force=%.0f" % b.chain_max_force)
 	for case: Array in CASES:
-		var dist: float = case[0]
-		var pitch: float = case[1]
-		var sp0: float = case[2]
-		# A thrown disc fades, so aiming straight at the pin misses by
-		# metres. Find the aim offset that actually brings it to the basket
+		var disc = _model(th, case[1])
+		if disc == null:
+			print("ACE %s: no such disc -- skipped" % case[1])
+			continue
+		# A thrown disc turns and fades, so aiming straight at the pin misses
+		# by metres. Find the aim offset that actually brings it to the basket
 		# -- that is what a player does, and it is the only fair test of
 		# whether an ace is reachable.
-		var aim := await _best_aim(t, th, b, player, dist, pitch, sp0)
+		var aim := await _best_aim(t, th, b, player, case, disc)
 		var aces := 0
 		var speed_sum := 0.0
 		var y_sum := 0.0
 		var seen := 0
+		var win_r_sum := 0.0
+		var win_sp_sum := 0.0
+		var win_y_sum := 0.0
+		var win_seen := 0
 		for i in TRIALS:
-			var r: Dictionary = await _drive(t, th, b, player, dist, aim.off, pitch, sp0)
+			var r: Dictionary = await _drive(t, th, b, player, case, disc, aim.off)
 			aces += 1 if r.made else 0
 			if r.seen:
 				speed_sum += r.speed
 				y_sum += r.y
 				seen += 1
+			if r.win_r < 1e8:
+				win_r_sum += r.win_r
+				win_sp_sum += r.win_speed
+				win_y_sum += r.win_y
+				win_seen += 1
 		var detail := "closest %.1f m, never near the pole" % aim.r
 		if seen > 0:
 			detail = "arrived ~%.1f m/s at y=%+.2f (%d/%d on line)" % [
 				speed_sum / seen, y_sum / seen, seen, TRIALS]
-		print("ACE %3.0f m pitch %+.0f speed %.0f (aim %+.0f deg): %d/%d in  --  %s" % [
-			dist, pitch, sp0, rad_to_deg(aim.off), aces, TRIALS, detail])
+		# How close it came to an actual catch: lateral miss, speed and height
+		# at the best moment the disc was inside the chain window.
+		if win_seen > 0:
+			detail += "  |  in window: %.2f m off the pole at %.1f m/s, y=%+.2f" % [
+				win_r_sum / win_seen, win_sp_sum / win_seen, win_y_sum / win_seen]
+		else:
+			detail += "  |  never crossed the chain window (%.2f-%.2f m)" % [
+				b.CHAIN_BOTTOM, b.BAND_Y]
+		print("ACE %3.0f m %-8s speed %2.0f pitch %+.0f hyzer %+.0f (aim %+.0f deg): %d/%d in  --  %s" % [
+			case[0], case[1], case[2], case[3], case[4], rad_to_deg(aim.off),
+			aces, TRIALS, detail])
 	print("ACE DONE")
 	quit(0)
 
 
-## Sweep aim offsets and keep the one that passes closest to the pole.
-func _best_aim(t, th, b, player, dist: float, pitch: float, sp0: float) -> Dictionary:
-	var best := {"off": 0.0, "r": 1e9}
+func _model(th, id: String):
+	for m in th.disc_models:
+		if m.id == id:
+			return m
+	return null
+
+
+## Sweep aim offsets and keep the best one, judged on how close the disc came
+## to the pole WHILE IT WAS IN THE CHAIN WINDOW, falling back to plain closest
+## approach for shots that never got there at all. Judging on closest approach
+## alone picks the aim that rolls the disc nicely into the base of the pole,
+## which is not an ace and tells you nothing about the chains.
+func _best_aim(t, th, b, player, case: Array, disc) -> Dictionary:
+	var best := {"off": 0.0, "r": 1e9, "win": 1e9}
 	for step in 17:
 		var off := deg_to_rad(-24.0 + step * 3.0)
-		var r: Dictionary = await _drive(t, th, b, player, dist, off, pitch, sp0)
-		if r.closest < best.r:
-			best = {"off": off, "r": r.closest}
+		var r: Dictionary = await _drive(t, th, b, player, case, disc, off)
+		var better: bool = r.win_r < best.win if r.win_r < 1e8 or best.win < 1e8 \
+			else r.closest < best.r
+		if better:
+			best = {"off": off, "r": r.closest, "win": r.win_r}
 	return best
 
 
-func _drive(t, th, b, player, dist: float, aim_off := 0.0, pitch := 15.0, sp0 := 24.0) -> Dictionary:
+func _drive(t, th, b, player, case: Array, disc, aim_off := 0.0) -> Dictionary:
+	var dist: float = case[0]
 	var tee: Vector3 = t.spawn_point()
 	b.release()
 	_main.hole.start(tee, tee + Vector3(0, 0, -dist))
@@ -93,15 +144,24 @@ func _drive(t, th, b, player, dist: float, aim_off := 0.0, pitch := 15.0, sp0 :=
 	player.rotation.y = atan2(-to.x, -to.z) + aim_off
 	await process_frame
 	var p: Dictionary = th.setup.params()
-	p.speed = sp0
-	p.pitch = pitch
-	p.roll = -8.0                       # a little hyzer, so it comes down on line
-	p.spin = 5.2 * sp0
+	p.disc = disc
+	p.speed = case[2]
+	p.pitch = case[3]
+	p.roll = case[4]
+	p.spin = 5.2 * float(case[2])
 	var d = th.throw_disc(p)
-	var best_r := 1e9
+	var best_r := 1e9                   ## Closest horizontal approach, any height.
 	var sp := 0.0
 	var y := 0.0
-	for i in 400:
+	# The same, but only while the disc is between the bottom of the chains and
+	# the band -- the band of heights where a catch is even possible. This is
+	# the number that says how close the shot came to going in; the one above
+	# is usually taken at ground level, next to the pole, long after the disc
+	# stopped being an ace.
+	var win_r := 1e9
+	var win_sp := 0.0
+	var win_at := 0.0
+	for i in FLIGHT_FRAMES:
 		await process_frame
 		if not is_instance_valid(d):
 			break
@@ -111,12 +171,18 @@ func _drive(t, th, b, player, dist: float, aim_off := 0.0, pitch := 15.0, sp0 :=
 			best_r = r
 			sp = d.linear_velocity.length()
 			y = rel.y
+		if rel.y >= b.CHAIN_BOTTOM and rel.y <= b.BAND_Y and r < win_r:
+			win_r = r
+			win_sp = d.linear_velocity.length()
+			win_at = rel.y
 		if b.holed != null:
 			b.release()
 			d.queue_free()
-			return {"made": true, "seen": true, "speed": sp, "y": y, "closest": 0.0}
+			return {"made": true, "seen": true, "speed": sp, "y": y, "closest": 0.0,
+				"win_r": 0.0, "win_speed": win_sp, "win_y": win_at}
 		if d.resting:
 			break
 	if is_instance_valid(d):
 		d.queue_free()
-	return {"made": false, "seen": best_r < 1.5, "speed": sp, "y": y, "closest": best_r}
+	return {"made": false, "seen": best_r < 1.5, "speed": sp, "y": y, "closest": best_r,
+		"win_r": win_r, "win_speed": win_sp, "win_y": win_at}

@@ -8,6 +8,10 @@ const DISC_MASS := 0.175             ## disc.gd sets this on every thrown disc.
 
 var _main: Node
 var _frames := 0
+## Frames to watch one throw for: long enough for the flight AND the ground
+## play that follows, with room to spare.
+const FLIGHT_FRAMES := 1800
+
 var _ok := true
 var _ran := {}                       ## Test functions that reached their end.
 
@@ -244,7 +248,10 @@ func _test_ace() -> void:
 	p.spin = 5.2 * 24.0
 	var d = th.throw_disc(p)
 	var made := false
-	for i in 400:
+	# Generous: a drive now stays up nearly 7 s (Moraine's reference flight is
+	# 6.73 s) and then skids, so a tight budget stops watching mid-air and
+	# reports a miss the disc never made. That is what this loop used to do.
+	for i in FLIGHT_FRAMES:
 		await process_frame
 		if not is_instance_valid(d):
 			break

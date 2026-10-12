@@ -8,11 +8,19 @@ var _main: Node
 var _f := 0
 var _started := false
 
+## [distance (m), release speed (m/s), launch angle (deg)].
+## Thrown with the Kettle putter: putting with the default driver measures the
+## wrong club. The launch angles straddle flat because how much a disc lofts
+## when thrown level is a property of the flight model, and it changed.
 const CASES := [
-	[5.0, 9.0, -6.0], [5.0, 10.0, -6.0], [5.0, 11.0, -8.0],
-	[6.0, 10.0, -6.0], [6.0, 10.0, -12.0], [6.0, 11.0, -6.0],
-	[8.0, 11.0, -6.0], [8.0, 12.0, -8.0],
+	[5.0, 9.0, -6.0], [5.0, 9.0, 0.0], [5.0, 10.0, -3.0],
+	[6.0, 10.0, -6.0], [6.0, 10.0, 0.0], [6.0, 11.0, -3.0],
+	[8.0, 11.0, -3.0], [8.0, 11.0, 0.0], [8.0, 12.0, -6.0],
+	[10.0, 12.0, 0.0], [10.0, 13.0, -3.0],
 ]
+## A putt is over in about a second, but a putt that clatters off the band and
+## rolls needs longer before it is fairly called a miss.
+const FLIGHT_FRAMES := 300
 
 
 func _initialize() -> void:
@@ -62,6 +70,9 @@ func _putt(t, th, b, player, dist: float, speed: float, pitch: float) -> Diction
 	player.rotation.y = atan2(-to.x, -to.z)
 	await process_frame
 	var p: Dictionary = th.setup.params()
+	for m in th.disc_models:
+		if m.id == "kettle":
+			p.disc = m
 	p.speed = speed
 	p.pitch = pitch
 	p.roll = 0.0
@@ -70,7 +81,7 @@ func _putt(t, th, b, player, dist: float, speed: float, pitch: float) -> Diction
 	var near := 0.0
 	var best_r := 1e9
 	var y_at_best := 0.0
-	for i in 90:
+	for i in FLIGHT_FRAMES:
 		await process_frame
 		if not is_instance_valid(d):
 			break
