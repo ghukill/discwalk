@@ -1,0 +1,4 @@
+# Local scratch work: everything in here stays out of git.
+*
+!.gitignore
+!.gdignore

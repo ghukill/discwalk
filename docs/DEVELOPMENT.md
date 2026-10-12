@@ -111,6 +111,7 @@ To check frame rate: `DISPLAY=:0 $G --path . --resolution 1280x720 --print-fps -
 - Keep things deterministic from `world_seed`: no unseeded `randf()` in generation.
 - New user-facing knobs go in [CONFIG.md](CONFIG.md).
 - Commit messages: `area: what changed` with a short body; phase landings as `phase N: ...`.
+- `scratch/` is for scratch work you don't commit: sketches, notes, one-off scripts, test output. Git ignores everything in it except its own `.gitignore` and `.gdignore`, and the `.gdignore` keeps Godot from importing or exporting anything in it.
 
 ## Git
 
