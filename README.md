@@ -29,7 +29,7 @@ Or from a terminal:
 
 ### Controls
 
-The mouse only ever looks. Where you look is where the disc goes, left/right **and** up/down: how high you look is your launch angle (the horizon dial in the HUD shows it). The keyboard sets up the throw, and the **throw HUD** in the lower right shows it. Everything you set carries over from throw to throw, so you can repeat a shot and fine-tune it. Full spec: [docs/THROW-HUD.md](docs/THROW-HUD.md).
+The mouse only ever looks. Where you look is where the disc goes, left/right **and** up/down: how high you look is your launch angle (the horizon dial in the HUD shows it). The keyboard sets up the throw, and the **throw HUD** in the lower right shows it. Everything you set carries over from throw to throw, so you can repeat a shot and fine-tune it. Full spec: [docs/THROW-HUD.md](docs/THROW-HUD.md). Every binding, keyboard and controller side by side: [docs/CONTROLS.md](docs/CONTROLS.md).
 
 ![Throw HUD](docs/screenshots/hud.jpg)
 
