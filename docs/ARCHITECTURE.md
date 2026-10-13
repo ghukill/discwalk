@@ -78,7 +78,7 @@ Main (main.gd)
 This is the one idea worth keeping in your head.
 
 - **Metres** are the world's real units. All settings, lake centres/radii, water levels, `height_at()`, `spawn_point()`, physics and the player are in metres.
-- **Blocks** are grid units. `terrain.heights[iz * size + ix]` is the top of column `(ix, iz)`, counted in blocks. Tree voxel keys (`Vector3i`) are in blocks too.
+- **Blocks** are grid units. `terrain.heights[iz * size_x + ix]` is the top of column `(ix, iz)`, counted in blocks. Tree voxel keys (`Vector3i`) are in blocks too.
 - `block_size` (m per block) converts between them. Meshes are **built in block units** and the MeshInstance / CollisionShape nodes are **scaled by `block_size`**. That keeps the meshers simple (integer grid) and makes the size change a one-line scale.
 
 Helpers on `terrain.gd`:
@@ -86,7 +86,8 @@ Helpers on `terrain.gd`:
 | Function | In | Out |
 |---|---|---|
 | `height_at(x, z)` | metres | metres |
-| `col_of(m)` | metres | column index (clamped) |
+| `col_x(m)`, `col_z(m)` | metres | column index along x / z (clamped) |
+| `in_grid(ix, iz)` | blocks | column is inside the world |
 | `col_height(ix, iz)` | columns | blocks |
 | `is_shore(ix, iz)`, `is_underwater(ix, iz)` | columns | bool |
 | `lake_edge_distance(x, z)` | metres | metres (negative = in a lake) |

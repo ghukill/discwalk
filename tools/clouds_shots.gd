@@ -39,9 +39,10 @@ func _process(_d: float) -> bool:
 		cam.far = 900
 		root.add_child(cam)
 		cam.current = true
-		var s: float = _main.terrain.world_size
-		cam.global_position = Vector3(-40, 60, s + 40)
-		cam.look_at(Vector3(s * 0.6, 50, s * 0.3), Vector3.UP)
+		var sx: float = _main.terrain.world_x
+		var sz: float = _main.terrain.world_z
+		cam.global_position = Vector3(-40, 60, sz + 40)
+		cam.look_at(Vector3(sx * 0.6, 50, sz * 0.3), Vector3.UP)
 	if _f == 70:
 		_grab("3_wide")
 		var moved: float = _main.clouds._clouds[0].position.distance_to(_p0)

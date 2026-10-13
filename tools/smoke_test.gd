@@ -29,8 +29,8 @@ func _process(_delta: float) -> bool:
 		water_ys.append(snappedf(lake.water_y, 0.01))
 
 	print("SMOKE block_size=%.2f" % terrain.block_size)
-	print("SMOKE size=%d chunks=%d triangles=%d lakes=%d water_y=%s" % [
-		terrain.size, chunks, verts / 3, terrain.lakes.size(), str(water_ys)])
+	print("SMOKE size=%dx%d chunks=%d triangles=%d lakes=%d water_y=%s" % [
+		terrain.size_x, terrain.size_z, chunks, verts / 3, terrain.lakes.size(), str(water_ys)])
 	var flora = terrain.flora
 	var tree_tris := 0
 	for tm in flora.get_node("Trees").get_children():
@@ -43,7 +43,7 @@ func _process(_delta: float) -> bool:
 	print("SMOKE flora_ms=%s" % str(flora.timings))
 	print("SMOKE player=%s on_floor=%s" % [player.global_position, player.is_on_floor()])
 
-	var ok: bool = chunks == terrain.size_chunks * terrain.size_chunks \
+	var ok: bool = chunks == terrain.chunks_x * terrain.chunks_z \
 		and terrain.lakes.size() > 0 and player.is_on_floor() \
 		and flora.trees.size() > 10 and flora.flower_counts.size() >= 5
 	print("SMOKE " + ("PASS" if ok else "FAIL"))

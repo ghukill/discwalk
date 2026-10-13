@@ -68,7 +68,7 @@ Notes:
 |---|---|---|
 | `world_seed` | 1848 | Starting seed. Press **N** in-game for a random new one. |
 | `block_size` | 0.25 | See above. |
-| `world_size` | 256 | World edge length (m). Rounded to whole chunks. |
+| `world_x`, `world_z` | 256, 256 | World length along x and z (m). Each is rounded to whole chunks, so worlds needn't be square. |
 | `chunk_metres` | 32 | Chunk edge (m). One terrain mesh + one tree mesh per chunk, so the chunk count (64) stays the same at every block size. |
 | `base_height` | 14 | Average ground height (m). |
 | `hill_height` | 9 | Amplitude of the rolling hills (m). |

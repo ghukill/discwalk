@@ -29,7 +29,7 @@ const UNDER := Color(0.78, 0.82, 0.88)
 @export var drift := Vector2(1.1, 0.35)   ## m/s. The future wind can drive this.
 @export var margin := 120.0          ## Wrap box extends this far past the world.
 
-var world_size := 256.0
+var world_size := Vector2(256.0, 256.0)   ## m, x by z.
 var _clouds: Array[MeshInstance3D] = []
 var _material: StandardMaterial3D
 
@@ -45,8 +45,9 @@ func _ready() -> void:
 	_material.emission_energy_multiplier = 0.35
 
 
-## (Re)build every cloud from `seed`. `canopy` = top of the tallest tree (m).
-func generate(seed: int, size_m: float, canopy := 40.0) -> void:
+## (Re)build every cloud from `seed` over a world `size_m` (x, z metres).
+## `canopy` = top of the tallest tree (m).
+func generate(seed: int, size_m: Vector2, canopy := 40.0) -> void:
 	world_size = size_m
 	for c in _clouds:
 		c.queue_free()
@@ -70,19 +71,19 @@ func generate(seed: int, size_m: float, canopy := 40.0) -> void:
 		# Low puffs start over the world (so you meet them early); the rest anywhere.
 		var spread := 0.0 if low else margin
 		mi.position = Vector3(
-			rng.randf_range(-spread, world_size + spread), y,
-			rng.randf_range(-spread, world_size + spread))
+			rng.randf_range(-spread, world_size.x + spread), y,
+			rng.randf_range(-spread, world_size.y + spread))
 		add_child(mi)
 		_clouds.append(mi)
 
 
 func _process(delta: float) -> void:
 	var lo := -margin
-	var span := world_size + margin * 2.0
+	var span := world_size + Vector2.ONE * margin * 2.0
 	for c in _clouds:
 		var p := c.position
-		p.x = lo + fposmod(p.x + drift.x * delta - lo, span)
-		p.z = lo + fposmod(p.z + drift.y * delta - lo, span)
+		p.x = lo + fposmod(p.x + drift.x * delta - lo, span.x)
+		p.z = lo + fposmod(p.z + drift.y * delta - lo, span.y)
 		c.position = p
 
 

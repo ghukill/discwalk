@@ -51,7 +51,8 @@ func _process(_delta: float) -> bool:
 
 func _plan_views() -> void:
 	var t = _main.get_node("Terrain")
-	var s: float = t.world_size
+	var sx: float = t.world_x
+	var sz: float = t.world_z
 	var spawn: Vector3 = t.spawn_point()
 	var lake: Dictionary = t.lakes[0]
 	var best := 1e9
@@ -83,14 +84,14 @@ func _plan_views() -> void:
 		{"name": "meadow", "pos": meadow[0], "look": meadow[1], "pitch": -0.32},
 		{"name": "spawn_eye", "pos": spawn + Vector3(0, -0.95, 0), "look": lc, "pitch": -0.05},
 		{"name": "lakeshore", "pos": shore, "look": lc, "pitch": -0.25},
-		{"name": "overview", "pos": Vector3(s * 0.12, 60, s * 0.12), "look": Vector3(s * 0.55, 0, s * 0.55), "pitch": -0.55},
+		{"name": "overview", "pos": Vector3(sx * 0.12, 60, sz * 0.12), "look": Vector3(sx * 0.55, 0, sz * 0.55), "pitch": -0.55},
 	]
 	_views.append_array(portraits)
 
 
 ## Finds the densest meadow-flower spot; returns [eye position, look target].
 func _flowery_spot(t) -> Array:
-	var best := Vector3(t.world_size / 2.0, 0, t.world_size / 2.0)
+	var best := Vector3(t.world_x / 2.0, 0, t.world_z / 2.0)
 	var best_n := -1
 	var grid := {}
 	for mmi in t.flora.get_node("Flowers").get_children():
@@ -142,7 +143,7 @@ func _form_portraits(t) -> Array:
 		for k in 8:
 			var a := TAU * k / 8.0
 			var e := c + Vector3(cos(a), 0, sin(a)) * dist
-			if e.x < 8 or e.z < 8 or e.x > t.world_size - 8 or e.z > t.world_size - 8:
+			if e.x < 8 or e.z < 8 or e.x > t.world_x - 8 or e.z > t.world_z - 8:
 				continue
 			if t.lake_edge_distance(e.x, e.z) < 2.0:
 				continue

@@ -36,7 +36,8 @@ func _initialize() -> void:
 	t.hill_height = 0.0
 	t.lake_count = 0
 	t.moraine_height = 2.0
-	t.world_size = 320.0
+	t.world_x = 320.0
+	t.world_z = 320.0
 	var preset := []
 	for r in ROWS.size():
 		for c in 3:

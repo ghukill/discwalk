@@ -65,14 +65,15 @@ var _bs := 1.0                               ## terrain.block_size, cached.
 func build(t: Node3D) -> void:
 	terrain = t
 	_bs = terrain.block_size
-	var size: int = terrain.size
+	var size_x: int = terrain.size_x
+	var size_z: int = terrain.size_z
 	_rng.seed = terrain.world_seed * 7919 + 17
 	_leaf_noise.seed = terrain.world_seed + 99
 	_leaf_noise.noise_type = FastNoiseLite.TYPE_SIMPLEX_SMOOTH
 	_leaf_noise.frequency = 0.35
-	_shade.resize(size * size)
+	_shade.resize(size_x * size_z)
 	_shade.fill(0)
-	_trunk_cols.resize(size * size)
+	_trunk_cols.resize(size_x * size_z)
 	_trunk_cols.fill(0)
 
 	_bark_material = VoxelMesh.make_material()
@@ -87,7 +88,7 @@ func build(t: Node3D) -> void:
 		for pt: Dictionary in preset_trees:
 			var crown: float = pt.get("crown",
 				{"giant": 7.0, "big": 5.0, "medium": 3.6, "sapling": 1.8}[pt.kind])
-			trees.append({"pos": Vector2i(terrain.col_of(pt.x), terrain.col_of(pt.z)),
+			trees.append({"pos": Vector2i(terrain.col_x(pt.x), terrain.col_z(pt.z)),
 				"kind": pt.kind, "form": pt.form, "crown": crown})
 	var t1 := Time.get_ticks_msec()
 	_build_tree_meshes()
@@ -101,7 +102,6 @@ func build(t: Node3D) -> void:
 # --- tree placement ----------------------------------------------------------
 
 func _place_trees() -> void:
-	var size: int = terrain.size
 	var groves := FastNoiseLite.new()
 	groves.seed = terrain.world_seed + 42
 	groves.noise_type = FastNoiseLite.TYPE_SIMPLEX_SMOOTH
@@ -110,14 +110,15 @@ func _place_trees() -> void:
 
 	var spawn: Vector3 = terrain.spawn_point()
 	var placed: Array[Dictionary] = []
-	var cells := int(terrain.world_size / grove_spacing)
-	for gz in cells:
-		for gx in cells:
+	var cells_x := int(terrain.world_x / grove_spacing)
+	var cells_z := int(terrain.world_z / grove_spacing)
+	for gz in cells_z:
+		for gx in cells_x:
 			# Candidate spot in metres, then snapped to a grid column.
 			var mx := float(int((gx + _rng.randf_range(0.1, 0.9)) * grove_spacing))
 			var mz := float(int((gz + _rng.randf_range(0.1, 0.9)) * grove_spacing))
-			var x: int = terrain.col_of(mx)
-			var z: int = terrain.col_of(mz)
+			var x: int = terrain.col_x(mx)
+			var z: int = terrain.col_z(mz)
 			var g := groves.get_noise_2d(mx, mz)   # ~[-1, 1]; high = grove
 			var kind := ""
 			if g > 0.12:
@@ -168,9 +169,10 @@ func _pick_form(kind: String, grove: float) -> String:
 
 func _can_grow(x: int, z: int, kind: String, crown: float, spawn: Vector3,
 		placed: Array[Dictionary]) -> bool:
-	var size: int = terrain.size
+	var size_x: int = terrain.size_x
+	var size_z: int = terrain.size_z
 	var m := _col_centre(x, z)
-	var edge := minf(minf(m.x, m.y), minf(terrain.world_size - m.x, terrain.world_size - m.y))
+	var edge := minf(minf(m.x, m.y), minf(terrain.world_x - m.x, terrain.world_z - m.y))
 	if edge < 6.0:
 		return false
 	if m.distance_to(Vector2(spawn.x, spawn.z)) < 7.0 + crown:
@@ -179,13 +181,13 @@ func _can_grow(x: int, z: int, kind: String, crown: float, spawn: Vector3,
 		return false
 	# Not on steep ground: within 2 m around the trunk, ground stays within 2 m.
 	var reach := maxi(1, int(round(2.0 / _bs)))
-	var h0: int = terrain.heights[z * size + x]
+	var h0: int = terrain.heights[z * size_x + x]
 	for dz in range(-reach, reach + 1):
 		for dx in range(-reach, reach + 1):
-			var nx := clampi(x + dx, 0, size - 1)
-			var nz := clampi(z + dz, 0, size - 1)
+			var nx := clampi(x + dx, 0, size_x - 1)
+			var nz := clampi(z + dz, 0, size_z - 1)
 			if terrain.is_shore(nx, nz) \
-					or absi(terrain.heights[nz * size + nx] - h0) * _bs > 2.0:
+					or absi(terrain.heights[nz * size_x + nx] - h0) * _bs > 2.0:
 				return false
 	for other in placed:
 		var d: float = m.distance_to(_col_centre(other.pos.x, other.pos.y))
@@ -269,7 +271,8 @@ var _t: Dictionary = {}          ## The tree currently being grown (shape contex
 
 
 func _grow_tree(tree: Dictionary, index: int) -> void:
-	var size: int = terrain.size
+	var size_x: int = terrain.size_x
+	var size_z: int = terrain.size_z
 	var rng := RandomNumberGenerator.new()
 	rng.seed = terrain.world_seed * 104729 + index * 7 + 3
 	var kind: String = tree.kind
@@ -303,9 +306,9 @@ func _grow_tree(tree: Dictionary, index: int) -> void:
 	var rb := maxi(0, int(ceil(r0 / _bs)) - 1)
 	for dz in range(-rb, rb + 1):
 		for dx in range(-rb, rb + 1):
-			var cx := clampi(p.x + dx, 0, size - 1)
-			var cz := clampi(p.y + dz, 0, size - 1)
-			_trunk_cols[cz * size + cx] = 1
+			var cx := clampi(p.x + dx, 0, size_x - 1)
+			var cz := clampi(p.y + dz, 0, size_z - 1)
+			_trunk_cols[cz * size_x + cx] = 1
 	var w := maxf(r0 * 1.6, 0.5)
 	var ch := minf(trunk_h, 3.0)
 	tree["collider"] = {"pos": base + Vector3(0, ch / 2.0, 0), "size": Vector3(w, ch, w)}
@@ -441,12 +444,13 @@ func _leaf_cluster(c: Vector3, r: float) -> void:
 ## the blob's own top/bottom with the whole crown's (cy, ry), so puffs look
 ## rounded but the crown is still lit from above and dark underneath.
 func _leaf_blob(c: Vector3, r: float, base: Color, cy: float, ry_crown: float) -> void:
-	var size: int = terrain.size
+	var size_x: int = terrain.size_x
+	var size_z: int = terrain.size_z
 	var ry := r * 0.7
 	for y in range(floori(c.y - ry) - 1, ceili(c.y + ry) + 2):
 		for z in range(floori(c.z - r) - 1, ceili(c.z + r) + 2):
 			for x in range(floori(c.x - r) - 1, ceili(c.x + r) + 2):
-				if x < 1 or z < 1 or x >= size - 1 or z >= size - 1:
+				if x < 1 or z < 1 or x >= size_x - 1 or z >= size_z - 1:
 					continue
 				var dx := (x + 0.5 - c.x) / r
 				var dy := (y + 0.5 - c.y) / ry
@@ -464,7 +468,7 @@ func _leaf_blob(c: Vector3, r: float, base: Color, cy: float, ry_crown: float) -
 				var key := Vector3i(x, y, z)
 				if _vox.get(key, 0) == BARK:
 					continue
-				if y < terrain.heights[z * size + x]:
+				if y < terrain.heights[z * size_x + x]:
 					continue
 				_vox[key] = LEAF
 				# Lighter on top, darker underneath (in 5 bands so faces can merge);
@@ -475,7 +479,7 @@ func _leaf_blob(c: Vector3, r: float, base: Color, cy: float, ry_crown: float) -
 				var col := base.darkened(shade * 0.3).lightened(0.06 if up > 0.45 else 0.0)
 				col.a = 0.14
 				_vox_color[key] = col
-				_shade[z * size + x] = 1
+				_shade[z * size_x + x] = 1
 
 
 func _set_bark(key: Vector3i, col: Color = COLOR_BARK) -> void:
@@ -558,7 +562,7 @@ const _TREE_DIRS := [
 ## Greedy-meshes one chunk's tree voxels. Visible faces are grouped by
 ## direction and plane, then merged with VoxelMesh.merge_rows().
 func _tree_chunk_mesh(keys: Array, ox: int, oz: int) -> ArrayMesh:
-	var size: int = terrain.size
+	var size_x: int = terrain.size_x
 	var palette := {}            # Color -> cid
 	var colours: Array[Color] = []
 	# planes[dir] = { plane -> { v -> Array of face(u, cid) } }
@@ -578,8 +582,8 @@ func _tree_chunk_mesh(keys: Array, ox: int, oz: int) -> ArrayMesh:
 			if _vox.has(nb):
 				continue
 			# Hidden inside the ground?
-			if nb.x >= 0 and nb.z >= 0 and nb.x < size and nb.z < size \
-					and nb.y < terrain.heights[nb.z * size + nb.x]:
+			if terrain.in_grid(nb.x, nb.z) \
+					and nb.y < terrain.heights[nb.z * size_x + nb.x]:
 				continue
 			var a: int = d[1]
 			var plane: int = local[a] + (1 if d[0][a] > 0 else 0)
@@ -643,7 +647,8 @@ func _quad(verts: PackedVector3Array, normals: PackedVector3Array, colors: Packe
 # --- flowers -----------------------------------------------------------------
 
 func _scatter_flowers() -> void:
-	var size: int = terrain.size
+	var size_x: int = terrain.size_x
+	var size_z: int = terrain.size_z
 	var clumps := FastNoiseLite.new()
 	clumps.seed = terrain.world_seed + 7
 	clumps.noise_type = FastNoiseLite.TYPE_SIMPLEX_SMOOTH
@@ -666,12 +671,12 @@ func _scatter_flowers() -> void:
 
 	# No habitat accepts a roll above this, so most columns bail out early.
 	var max_roll := 0.61
-	for z in range(margin, size - margin):
-		for x in range(margin, size - margin):
+	for z in range(margin, size_z - margin):
+		for x in range(margin, size_x - margin):
 			var roll := _hash(x, 7, z) / area
 			if roll >= max_roll:
 				continue
-			var i := z * size + x
+			var i := z * size_x + x
 			if _trunk_cols[i] == 1 or terrain.is_underwater(x, z):
 				continue
 			var h: int = terrain.heights[i]

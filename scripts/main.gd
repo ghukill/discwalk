@@ -28,7 +28,7 @@ func _ready() -> void:
 	add_child(clouds)
 	if "--no-clouds" in OS.get_cmdline_user_args():
 		clouds.visible = false
-	clouds.generate(terrain.world_seed, terrain.world_size, terrain.flora.canopy_top())
+	clouds.generate(terrain.world_seed, Vector2(terrain.world_x, terrain.world_z), terrain.flora.canopy_top())
 	for a in OS.get_cmdline_user_args():
 		if a.begins_with("--ui-scale="):
 			ui_scale = clampf(a.get_slice("=", 1).to_float(), UI_SCALE_MIN, UI_SCALE_MAX)
@@ -145,7 +145,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		terrain.world_seed = randi() % 100000
 		thrower.clear()
 		terrain.generate()
-		clouds.generate(terrain.world_seed, terrain.world_size, terrain.flora.canopy_top())
+		clouds.generate(terrain.world_seed, Vector2(terrain.world_x, terrain.world_z), terrain.flora.canopy_top())
 		_place_player()
 		_update_hud()
 
