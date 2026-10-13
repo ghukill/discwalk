@@ -72,11 +72,17 @@ The chase view (V) / goto (G) toggles and launch (L) have their own, run as a st
 $G --headless --path . --script res://tools/toggles_test.gd [-- --block-size=0.5]
 ```
 
-The throw setup keys and HUD have one. It presses the real keys (arrows, Shift+arrows, X, R, H, Tab, Enter, clicks, U, G) and checks the setup values, the hold-to-repeat, that the arrows no longer walk, that throws carry the setup and keep it, and that right click throws a cube at the disc speed:
+The throw setup keys and HUD have one. It presses the real keys (arrows, Shift+arrows, X, R, H, E/Q, Enter, clicks, U, G) and checks the setup values, the hold-to-repeat, that the arrows no longer walk, that throws carry the setup and keep it, and that right click throws a cube at the disc speed:
 
 ```sh
 $G --headless --path . --script res://tools/hud_test.gd [-- --block-size=1]
 DISPLAY=:0 $G --path . --resolution 1600x900 --script res://tools/hud_shots.gd -- /tmp/hud_shots   # hud.png, hud_corner.png, hud_strip.png (five setups)
+```
+
+The controller pages and crouching have one. It presses real controller buttons and keys: B throws a disc and RB + B a cube, LB tapped flips the hand, LB + D-pad ↑ / ↓ reset to flat and toggle spin lock, LB + X collects (no crouch, no hand flip), X and Tab crouch (lower capsule and eyes, 2 m/s), A from a crouch stands and hops, and under a roof you stay down until it's gone:
+
+```sh
+$G --headless --path . --script res://tools/controls_test.gd [-- --block-size=1]
 ```
 
 Collecting has one too. It scatters 8 discs around spawn, presses C, and passes if at least 6 make it home and they start slow (under 3 m/s in the first second):

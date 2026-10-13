@@ -40,7 +40,8 @@ The mouse only ever looks. Where you look is where the disc goes, left/right **a
 | WASD | walk (the arrows don't walk any more) |
 | Mouse | look and aim |
 | Shift | stroll faster |
-| Space | hop |
+| Space | hop (from a crouch: stand up and hop) |
+| Tab | crouch / stand (toggle). Crouched you're 1.1 m tall and slow; you only stand where there's headroom |
 
 **Set up the throw**
 
@@ -53,7 +54,7 @@ The mouse only ever looks. Where you look is where the disc goes, left/right **a
 | X | spin lock / unlock. Locked (dotted bar) = spin follows speed, like a real throw |
 | R | reset to flat (nose 0, hyzer 0) |
 | H | backhand ↔ forehand. The ✋ sits right of the disc for backhand, left for forehand |
-| Tab / Shift+Tab | next / previous disc |
+| E / Q | next / previous disc |
 
 A tap moves one fine step (0.5° nose, 1° hyzer, 0.5 m/s, 2 rad/s spin); hold to sweep, faster the longer you hold.
 

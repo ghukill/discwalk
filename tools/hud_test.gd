@@ -1,7 +1,7 @@
 extends SceneTree
 ## Headless check of the throw setup keys and HUD (docs/THROW-HUD.md):
 ## arrows tilt, Shift+arrows set speed/spin, X locks spin, R resets, H flips
-## the hand, Tab / Shift+Tab cycle discs, settings carry over between throws,
+## the hand, E / Q cycle discs, settings carry over between throws,
 ## Enter / left click throw a disc, right click throws a cube at the same
 ## speed, U hides the HUD, and the arrows no longer walk.
 ##
@@ -125,10 +125,10 @@ func _process(_d: float) -> bool:
 		_key(KEY_LEFT, false, false)
 		_check("forehand: ← drops the left edge = anhyzer (%.0f)" % s.roll, s.roll == -1.0 and s.visual_tilt() == 1.0)
 		var i0: int = s.disc_index
-		_tap(KEY_TAB)
+		_tap(KEY_E)
 		var i1: int = s.disc_index
-		_tap(KEY_TAB, true)
-		_check("Tab next disc, Shift+Tab back", i1 == posmod(i0 + 1, s.discs.size()) and s.disc_index == i0)
+		_tap(KEY_Q)
+		_check("E next disc, Q back", i1 == posmod(i0 + 1, s.discs.size()) and s.disc_index == i0)
 		# Throws carry the setup and keep it.
 		var n0: int = th.discs.size()
 		_tap(KEY_ENTER)

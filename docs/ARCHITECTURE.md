@@ -11,7 +11,7 @@ scripts/main.gd          Glue: spawns the player, "? for controls" hint + overla
 scripts/terrain.gd       Height field, kettle lakes, chunk meshes, water, collision
 scripts/flora.gd         Oaks (voxel trees) and wildflowers (MultiMesh)
 scripts/voxel_mesh.gd    Greedy face merging + quad/mesh helpers (shared)
-scripts/player.gd        First-person walker: input bindings, movement, head bob
+scripts/player.gd        First-person walker: input bindings, movement, crouch (toggle, headroom check), head bob
 scripts/controls_panel.gd  The ? / Menu controls overlay (keep in step with docs/CONTROLS.md)
 scripts/thrower.gd       Throw input (click/Enter disc, right-click cube), chase/goto/paths toggles, launch (L), U, status line
 scripts/throw_setup.gd   The throw you have set up (disc, speed, nose, hyzer, spin, hand) + its keys
@@ -37,6 +37,7 @@ tools/warp_shots.gd      Screenshots: the warp flag over the follow cam, then ar
 tools/dials_shots.gd     Screenshots of the dials (level, up, down)
 tools/hud_shots.gd       Screenshots of the throw HUD: full frame + a strip of five setups
 tools/hud_test.gd        Headless throw-setup keys + HUD: PASS/FAIL
+tools/controls_test.gd   Headless controller pages (RB/LB + buttons) + crouch: PASS/FAIL
 tools/skip_test.gd       48 throws on flat ground: ground play after landing (tunes friction)
 tools/landing_test.gd    48 discs all round spawn: none may end up under the ground
 tools/paths_shots.gd     Screenshots: three paths from behind/side/close, then P falling
@@ -199,7 +200,7 @@ Everything is driven by `world_seed`: `RandomNumberGenerator` seeds and `FastNoi
 
 Step 2 of throwing. `flying_disc.gd` extends `disc.gd`, so trees, lakes, beams, fetch and collect all work the same; what changes is the shape and the flight. Design notes: [DISC-FLIGHT-PLAN.md](DISC-FLIGHT-PLAN.md).
 
-- **Setting up a throw** (`throw_setup.gd`, spec in [THROW-HUD.md](THROW-HUD.md)): disc (Tab), speed, nose (disc tilt relative to the flight path), hyzer (+) / anhyzer (−), spin (locked = auto, 5.2 rad/s per m/s, about 1200 rpm at 24 m/s), hand (H: `+1` backhand, `-1` forehand, which mirrors the flight). The arrows are polled in `_process` so a hold repeats: one step on press, then after 0.3 s at 10 steps/s ramping to 45. Nothing resets after a throw. Left click or Enter calls `thrower.throw_disc(setup.params())`. Aim is where you look: left/right sets the direction, up/down the launch angle (`thrower.launch_angle()` = view pitch, clamped to −45..85°; the horizon dial in the HUD shows it). There is no launch offset any more. Tests can pass `pitch` to override; release is 1.3 m up, 0.6 m ahead.
+- **Setting up a throw** (`throw_setup.gd`, spec in [THROW-HUD.md](THROW-HUD.md)): disc (E / Q), speed, nose (disc tilt relative to the flight path), hyzer (+) / anhyzer (−), spin (locked = auto, 5.2 rad/s per m/s, about 1200 rpm at 24 m/s), hand (H: `+1` backhand, `-1` forehand, which mirrors the flight). The arrows are polled in `_process` so a hold repeats: one step on press, then after 0.3 s at 10 steps/s ramping to 45. Nothing resets after a throw. Left click or Enter calls `thrower.throw_disc(setup.params())`. Aim is where you look: left/right sets the direction, up/down the launch angle (`thrower.launch_angle()` = view pitch, clamped to −45..85°; the horizon dial in the HUD shows it). There is no launch offset any more. Tests can pass `pitch` to override; release is 1.3 m up, 0.6 m ahead.
 - **Body**: a 21 cm × 3 cm cylinder collider, drawn as a 7×7 pixel circle with a darker rim and a white stamp so you can see it spin. Its colour comes from the path palette (disc, beam and path share it).
 - **Flight** (`DiscModel.step()`), every physics tick while `flying`:
   - Angle of attack from the velocity (minus wind) and the disc's normal.
@@ -237,7 +238,7 @@ The project uses **Jolt** (`physics/3d/physics_engine`). With Godot's default en
 
 One 300×244 px block in the lower right, anchored 16 px from the corner, drawn with `_draw` (no textures): a dark warm panel with a thin brass edge.
 
-- **Disc instrument**: a circle with a faint level line. The disc is a real 3D circle (with a rim of thickness) projected orthographically from behind and 20° above: hyzer/anhyzer rotates it about the flight direction (`setup.visual_tilt()` = roll × hand, so the edge on the arrow's side drops), nose rotates it about the right axis, drawn 1.8× steeper so small angles read. Seeing the underside draws it darker. A white dot marks the leading edge. Each disc has its own HUD colour so Tab visibly changes something. ✋ (from a system colour-emoji font, or a drawn mitten if there isn't one) sits right for backhand, left for forehand, with BH/FH under it.
+- **Disc instrument**: a circle with a faint level line. The disc is a real 3D circle (with a rim of thickness) projected orthographically from behind and 20° above: hyzer/anhyzer rotates it about the flight direction (`setup.visual_tilt()` = roll × hand, so the edge on the arrow's side drops), nose rotates it about the right axis, drawn 1.8× steeper so small angles read. Seeing the underside draws it darker. A white dot marks the leading edge. Each disc has its own HUD colour so E / Q visibly change something. ✋ (from a system colour-emoji font, or a drawn mitten if there isn't one) sits right for backhand, left for forehand, with BH/FH under it.
 - **Bars**: SPD and SPIN fill from the bottom with a needle and value; SPIN is dimmed with a dotted border while locked.
 - **Status line**: disc id, nose, hyzer/anhyzer/flat.
 - **Dials** (`dials.gd`, 30 px radius, always shown): heading (compass card under a fixed mark, N = −Z, E = +X) and horizon (sky/ground split moving with view pitch, ladder every 10°, fixed wings = your view = the launch angle).

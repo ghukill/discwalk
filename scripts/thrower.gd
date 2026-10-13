@@ -30,6 +30,9 @@ extends Node
 ##   C        collect: every disc rolls home to you, building up speed
 ##            (ignores chase and goto)
 ##
+## Controller (docs/CONTROLS.md): B throws the disc, RB + B a cube; Y is L;
+## LB + X is collect (X alone crouches, player.gd).
+##
 ## (In code "warp" is the old name for goto.)
 
 const DISC_SCRIPT := preload("res://scripts/disc.gd")
@@ -123,12 +126,13 @@ func _unhandled_input(event: InputEvent) -> void:
 		set_view(not view_on)
 	elif event.is_action_pressed("hud"):
 		set_hud(not hud_shown())
-	elif event.is_action_pressed("collect"):
+	elif event.is_action_pressed("collect") and _pad_page(event, "setup_disc"):
 		collect()
-	elif event.is_action_pressed("throw_disc") and not event.is_echo():
-		throw_disc(setup.params())
-	elif event.is_action_pressed("throw_cube"):
+	elif event.is_action_pressed("throw_cube") and _pad_page(event, "setup_alt"):
 		throw_cube()
+	elif event.is_action_pressed("throw_disc") and not event.is_echo() \
+			and not _pad_shoulder(event, "setup_alt"):
+		throw_disc(setup.params())
 	elif event is InputEventMouseButton and event.pressed and captured \
 			and event.button_index == MOUSE_BUTTON_LEFT:
 		throw_disc(setup.params())
@@ -268,6 +272,17 @@ func _on_gone(disc: Node) -> void:
 func _on_collected(_disc: Node) -> void:
 	_collected += 1
 	_result_text = "collected %d disc%s" % [_collected, "" if _collected == 1 else "s"]
+
+
+## Controller buttons that share two actions pick by shoulder: true unless
+## this is a pad button pressed without `shoulder` held (keys always pass).
+func _pad_page(event: InputEvent, shoulder: String) -> bool:
+	return not (event is InputEventJoypadButton) or Input.is_action_pressed(shoulder)
+
+
+## True for a pad button pressed while `shoulder` is held.
+func _pad_shoulder(event: InputEvent, shoulder: String) -> bool:
+	return event is InputEventJoypadButton and Input.is_action_pressed(shoulder)
 
 
 ## P: flight paths and rest beams together. Off: every

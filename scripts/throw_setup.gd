@@ -12,12 +12,14 @@ extends Node
 ##   X                spin lock / unlock (locked = auto spin from speed)
 ##   R                reset to flat (nose 0, hyzer 0)
 ##   H                backhand <-> forehand
-##   Tab / Shift+Tab  next / previous disc
+##   Q / E            previous / next disc
 ##
 ## A tap nudges one fine step; holding repeats, faster the longer you hold.
 ## Controller: the D-pad is the arrows, RB is Shift. LB tapped is H; LB held
-## turns the D-pad's ← / → into previous / next disc (↑ / ↓ unused for now).
-## Both bumpers held: the D-pad does nothing.
+## turns the D-pad into the disc page: ← / → previous / next disc, ↑ reset
+## to flat (R), ↓ spin lock (X), one per press. Any other button pressed
+## during the hold (LB + X = collect, say) cancels the hand flip. Both
+## bumpers held: the D-pad does nothing.
 
 const DiscModel := preload("res://scripts/disc_model.gd")
 
@@ -46,7 +48,7 @@ var hand := 1.0                      ## +1 backhand, -1 forehand (right-handed)
 
 var _held := {}                      ## action -> seconds held
 var _carry := {}                     ## action -> fractional steps owed
-var _lb_used := false                ## D-pad pressed during this LB hold: no hand flip.
+var _lb_used := false                ## Something else pressed during this LB hold: no hand flip.
 
 
 func _ready() -> void:
@@ -114,9 +116,20 @@ func _sync_spin() -> void:
 		spin = DiscModel.auto_spin(speed)
 
 
+## Watches every controller button (even ones another node handles, like
+## LB + X = collect): any press during an LB hold means it wasn't a tap.
+func _input(event: InputEvent) -> void:
+	if event is InputEventJoypadButton and event.pressed \
+			and event.button_index != JOY_BUTTON_LEFT_SHOULDER \
+			and Input.is_action_pressed("setup_disc"):
+		_lb_used = true
+
+
 func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("next_disc"):
-		next_disc(-1 if event is InputEventKey and event.shift_pressed else 1)
+		next_disc(1)
+	elif event.is_action_pressed("prev_disc"):
+		next_disc(-1)
 	elif event.is_action_pressed("spin_lock"):
 		toggle_spin_lock()
 	elif event.is_action_pressed("reset_flat"):
@@ -157,10 +170,17 @@ func _process(delta: float) -> void:
 		if steps <= 0.0:
 			continue
 		if disc_mode:
-			# LB: one disc per press (no repeat); with RB too, nothing.
+			# LB page: one per fresh press (no repeat, and a D-pad already
+			# held when LB went down doesn't count); with RB too, nothing.
 			_lb_used = true
-			if not shift and _held[action] == 0.0 and action in ["tilt_left", "tilt_right"]:
-				next_disc(-1 if action == "tilt_left" else 1)
+			if not shift and _held[action] == 0.0:
+				match action:
+					"tilt_left", "tilt_right":
+						next_disc(-1 if action == "tilt_left" else 1)
+					"tilt_up":
+						reset_flat()
+					"tilt_down":
+						toggle_spin_lock()
 		else:
 			_apply(action, shift, steps)
 

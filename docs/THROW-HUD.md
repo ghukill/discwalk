@@ -23,6 +23,7 @@
 | Mouse | look, always. Aim = where you look; view pitch is the launch angle |
 | Shift | stroll faster |
 | Space | hop |
+| Tab | crouch / stand (toggle) |
 | ↑ / ↓ | nose up / down |
 | ← / → | tilt: the edge on that side drops (backhand ← = hyzer; forehand mirrored) |
 | Shift + ↑ / ↓ | velocity |
@@ -30,7 +31,7 @@
 | X | spin lock / unlock |
 | R | reset disc to flat (nose 0, hyzer 0) |
 | H | backhand ↔ forehand |
-| Tab / Shift+Tab | next / previous disc |
+| E / Q | next / previous disc (was Tab / Shift+Tab) |
 | Left click / Enter | throw disc |
 | Right click | throw orange cube (at the disc speed) |
 | L | launch yourself with your last throw (disc or cube) |
@@ -40,6 +41,7 @@
 | U | hide / show the whole HUD (and the help text) |
 | - / = | HUD smaller / bigger (`--ui-scale=` at launch) |
 | C | collect |
+| ? | controls overlay (everything, keyboard + controller: [CONTROLS.md](CONTROLS.md)) |
 | N | new world |
 | K | clouds |
 | Esc | free the mouse |

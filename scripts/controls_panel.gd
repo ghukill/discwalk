@@ -13,7 +13,8 @@ const LEFT := [
 		["walk", "WASD", "left stick"],
 		["look / aim", "mouse", "right stick"],
 		["faster", "Shift (hold)", "View (toggle run)"],
-		["hop", "Space", ""],
+		["hop", "Space", "A"],
+		["crouch / stand (toggle)", "Tab", "X"],
 		["free the mouse", "Esc", ""],
 	]],
 	["Set up the throw", [
@@ -21,18 +22,18 @@ const LEFT := [
 		["tilt (hyzer / anhyzer)", "← →", "D-pad ← →"],
 		["release speed", "Shift + ↑ ↓", "RB + D-pad ↑ ↓"],
 		["spin (when unlocked)", "Shift + ← →", "RB + D-pad ← →"],
-		["next / previous disc", "Tab / Shift+Tab", "LB + D-pad → ←"],
+		["next / previous disc", "E / Q", "LB + D-pad → ←"],
 		["backhand ↔ forehand", "H", "LB (tap)"],
-		["spin lock", "X", ""],
-		["reset to flat", "R", ""],
+		["reset to flat", "R", "LB + D-pad ↑"],
+		["spin lock", "X", "LB + D-pad ↓"],
 	]],
 ]
 const RIGHT := [
 	["Throw", [
-		["throw the disc", "click / Enter", "A"],
-		["throw a cube", "right click", "B"],
+		["throw the disc", "click / Enter", "B"],
+		["throw a cube", "right click", "RB + B"],
 		["launch yourself", "L", "Y"],
-		["collect", "C", "X"],
+		["collect", "C", "LB + X"],
 	]],
 	["Toggles", [
 		["chase view", "V", "right stick click"],
