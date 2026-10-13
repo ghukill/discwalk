@@ -7,11 +7,12 @@ A short tour of how discwalk is put together. It is written for "future us" open
 ```
 project.godot            Godot project settings (window, physics tick, MSAA)
 scenes/main.tscn         The one scene: sky/environment, sun, Terrain, Player, HUD
-scripts/main.gd          Glue: spawns the player, help text, HUD scale (-/=, --ui-scale), N = new world, --debug-keys
+scripts/main.gd          Glue: spawns the player, "? for controls" hint + overlay toggle, HUD scale (-/=, --ui-scale), N = new world, --debug-keys
 scripts/terrain.gd       Height field, kettle lakes, chunk meshes, water, collision
 scripts/flora.gd         Oaks (voxel trees) and wildflowers (MultiMesh)
 scripts/voxel_mesh.gd    Greedy face merging + quad/mesh helpers (shared)
 scripts/player.gd        First-person walker: input bindings, movement, head bob
+scripts/controls_panel.gd  The ? / Menu controls overlay (keep in step with docs/CONTROLS.md)
 scripts/thrower.gd       Throw input (click/Enter disc, right-click cube), chase/goto/paths toggles, launch (L), U, status line
 scripts/throw_setup.gd   The throw you have set up (disc, speed, nose, hyzer, spin, hand) + its keys
 scripts/throw_hud.gd     Lower-right cockpit block: tilting disc, ✋, speed/spin bars, holds dials + lamps
@@ -67,7 +68,7 @@ Main (main.gd)
 │  ├─ FollowCam (follow_cam.gd)  chase camera (V)
 │  └─ Paths (paths.gd)           one MultiMeshInstance3D per flight path
 ├─ Disc / FlyingDisc …           RigidBody3D per throw (up to 12 kept)
-└─ HUD/Help, Crosshair, Throw, ThrowHud (Dials, Lamps),
+└─ HUD/Help, Crosshair, Throw, ThrowHud (Dials, Lamps), Controls (controls_panel.gd),
        WarpFlash, Warp, Dials (dials.gd)
 ```
 

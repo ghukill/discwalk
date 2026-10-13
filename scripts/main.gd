@@ -4,6 +4,7 @@ extends Node3D
 
 const THROWER_SCRIPT := preload("res://scripts/thrower.gd")
 const CLOUDS_SCRIPT := preload("res://scripts/clouds.gd")
+const ControlsPanel := preload("res://scripts/controls_panel.gd")
 
 @onready var terrain: Node3D = $Terrain
 @onready var player: CharacterBody3D = $Player
@@ -11,6 +12,7 @@ const CLOUDS_SCRIPT := preload("res://scripts/clouds.gd")
 
 var thrower: Node
 var clouds: Node3D
+var controls: PanelContainer           ## ? / Menu: the controls overlay.
 var ui_scale := 1.0                  ## On top of the screen's own scale (- / = keys, --ui-scale=).
 
 const UI_SCALE_MIN := 0.6
@@ -33,6 +35,7 @@ func _ready() -> void:
 	_apply_ui_scale()
 	get_tree().root.size_changed.connect(_apply_ui_scale)
 	_setup_throwing()
+	_setup_controls()
 	_place_player()
 	_update_hud()
 
@@ -130,6 +133,10 @@ func _unhandled_input(event: InputEvent) -> void:
 		set_ui_scale(ui_scale + (0.1 if event.is_action_pressed("ui_bigger") else -0.1))
 		get_viewport().set_input_as_handled()
 		return
+	if event.is_action_pressed("controls"):
+		set_controls(not controls.visible)
+		get_viewport().set_input_as_handled()
+		return
 	if event.is_action_pressed("clouds"):
 		clouds.visible = not clouds.visible
 		get_viewport().set_input_as_handled()
@@ -143,14 +150,25 @@ func _unhandled_input(event: InputEvent) -> void:
 		_update_hud()
 
 
+## The ? overlay, centred and hidden; the top-left help is just a faint hint.
+func _setup_controls() -> void:
+	controls = ControlsPanel.new()
+	controls.name = "Controls"
+	controls.visible = false
+	$HUD.add_child(controls)
+	controls.set_anchors_and_offsets_preset(Control.PRESET_CENTER, Control.PRESET_MODE_MINSIZE)
+	controls.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	controls.grow_vertical = Control.GROW_DIRECTION_BOTH
+	hud.modulate.a = 0.45
+
+
+func set_controls(on: bool) -> void:
+	controls.visible = on
+
+
 func _place_player() -> void:
 	player.respawn(terrain.spawn_point())
 
 
 func _update_hud() -> void:
-	hud.text = ("discwalk  ·  seed %d\n"
-		+ "WASD walk · mouse look/aim · Shift faster · Space hop\n"
-		+ "↑↓ nose · ←→ hyzer · Shift+↑↓ speed · Shift+←→ spin · X spin lock\n"
-		+ "R flat · H hand · Tab disc · click/Enter throw · right-click cube\n"
-		+ "V chase · G goto · L launch · P paths · C collect · U HUD\n"
-		+ "N new world · K clouds · -/= HUD size · Esc free mouse") % terrain.world_seed
+	hud.text = "discwalk  ·  seed %d\nPress ? for controls" % terrain.world_seed

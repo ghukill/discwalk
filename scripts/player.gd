@@ -137,6 +137,7 @@ static func _ensure_input_actions() -> void:
 		"paths": [KEY_P],
 		"hud": [KEY_U],
 		"clouds": [KEY_K],
+		"controls": [KEY_SLASH],         # ? (Shift+/): the controls overlay
 		# Throw setup (throw_setup.gd). Shift + up/down = speed, + left/right = spin.
 		"tilt_up": [KEY_UP],
 		"tilt_down": [KEY_DOWN],
@@ -176,6 +177,7 @@ static func _ensure_input_actions() -> void:
 		"warp": [JOY_BUTTON_LEFT_STICK],
 		"view": [JOY_BUTTON_RIGHT_STICK],
 		"run_toggle": [JOY_BUTTON_BACK],
+		"controls": [JOY_BUTTON_START],             # Menu: the controls overlay
 	}
 	for action in bindings.keys() + pad.keys():
 		if InputMap.has_action(action):

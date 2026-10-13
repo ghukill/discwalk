@@ -144,7 +144,7 @@ func hud_shown() -> bool:
 	return throw_hud != null and throw_hud.visible
 
 
-## U: hide / show the throw HUD and the key help, top left (the launch
+## U: hide / show the throw HUD and the "? for controls" hint, top left (the launch
 ## readout under the crosshair stays).
 func set_hud(on: bool) -> void:
 	if throw_hud != null:

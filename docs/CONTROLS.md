@@ -2,6 +2,8 @@
 
 How every input works today, keyboard + mouse and controller side by side.
 
+> In game: press **?** (or Menu on a controller) for the same tables as an overlay (`scripts/controls_panel.gd`; keep it in step with this file).
+>
 > Code: bindings live in `scripts/player.gd` (`_ensure_input_actions`). Handlers: `scripts/player.gd` (walk, look, jump, run), `scripts/throw_setup.gd` (throw setup), `scripts/thrower.gd` (throws, toggles), `scripts/main.gd` (world, clouds, HUD size). The throw HUD itself is specced in [THROW-HUD.md](THROW-HUD.md).
 > Controller: Xbox-style (tested with an Xbox Series X|S pad). Any connected controller works. Mapping notes: `scratch/controller.md` (not committed).
 
@@ -56,7 +58,8 @@ D-pad pages: plain = nose/tilt, RB held = speed/spin, LB held = disc (↑ / ↓ 
 
 | Action | Keyboard | Controller |
 |---|---|---|
-| Hide / show the throw HUD and help text | U | — |
+| Show / hide the controls overlay | ? (Shift + /) | Menu (Start) |
+| Hide / show the throw HUD and the "Press ? for controls" hint | U | — |
 | HUD smaller / bigger | - / = (also keypad; `--ui-scale=` at launch) | — |
 | Clouds on / off | K | — |
 | New world | N | — |
@@ -66,7 +69,6 @@ D-pad pages: plain = nose/tilt, RB held = speed/spin, LB held = disc (↑ / ↓ 
 | Input | Notes |
 |---|---|
 | LT, RT | Analog. `scratch/controller.md` has them "saved for the dynamic throw" |
-| Menu (Start) | |
 | LB (hold) + D-pad ↑ / ↓ | |
 | Xbox (Guide) | macOS may grab it |
 
