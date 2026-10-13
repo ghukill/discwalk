@@ -17,14 +17,19 @@ signal generated
 
 const FLORA_SCRIPT := preload("res://scripts/flora.gd")
 const VoxelMesh := preload("res://scripts/voxel_mesh.gd")
+const DistanceCourse := preload("res://scripts/distance_course.gd")
 
 @export var world_seed: int = 1848
+## "glacial" (generated from the seed) or "distance" (the flat distance
+## course, scripts/distance_course.gd). Override with `-- --world=distance`.
+@export_enum("glacial", "distance") var world_kind: String = "glacial"
 ## Edge length of one voxel in metres. 0.25 (default) is the detailed look;
 ## 0.5 or 1.0 (the original chunky look) build much faster and use less
 ## memory. Override at launch with `-- --block-size=1`. See docs/CONFIG.md.
 @export_range(0.25, 2.0, 0.25) var block_size: float = 0.25
-@export var world_x: float = 256.0        ## World length along x (m).
-@export var world_z: float = 256.0        ## World length along z (m).
+## World length along x / z (m). Snapped to whole chunks on generate().
+@export var world_x: float = 256.0
+@export var world_z: float = 256.0
 @export var chunk_metres: float = 32.0    ## Chunk edge (m); one mesh per chunk.
 @export var base_height: float = 14.0
 @export var hill_height: float = 9.0
@@ -43,6 +48,9 @@ const COLOR_DIRT := Color(0.47, 0.34, 0.22)
 const COLOR_STONE := Color(0.50, 0.50, 0.52)
 const COLOR_SAND := Color(0.82, 0.76, 0.55)
 const COLOR_MUD := Color(0.40, 0.36, 0.28)
+const COLOR_CHALK := Color(0.92, 0.92, 0.86)
+const COLOR_PAINT := Color(0.95, 0.80, 0.22)
+const COLOR_TEE := Color(0.60, 0.60, 0.58)
 const COLOR_WATER := Color(0.22, 0.45, 0.62, 0.78)
 
 var size_x: int = 0                        ## World size in blocks along x.
@@ -59,6 +67,7 @@ var flora: Node3D                          ## Oaks + wildflowers (scripts/flora.
 var flora_preset: Array = []
 
 var _shore := PackedByteArray()            ## 1 = sandy shore / lake bed.
+var _paint := PackedByteArray()            ## Painted top kind per column (0 = none).
 var _rng := RandomNumberGenerator.new()
 var _block_material: ShaderMaterial
 var _water_material: StandardMaterial3D
@@ -83,18 +92,33 @@ func generate() -> void:
 		child.queue_free()
 
 	_apply_cmdline_overrides()
+	if world_kind == "distance":
+		world_x = DistanceCourse.WORLD_X
+		world_z = DistanceCourse.WORLD_Z
 	chunk_size = clampi(int(round(chunk_metres / block_size)), 8, 1024)
 	chunks_x = maxi(1, int(round(world_x / (block_size * chunk_size))))
 	chunks_z = maxi(1, int(round(world_z / (block_size * chunk_size))))
 	size_x = chunks_x * chunk_size
 	size_z = chunks_z * chunk_size
+	world_x = size_x * block_size
+	world_z = size_z * block_size
 	_rng.seed = world_seed
 
 	var t0 := Time.get_ticks_msec()
-	var hf := _base_heights()
-	_carve_kettles(hf)
+	var hf: PackedFloat32Array
+	if world_kind == "distance":
+		lakes.clear()
+		hf = DistanceCourse.heights(self)
+	else:
+		hf = _base_heights()
+		_carve_kettles(hf)
 	_quantize(hf)
 	_fill_lakes()
+	if world_kind == "distance":
+		_paint = DistanceCourse.paint(self)
+	else:
+		_paint.resize(size_x * size_z)
+		_paint.fill(0)
 	_build_chunks()
 	_build_water()
 	_build_collision()
@@ -103,20 +127,24 @@ func generate() -> void:
 	flora.set_script(FLORA_SCRIPT)
 	flora.name = "Flora"
 	flora.preset_trees = flora_preset
+	flora.bare = world_kind == "distance"
 	add_child(flora)
 	flora.build(self)
 	var flowers := 0
 	for n in flora.flower_counts.values():
 		flowers += n
-	print("discwalk: world seed %d (block %.2fm, %dx%d columns) generated in %d ms (%d lakes; flora %d ms: %d oaks, %d flowers)" % [
-		world_seed, block_size, size_x, size_z, Time.get_ticks_msec() - t0, lakes.size(),
+	print("discwalk: %s world seed %d (block %.2fm, %dx%d columns) generated in %d ms (%d lakes; flora %d ms: %d oaks, %d flowers)" % [
+		world_kind, world_seed, block_size, size_x, size_z, Time.get_ticks_msec() - t0, lakes.size(),
 		Time.get_ticks_msec() - t1, flora.trees.size(), flowers])
 	generated.emit()
 
 
-## `--block-size=1` (after `--` on the command line) overrides the export.
+## `--block-size=1` / `--world=distance` (after `--` on the command line)
+## override the exports.
 func _apply_cmdline_overrides() -> void:
 	for arg in OS.get_cmdline_user_args():
+		if arg.begins_with("--world="):
+			world_kind = arg.get_slice("=", 1)
 		if arg.begins_with("--block-size="):
 			var v := arg.get_slice("=", 1).to_float()
 			if v >= 0.125 and v <= 4.0:
@@ -171,6 +199,8 @@ func lake_edge_distance(x: float, z: float) -> float:
 
 ## Where the walker starts (m): middle of the world, a metre above ground.
 func spawn_point() -> Vector3:
+	if world_kind == "distance":
+		return DistanceCourse.spawn(self)
 	var cx := world_x / 2.0
 	var cz := world_z / 2.0
 	return Vector3(cx, height_at(cx, cz) + 1.0, cz)
@@ -320,15 +350,15 @@ func _chunk_mesh(ox: int, oz: int) -> ArrayMesh:
 		var row := []
 		for x in range(ox, ox + cs):
 			var h := heights[z * size_x + x]
-			row.append(VoxelMesh.face(x - ox, h * 4 + _top_kind(x, z, h)))
+			row.append(VoxelMesh.face(x - ox, h * 8 + _top_kind(x, z, h)))
 		rows[z - oz] = row
 	var rects := VoxelMesh.merge_rows(rows)
 	for r in range(0, rects.size(), 5):
-		var h := rects[r + 4] >> 2
+		var h := rects[r + 4] >> 3
 		VoxelMesh.add_quad(verts, normals, colors,
 			Vector3(ox + rects[r], h, oz + rects[r + 1]),
 			Vector3(rects[r + 2] - rects[r], 0, 0), Vector3(0, 0, rects[r + 3] - rects[r + 1]),
-			Vector3.UP, _top_color(h, rects[r + 4] & 3))
+			Vector3.UP, _top_color(h, rects[r + 4] & 7))
 
 	# Sides: for each direction, one vertical slice per column line. Each column
 	# contributes its exposed side split into soil-layer segments, which then
@@ -389,8 +419,12 @@ func _side_segments(x: int, z: int, h: int, nh: int) -> Array:
 	return row
 
 
-## Top kinds: 0 grass, 1 sand, 2 mud (underwater shore).
+## Top kinds: 0 grass, 1 sand, 2 mud (underwater shore); painted markings
+## 3 chalk, 4 yellow, 5 tee pad (scripts/distance_course.gd).
 func _top_kind(x: int, z: int, h: int) -> int:
+	var paint := _paint[z * size_x + x]
+	if paint:
+		return paint
 	if _shore[z * size_x + x] == 1:
 		return 2 if _is_underwater(x, z, h) else 1
 	return 0
@@ -405,6 +439,15 @@ func _top_color(h: int, kind: int) -> Color:
 	elif kind == 2:
 		c = COLOR_MUD
 		c.a = 0.08
+	elif kind == 3:
+		c = COLOR_CHALK
+		c.a = 0.05
+	elif kind == 4:
+		c = COLOR_PAINT
+		c.a = 0.05
+	elif kind == 5:
+		c = COLOR_TEE
+		c.a = 0.10
 	else:
 		var dry := clampf((h * block_size - base_height - 4.0) / 10.0, 0.0, 1.0)
 		c = COLOR_GRASS.lerp(COLOR_GRASS_DRY, dry)

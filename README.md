@@ -98,6 +98,16 @@ If it's slow to build or the frame rate suffers, launch with bigger blocks. You 
 
 See [docs/CONFIG.md](docs/CONFIG.md#block-size) for every knob and the cost trade-offs.
 
+### Distance course
+
+A dead-flat field for measuring throws: tee pad on the south edge, chalk arcs every 10 m, yellow arcs and painted numbers every 50 m.
+
+```sh
+/Applications/Godot.app/Contents/MacOS/Godot --path /path/to/discwalk -- --world=distance
+```
+
+See [docs/CONFIG.md](docs/CONFIG.md#distance-course).
+
 ## Screenshots
 
 All shot at the default 0.25 m blocks with the `tools/*_shots.gd` scripts (see [Development](docs/DEVELOPMENT.md)).
@@ -164,6 +174,7 @@ Done:
 - [x] **Toggles + launch**: V (view) and Z (warp) are toggles with warm cockpit lamps top right, P covers paths + beams, L launches you with your last throw (replaces F fetch and B beams)
 - [x] **Real physics, real discs** ([PHYSICS.md](docs/PHYSICS.md)): Hummel's 2003 flight equations (spin decay, pitch/roll damping, true gyroscopic turn/fade) and seven discs built from wind-tunnel measurements of real golf discs (Kamaruddin 2011), with glacial names: Kettle (putter), Drumlin and Esker (mids), Till, Outwash, Moraine and Erratic (drivers, understable to overstable). No more GPL shotshaper tables. Checked against a full 6-DOF sim (`tools/discs/hummel_reference.py`)
 - [x] **Throw HUD** ([spec](docs/THROW-HUD.md)): the T panel is gone. A small warm cockpit block in the lower right shows a tilting 3D disc, ✋ for backhand/forehand, speed + spin bars, heading + horizon dials and the Chase view / Goto / Paths lamps. Arrows tilt, Shift+arrows speed/spin, X spin lock, R flat, H hand, Tab discs, click/Enter throw, right click cube, G goto (was Z), U hides the HUD, -/= resize it. Launch offset removed: the view is the launch angle
+- [x] **Distance course** (`--world=distance`): flat field with painted distance arcs; worlds can be non-square
 
 Next (pick any):
 - [ ] **Menu** (Esc?): Resume, Help (screen of key bindings), New world, **Display** sub-menu (fullscreen toggle to start), Quit

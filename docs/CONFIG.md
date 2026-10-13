@@ -28,6 +28,7 @@ Command-line flags override the scene and the code defaults.
 | Flag | Default | What it does |
 |---|---|---|
 | `--block-size=<m>` | `0.25` | Edge length of one voxel. Bigger = chunkier but faster to build and lighter on memory (`0.5`, `1`). Valid range: 0.125 to 4. |
+| `--world=<kind>` | `glacial` | Which world to build: `glacial` (from the seed) or `distance` (the flat [distance course](#distance-course)). |
 | `--debug-keys` | off | Prints every key press/release to stdout. Useful for diagnosing remote input (VNC). |
 | `--ui-scale=<x>` | `1.0` | Extra size for the HUD and help text (0.6–3). `-` / `=` change it in game. |
 | `--no-clouds` | off | Start with clouds hidden (K shows them). |
@@ -62,13 +63,20 @@ Notes:
 - **Water level** sits 0.35 blocks below the lowest rim block, so lakes come out a little different at different sizes.
 - Small sizes cost mostly **build time and memory**, not frame rate. Growing and meshing millions of tree voxels in GDScript takes a while at 0.25 (Macs are roughly 1.5× faster than the T480). Below 0.25 is untested.
 
+## Distance course
+
+`--world=distance` builds a dead-flat 192 × 288 m field for measuring throws (`scripts/distance_course.gd`). You start on a grey tee pad in the middle of the south edge, facing north. White chalk arcs mark every 10 m from the front of the tee, yellow arcs and big painted numbers every 50 m, and a chalk centre line runs straight down the field. No lakes, trees or flowers.
+
+The markings are just coloured ground blocks, so they snap to the block grid: blocky at 1 m, finer at 0.25 m. It builds in well under a second at 1 m and ~2.5 s at 0.25 m.
+
 ## Terrain knobs (`scripts/terrain.gd`)
 
 | Setting | Default | Meaning |
 |---|---|---|
+| `world_kind` | glacial | `glacial` or `distance`; see `--world=`. |
 | `world_seed` | 1848 | Starting seed. Press **N** in-game for a random new one. |
 | `block_size` | 0.25 | See above. |
-| `world_x`, `world_z` | 256, 256 | World length along x and z (m). Each is rounded to whole chunks, so worlds needn't be square. |
+| `world_x`, `world_z` | 256, 256 | World length along x and z (m). Each is rounded to whole chunks (and updated to the rounded size), so worlds needn't be square. |
 | `chunk_metres` | 32 | Chunk edge (m). One terrain mesh + one tree mesh per chunk, so the chunk count (64) stays the same at every block size. |
 | `base_height` | 14 | Average ground height (m). |
 | `hill_height` | 9 | Amplitude of the rolling hills (m). |

@@ -167,8 +167,11 @@ func set_controls(on: bool) -> void:
 
 
 func _place_player() -> void:
-	player.respawn(terrain.spawn_point())
+	# On the distance course, start on the tee facing down the field.
+	player.respawn(terrain.spawn_point(), 0.0 if terrain.world_kind == "distance" else NAN)
 
 
 func _update_hud() -> void:
-	hud.text = "discwalk  ·  seed %d\nPress ? for controls" % terrain.world_seed
+	var world := "distance course" if terrain.world_kind == "distance" \
+		else "seed %d" % terrain.world_seed
+	hud.text = "discwalk  ·  %s\nPress ? for controls" % world

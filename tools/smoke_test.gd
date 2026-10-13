@@ -3,6 +3,7 @@ extends SceneTree
 ## the world generated and the walker is standing on the ground.
 ##
 ##   godot --headless --path . --script res://tools/smoke_test.gd
+##   godot --headless --path . --script res://tools/smoke_test.gd -- --world=distance
 
 var _main: Node
 var _frames := 0
@@ -43,9 +44,13 @@ func _process(_delta: float) -> bool:
 	print("SMOKE flora_ms=%s" % str(flora.timings))
 	print("SMOKE player=%s on_floor=%s" % [player.global_position, player.is_on_floor()])
 
-	var ok: bool = chunks == terrain.chunks_x * terrain.chunks_z \
-		and terrain.lakes.size() > 0 and player.is_on_floor() \
-		and flora.trees.size() > 10 and flora.flower_counts.size() >= 5
+	var ok: bool = chunks == terrain.chunks_x * terrain.chunks_z and player.is_on_floor()
+	if terrain.world_kind == "distance":
+		# Flat and bare: no lakes, trees or flowers.
+		ok = ok and terrain.lakes.is_empty() and flora.trees.is_empty() and flora.flower_counts.is_empty()
+	else:
+		ok = ok and terrain.lakes.size() > 0 \
+			and flora.trees.size() > 10 and flora.flower_counts.size() >= 5
 	print("SMOKE " + ("PASS" if ok else "FAIL"))
 	quit(0 if ok else 1)
 	return true

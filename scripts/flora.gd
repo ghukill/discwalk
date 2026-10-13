@@ -50,6 +50,7 @@ var flower_counts := {}                      ## species -> count
 var voxel_count := 0
 var timings := {}                            ## Build step -> ms (for the smoke test).
 var preset_trees: Array = []                 ## Hand-placed trees (tools); skips placement.
+var bare := false                            ## No trees or flowers (distance course).
 
 var _vox := {}                               ## Vector3i -> BARK/LEAF
 var _vox_color := {}                         ## Vector3i -> base Color (alpha = jitter strength)
@@ -81,7 +82,9 @@ func build(t: Node3D) -> void:
 	_sway_material.shader = SWAY_SHADER
 
 	var t0 := Time.get_ticks_msec()
-	if preset_trees.is_empty():
+	if bare:
+		trees.clear()
+	elif preset_trees.is_empty():
 		_place_trees()
 	else:
 		trees.clear()
@@ -671,7 +674,8 @@ func _scatter_flowers() -> void:
 
 	# No habitat accepts a roll above this, so most columns bail out early.
 	var max_roll := 0.61
-	for z in range(margin, size_z - margin):
+	var z_end := margin if bare else size_z - margin   # bare: no rows
+	for z in range(margin, z_end):
 		for x in range(margin, size_x - margin):
 			var roll := _hash(x, 7, z) / area
 			if roll >= max_roll:

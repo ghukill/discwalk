@@ -124,8 +124,12 @@ func _physics_process(delta: float) -> void:
 		respawn(get_parent().get_node("Terrain").spawn_point())
 
 
-func respawn(at: Vector3) -> void:
+## `yaw` (radians, 0 = facing -z) turns the walker too; NAN keeps the facing.
+func respawn(at: Vector3, yaw := NAN) -> void:
 	global_position = at
+	if not is_nan(yaw):
+		rotation.y = yaw
+		head.rotation.x = 0.0
 	velocity = Vector3.ZERO
 	_flung = false
 	set_crouch(false)
