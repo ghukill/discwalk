@@ -15,7 +15,9 @@ extends Node
 ##   Tab / Shift+Tab  next / previous disc
 ##
 ## A tap nudges one fine step; holding repeats, faster the longer you hold.
-## Controller: the D-pad is the arrows, RB is Shift, LB is H.
+## Controller: the D-pad is the arrows, RB is Shift. LB tapped is H; LB held
+## turns the D-pad's ← / → into previous / next disc (↑ / ↓ unused for now).
+## Both bumpers held: the D-pad does nothing.
 
 const DiscModel := preload("res://scripts/disc_model.gd")
 
@@ -44,6 +46,7 @@ var hand := 1.0                      ## +1 backhand, -1 forehand (right-handed)
 
 var _held := {}                      ## action -> seconds held
 var _carry := {}                     ## action -> fractional steps owed
+var _lb_used := false                ## D-pad pressed during this LB hold: no hand flip.
 
 
 func _ready() -> void:
@@ -120,6 +123,11 @@ func _unhandled_input(event: InputEvent) -> void:
 		reset_flat()
 	elif event.is_action_pressed("hand"):
 		toggle_hand()
+	elif event.is_action_pressed("setup_disc"):
+		_lb_used = false
+	elif event.is_action_released("setup_disc"):
+		if not _lb_used:
+			toggle_hand()
 	else:
 		return
 	get_viewport().set_input_as_handled()
@@ -128,6 +136,7 @@ func _unhandled_input(event: InputEvent) -> void:
 ## Arrows are polled so a hold repeats (and Shift can change mid-hold).
 func _process(delta: float) -> void:
 	var shift := Input.is_key_pressed(KEY_SHIFT) or Input.is_action_pressed("setup_alt")
+	var disc_mode := InputMap.has_action("setup_disc") and Input.is_action_pressed("setup_disc")
 	for action in ["tilt_up", "tilt_down", "tilt_left", "tilt_right"]:
 		if not InputMap.has_action(action) or not Input.is_action_pressed(action):
 			_held.erase(action)
@@ -145,7 +154,14 @@ func _process(delta: float) -> void:
 				_carry[action] += delta * minf(REPEAT_RATE + REPEAT_RAMP * t, REPEAT_MAX)
 				steps = floorf(_carry[action])
 				_carry[action] -= steps
-		if steps > 0.0:
+		if steps <= 0.0:
+			continue
+		if disc_mode:
+			# LB: one disc per press (no repeat); with RB too, nothing.
+			_lb_used = true
+			if not shift and _held[action] == 0.0 and action in ["tilt_left", "tilt_right"]:
+				next_disc(-1 if action == "tilt_left" else 1)
+		else:
 			_apply(action, shift, steps)
 
 

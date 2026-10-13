@@ -167,6 +167,7 @@ static func _ensure_input_actions() -> void:
 		"tilt_left": [JOY_BUTTON_DPAD_LEFT],
 		"tilt_right": [JOY_BUTTON_DPAD_RIGHT],
 		"setup_alt": [JOY_BUTTON_RIGHT_SHOULDER],   # held: D-pad = speed/spin, like Shift
+		"setup_disc": [JOY_BUTTON_LEFT_SHOULDER],   # held: D-pad ←/→ = disc; tapped: hand
 		"throw_disc": [JOY_BUTTON_A],
 		"throw_cube": [JOY_BUTTON_B],
 		"collect": [JOY_BUTTON_X],
@@ -174,7 +175,6 @@ static func _ensure_input_actions() -> void:
 		"paths": [JOY_BUTTON_MISC1],                # Share: the discs share where they went
 		"warp": [JOY_BUTTON_LEFT_STICK],
 		"view": [JOY_BUTTON_RIGHT_STICK],
-		"hand": [JOY_BUTTON_LEFT_SHOULDER],
 		"run_toggle": [JOY_BUTTON_BACK],
 	}
 	for action in bindings.keys() + pad.keys():
