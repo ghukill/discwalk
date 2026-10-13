@@ -11,7 +11,8 @@ extends SceneTree
 ##  6 L rolling:  a disc skipping/rolling (not flying any more) still counts.
 ##  7 off mid-flight: V off snaps back now, Z off cancels the warp.
 ##  8 latest only: a second throw takes over view + warp from the first.
-##  9 collect:    C with both on: no camera, no warp.
+##  9 collect:    C with both on: no camera, no warp; once it's home, V/G
+##                still toggle (the freed disc isn't held on to).
 ## Plus: the lamps follow the toggles, and P puts the beams out with the paths.
 ##
 ##   godot --headless --path . --script res://tools/toggles_test.gd [-- --block-size=0.5]
@@ -190,7 +191,7 @@ func _process(_dt: float) -> bool:
 		9:  # collect ignores toggles
 			if _f == 2:
 				_d = _lob()                      # toggles off: just let it land
-			if _f > 3 and _d.resting and not _note.has("c"):
+			if _f > 3 and not _note.has("c") and _d.resting:
 				_th.set_view(true)
 				_th.set_warp(true)
 				_th.collect()
@@ -199,6 +200,14 @@ func _process(_dt: float) -> bool:
 			if _note.has("c") and _f == _note.c + 120:
 				_check("9 collect with VIEW + WARP on: no chase, no warp, you stay put",
 					_seen_follow == 0 and _th.warps == _note.warps0 and moved < 0.5)
+			# Once it's home (freed), V and G still toggle: nothing holds the freed disc.
+			if _note.has("c") and _f > _note.c + 120 and not is_instance_valid(_d):
+				_th.set_view(false)
+				_th.set_warp(false)
+				_th.set_view(true)               # "on" is the path that looks at the last throw
+				_th.set_warp(true)
+				_check("9b V + G toggle after the collected disc is freed",
+					_th.view_on and _th.warp_on and _th._last == null)
 				_next()
 		10: # P = paths + beams, lamps agree
 			if _f == 2:

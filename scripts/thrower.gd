@@ -219,7 +219,7 @@ func throw_disc(p: Dictionary) -> Node:
 ## the VIEW / WARP toggles pick it up (only the latest throw counts).
 func _track(disc: Node) -> void:
 	disc.came_to_rest.connect(_on_rest)
-	disc.tree_exited.connect(func() -> void: discs.erase(disc))
+	disc.tree_exited.connect(_on_gone.bind(disc))
 	discs.append(disc)
 	_last = disc
 	_launched = null
@@ -253,6 +253,18 @@ func collect() -> void:
 		_result_text = ""
 
 
+## A throw left the tree (collected home, fell off the world, cleared
+## away): forget it, so nothing holds on to a freed disc.
+func _on_gone(disc: Node) -> void:
+	discs.erase(disc)
+	if _last == disc:
+		_last = null
+	if _launched == disc:
+		_launched = null
+	if _warp_target == disc:
+		_warp_target = null
+
+
 func _on_collected(_disc: Node) -> void:
 	_collected += 1
 	_result_text = "collected %d disc%s" % [_collected, "" if _collected == 1 else "s"]
@@ -273,7 +285,8 @@ func set_paths(on: bool) -> void:
 
 
 ## True while the last throw is still going (flying, skipping, rolling).
-func _moving(d: Node) -> bool:
+## Untyped: a freed disc can't be passed into a typed Node parameter.
+func _moving(d) -> bool:
 	return is_instance_valid(d) and not d.resting and not d.collecting
 
 
