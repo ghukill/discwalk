@@ -1,27 +1,35 @@
 extends Node3D
-## A disc golf basket: pole, tray, top band and chains.
+## A disc golf basket: pole, tray, top band and chains, built from little
+## 5 cm voxels. Nine of them stand in every glacial world (baskets.gd).
+##
+## Hitting one: touch ANY part (pole, tray, band, chains) and the disc is
+## "struck". It starts the ordinary collect roll home (that disc only) and
+## the basket throws a shower of confetti. No holes, no scoring yet.
 ##
 ## What touches what:
 ## - Pole and tray are ordinary collision shapes, so a disc clangs off the
 ##   post and clatters out of the tray on its own.
 ## - The chains and the top band are NOT physics bodies. They are too thin:
-##   a 0.22 m disc at 25 m/s would tunnel straight through. Instead, each
+##   a 0.21 m disc at 25 m/s would tunnel straight through. Instead, each
 ##   physics tick disc.gd hands its swept path to sweep(), which marches it
 ##   through the chain volume and drains speed. Same trick flora.gd uses for
 ##   leaves, and for the same reason.
-## - The chains absorb a BOUNDED IMPULSE, not a fixed fraction. That is the
-##   whole design: a fraction would take the same share of speed at any
-##   speed, so tuning it to stop a putt would also stop a drive and every
-##   shot would go in. A momentum budget stops a putt dead and lets a drive
-##   punch through, which is what a real basket does.
+## - The chains absorb a BOUNDED FORCE, not a fixed fraction (Henry's chain
+##   model, feature/henry/baskets). A fraction would take the same share of
+##   speed at any speed, so tuning it to stop a putt would also stop a drive.
+##   A force limit makes contact time decide: a putt dawdles through over
+##   several ticks and is wrung out, a drive is past in one and keeps most of
+##   its speed. sweep() still reports a proper "caught" for the day holes and
+##   scoring arrive; today any hit at all counts.
 ##
-## Sizes are PDGA-ish and in METRES, independent of terrain.block_size. The
-## basket is built from smooth primitives rather than voxels on purpose: at a
-## 0.25 m block size the 0.635 m tray would be two and a half blocks across,
-## which destroys the shape. Manufactured steel reading smooth against a grown
-## voxel world is the right look anyway.
+## Sizes are PDGA-ish and in METRES (from Henry's branch), independent of
+## terrain.block_size. The look is voxels like everything else, but at
+## VOXEL = 5 cm rather than the ground's 25 cm: at ground size the 0.635 m
+## tray would be two and a half blocks across, which destroys the shape.
 
-signal caught(disc)
+signal hit(basket, disc, part)       ## Any touch: part is pole/tray/band/chains/cage.
+
+const Confetti := preload("res://scripts/confetti.gd")
 
 const BAND_Y := 1.32            ## Top band height (m).
 const TRAY_RIM_Y := 0.66        ## Tray rim height (m).
@@ -31,22 +39,22 @@ const CHAIN_RADIUS := 0.30      ## Chain curtain radius (m).
 const CHAIN_TOP := 1.30         ## Chains hang from just under the band (m).
 const CHAIN_BOTTOM := 0.75      ## ...down to just over the tray rim (m).
 const POLE_RADIUS := 0.05
-const CHAIN_COUNT := 12
+const CHAIN_COUNT := 12         ## Outer chains (plus half as many inner).
+
+const VOXEL := 0.05             ## Basket voxel edge (m).
 
 const COLOR_STEEL := Color(0.62, 0.64, 0.66)
-const COLOR_CHAIN := Color(0.78, 0.80, 0.82)
-const COLOR_BAND := Color(0.80, 0.62, 0.22)   ## A warm band, easy to pick out.
+const COLOR_STEEL_DARK := Color(0.42, 0.44, 0.47)
+const COLOR_CHAIN := Color(0.80, 0.82, 0.84)
+const COLOR_CHAIN_DARK := Color(0.60, 0.62, 0.65)
+const COLOR_BAND := Color(0.98, 0.78, 0.10)   ## Safety yellow, easy to pick out.
 
 ## Fraction of speed the chains keep per metre of curtain. Deliberately
 ## brutal: the ratio is not what separates a putt from a drive, the force
 ## limit below is. Left in because it rounds off the very slow arrivals.
 @export var chain_drag_per_metre := 0.01
 ## The hardest the chains can push back, in newtons. THIS is the knob that
-## makes putting feel different from driving. A force limit (rather than a
-## fixed share of speed, or a budget for the whole pass) means the disc's
-## CONTACT TIME decides how much it loses: a putt dawdles through the
-## curtain over several physics ticks and gets wrung out, while a drive is
-## past in one and keeps nearly everything. That is what a real basket does.
+## makes putting feel different from driving.
 @export var chain_max_force := 28.0
 ## Random sideways rattle, as a fraction of the speed absorbed.
 @export var chain_kick := 0.08
@@ -58,13 +66,15 @@ const COLOR_BAND := Color(0.80, 0.62, 0.22)   ## A warm band, easy to pick out.
 @export var catch_speed := 2.5
 ## March resolution through the chain volume (m).
 @export var sweep_step := 0.05
+## Confetti cubes per hit.
+@export var confetti_count := 280
 
 var terrain: Node3D
-var holed: Node = null          ## The disc parked in the tray, or null.
-var beam_on := true             ## Tall finder beam, on the P toggle.
+var hits := 0                   ## Times struck this world (tests, curiosity).
 
-var _beacon: MeshInstance3D
 var _rng := RandomNumberGenerator.new()
+
+static var _mesh: ArrayMesh     ## Built once, shared by every basket.
 
 
 func _ready() -> void:
@@ -78,13 +88,28 @@ func place(at: Vector3) -> void:
 	var y := at.y
 	if terrain != null:
 		y = terrain.height_at(at.x, at.z)
-	global_position = Vector3(at.x, y, at.z)
+	position = Vector3(at.x, y, at.z)
 
 
-func set_beam(on: bool) -> void:
-	beam_on = on
-	if _beacon != null:
-		_beacon.visible = on
+## A disc touched us. disc.gd calls this once per disc; it fires `hit` (the
+## thrower starts that disc's collect) and throws the confetti.
+func struck(disc: Node, part: String) -> void:
+	hits += 1
+	hit.emit(self, disc, part)
+	celebrate()
+
+
+## Confetti! Bursts up and out of the cage, flutters down, bounces, fades.
+func celebrate() -> Node3D:
+	var c := Node3D.new()
+	c.set_script(Confetti)
+	c.name = "Confetti"
+	c.add_to_group("confetti")
+	c.terrain = terrain
+	c.count = confetti_count
+	add_child(c)
+	c.burst(global_position + Vector3(0, (BAND_Y + TRAY_RIM_Y) * 0.5, 0))
+	return c
 
 
 # --- chains ------------------------------------------------------------------
@@ -148,13 +173,9 @@ func sweep(p0: Vector3, p1: Vector3, v: Vector3, mass: float, dt: float) -> Dict
 
 	# Catch test. Runs whether or not chains were touched, and reaches down to
 	# the tray floor, so a disc lobbed straight in counts and so does one the
-	# chains have already wrung out on its way down.
-	#
-	# The test is on HORIZONTAL speed, not total: the tray is a physical
-	# bucket, so it arrests a falling disc by itself. What the chains have to
-	# kill is the disc's forward run. Testing total speed would mean the
-	# harder the chains knock a disc downward, the less likely it is to count
-	# as caught, which is backwards.
+	# chains have already wrung out on its way down. It's on HORIZONTAL speed:
+	# the tray arrests a falling disc by itself; what the chains have to kill
+	# is the forward run.
 	var end_local := p1 - c
 	var end_r := Vector2(end_local.x, end_local.z).length()
 	var flat := Vector2(vv.x, vv.z).length()
@@ -166,108 +187,133 @@ func sweep(p0: Vector3, p1: Vector3, v: Vector3, mass: float, dt: float) -> Dict
 	return out
 
 
-## Park a caught disc in the tray and hold it there.
-func capture(disc: Node) -> void:
-	if holed == disc or not is_instance_valid(disc):
-		return
-	holed = disc
-	disc.in_basket = true
-	disc.set_beam(false)
-	disc.global_position = global_position + Vector3(0, TRAY_FLOOR_Y + 0.10, 0)
-	disc.linear_velocity = Vector3.ZERO
-	disc.angular_velocity = Vector3.ZERO
-	disc.freeze = true
-	caught.emit(disc)
-
-
-## Let go of whatever is in the tray (collect, new world, a fresh hole).
-func release() -> void:
-	if holed != null and is_instance_valid(holed):
-		holed.in_basket = false
-		holed.freeze = false
-	holed = null
-
-
 # --- building ----------------------------------------------------------------
 
 func _build_visual() -> void:
-	var steel := StandardMaterial3D.new()
-	steel.albedo_color = COLOR_STEEL
-	steel.metallic = 0.6
-	steel.roughness = 0.45
+	if _mesh == null:
+		_mesh = build_mesh()
+	var mi := MeshInstance3D.new()
+	mi.name = "Mesh"
+	mi.mesh = _mesh
+	var m := StandardMaterial3D.new()
+	m.vertex_color_use_as_albedo = true
+	m.metallic = 0.35
+	m.roughness = 0.5
+	mi.material_override = m
+	add_child(mi)
 
-	var pole := MeshInstance3D.new()
-	var pm := CylinderMesh.new()
-	pm.top_radius = POLE_RADIUS
-	pm.bottom_radius = POLE_RADIUS
-	pm.height = BAND_Y
-	pm.radial_segments = 10
-	pm.material = steel
-	pole.mesh = pm
-	pole.position.y = BAND_Y * 0.5
-	add_child(pole)
 
-	var band_mat := StandardMaterial3D.new()
-	band_mat.albedo_color = COLOR_BAND
-	band_mat.metallic = 0.5
-	band_mat.roughness = 0.4
-	var band := MeshInstance3D.new()
-	var bm := TorusMesh.new()
-	bm.inner_radius = TARGET_RADIUS - 0.03
-	bm.outer_radius = TARGET_RADIUS
-	bm.rings = 18
-	bm.material = band_mat
-	band.mesh = bm
-	band.position.y = BAND_Y
-	add_child(band)
+## The basket as voxel cells: Vector3i (in VOXEL units; cell i spans
+## [i, i+1) * VOXEL, so the pole's 2 x 2 cells straddle x = z = 0) -> Color.
+static func cells() -> Dictionary:
+	var out := {}
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 7
+	var top := int(round(BAND_Y / VOXEL)) + 1               # cap above the band
+	# Pole: 2 x 2 cells, ground to just above the band.
+	for y in top + 1:
+		for x in [-1, 0]:
+			for z in [-1, 0]:
+				out[Vector3i(x, y, z)] = COLOR_STEEL_DARK
+	var span := int(ceil(TARGET_RADIUS / VOXEL)) + 1
+	# Tray: a shallow bowl, floor at TRAY_FLOOR_Y flaring out to the rim.
+	var y0 := int(floor(TRAY_FLOOR_Y / VOXEL))
+	var y1 := int(floor(TRAY_RIM_Y / VOXEL)) - 1
+	for y in range(y0, y1 + 1):
+		var t := float(y - y0) / maxf(1.0, float(y1 - y0))
+		var r_out := lerpf(TARGET_RADIUS * 0.72, TARGET_RADIUS, t)
+		for x in range(-span, span):
+			for z in range(-span, span):
+				var r := _cell_r(x, z)
+				if r > r_out:
+					continue
+				var wall := r > r_out - VOXEL * 1.05
+				if y == y0 or wall:
+					var col := COLOR_STEEL
+					if y == y1 and wall:
+						col = COLOR_BAND                     # painted tray rim
+					out[Vector3i(x, y, z)] = col
+	# Top band: a two-cell-tall yellow ring around BAND_Y.
+	var yb := int(floor(BAND_Y / VOXEL))
+	for y in [yb - 1, yb]:
+		for x in range(-span, span):
+			for z in range(-span, span):
+				var r := _cell_r(x, z)
+				if r <= TARGET_RADIUS and r > TARGET_RADIUS - VOXEL * 1.05:
+					out[Vector3i(x, y, z)] = COLOR_BAND
+	# Lid spokes: four arms from the pole cap out to the band.
+	for a in 4:
+		var d := Vector2.from_angle(TAU * a / 4.0 + PI / 4.0)
+		var steps := int(TARGET_RADIUS / VOXEL * 2.0)
+		for s in steps:
+			var p := d * (s * 0.5 * VOXEL)
+			out[Vector3i(int(floor(p.x / VOXEL)), top, int(floor(p.y / VOXEL)))] = COLOR_STEEL_DARK
+	# Chains: an outer curtain and a sparser inner one, hanging from under the
+	# band to just over the tray. Links alternate light and dark.
+	var c0 := int(floor(CHAIN_BOTTOM / VOXEL))
+	var c1 := yb - 2
+	for ring in [[CHAIN_COUNT, CHAIN_RADIUS * 0.85, 0.0], [CHAIN_COUNT / 2, CHAIN_RADIUS * 0.45, 0.5]]:
+		var n: int = ring[0]
+		for i in n:
+			var a: float = TAU * (i + ring[2]) / n
+			var x := int(floor(cos(a) * ring[1] / VOXEL))
+			var z := int(floor(sin(a) * ring[1] / VOXEL))
+			for y in range(c0, c1 + 1):
+				var key := Vector3i(x, y, z)
+				if not out.has(key):
+					out[key] = COLOR_CHAIN if (y + i) % 2 == 0 else COLOR_CHAIN_DARK
+	# A little per-voxel shade so the blocks read as blocks.
+	for k: Vector3i in out:
+		out[k] = (out[k] as Color).darkened(rng.randf() * 0.12)
+	return out
 
-	# Tray: a shallow open cylinder. Cheap next to the oaks, and it reads as a
-	# cage from any distance you can actually putt from.
-	var tray := MeshInstance3D.new()
-	var tm := CylinderMesh.new()
-	tm.top_radius = TARGET_RADIUS
-	tm.bottom_radius = TARGET_RADIUS * 0.7
-	tm.height = TRAY_RIM_Y - TRAY_FLOOR_Y
-	tm.radial_segments = 14
-	tm.material = steel
-	tray.mesh = tm
-	tray.position.y = (TRAY_RIM_Y + TRAY_FLOOR_Y) * 0.5
-	add_child(tray)
 
-	var chain_mat := StandardMaterial3D.new()
-	chain_mat.albedo_color = COLOR_CHAIN
-	chain_mat.metallic = 0.7
-	chain_mat.roughness = 0.35
-	for i in CHAIN_COUNT:
-		var a := TAU * i / CHAIN_COUNT
-		var bar := MeshInstance3D.new()
-		var cm := BoxMesh.new()
-		cm.size = Vector3(0.012, CHAIN_TOP - CHAIN_BOTTOM, 0.012)
-		cm.material = chain_mat
-		bar.mesh = cm
-		bar.position = Vector3(cos(a) * CHAIN_RADIUS * 0.85,
-			(CHAIN_TOP + CHAIN_BOTTOM) * 0.5, sin(a) * CHAIN_RADIUS * 0.85)
-		add_child(bar)
+## Horizontal distance (in metres) from the pole to the centre of cell (x, z).
+static func _cell_r(x: int, z: int) -> float:
+	return Vector2((x + 0.5) * VOXEL, (z + 0.5) * VOXEL).length()
 
-	_beacon = MeshInstance3D.new()
-	var beam := BoxMesh.new()
-	beam.size = Vector3(0.08, 12.0, 0.08)
-	var beam_mat := StandardMaterial3D.new()
-	beam_mat.albedo_color = Color(COLOR_BAND, 0.30)
-	beam_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	beam_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	beam.material = beam_mat
-	_beacon.mesh = beam
-	_beacon.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	_beacon.position.y = 6.0
-	_beacon.visible = beam_on
-	add_child(_beacon)
+
+## One mesh with only the faces you can see (no face between two voxels).
+static func build_mesh() -> ArrayMesh:
+	var cs := cells()
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var dirs := [Vector3i(1, 0, 0), Vector3i(-1, 0, 0), Vector3i(0, 1, 0),
+		Vector3i(0, -1, 0), Vector3i(0, 0, 1), Vector3i(0, 0, -1)]
+	for k: Vector3i in cs:
+		var col: Color = cs[k]
+		var centre := (Vector3(k) + Vector3.ONE * 0.5) * VOXEL
+		for d: Vector3i in dirs:
+			if cs.has(k + d):
+				continue
+			_face(st, centre, Vector3(d), col)
+	return st.commit()
+
+
+static func _face(st: SurfaceTool, centre: Vector3, n: Vector3, col: Color) -> void:
+	var u := Vector3(n.y, n.z, n.x)          # any axis perpendicular to n
+	var v := n.cross(u)
+	var h := VOXEL * 0.5
+	var o := centre + n * h
+	var a := o - u * h - v * h
+	var b := o + u * h - v * h
+	var c := o + u * h + v * h
+	var d := o - u * h + v * h
+	st.set_color(col)
+	st.set_normal(n)
+	# Godot treats clockwise triangles (seen from the front) as front faces;
+	# same winding rule as flying_disc.gd's _add_box.
+	var tri := [a, c, b, a, d, c] if u.cross(v).dot(n) < 0.0 else [a, b, c, a, c, d]
+	for p in tri:
+		st.add_vertex(p)
 
 
 ## Pole and tray are real static bodies. Chains and band are swept (see sweep).
+## Both carry a "basket" meta so disc.gd knows what it bumped into.
 func _build_colliders() -> void:
 	var pole := StaticBody3D.new()
 	pole.name = "Pole"
+	pole.set_meta("basket", self)
 	var ps := CollisionShape3D.new()
 	var pc := CylinderShape3D.new()
 	pc.radius = POLE_RADIUS
@@ -279,6 +325,7 @@ func _build_colliders() -> void:
 
 	var tray := StaticBody3D.new()
 	tray.name = "Tray"
+	tray.set_meta("basket", self)
 	var ts := CollisionShape3D.new()
 	var tc := CylinderShape3D.new()
 	tc.radius = TARGET_RADIUS

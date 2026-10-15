@@ -5,7 +5,6 @@ extends Node3D
 const THROWER_SCRIPT := preload("res://scripts/thrower.gd")
 const CLOUDS_SCRIPT := preload("res://scripts/clouds.gd")
 const ControlsPanel := preload("res://scripts/controls_panel.gd")
-const BASKET_SCRIPT := preload("res://scripts/basket.gd")
 
 @onready var terrain: Node3D = $Terrain
 @onready var player: CharacterBody3D = $Player
@@ -37,7 +36,6 @@ func _ready() -> void:
 	get_tree().root.size_changed.connect(_apply_ui_scale)
 	_setup_throwing()
 	_setup_controls()
-	_setup_basket()
 	_place_player()
 	_update_hud()
 
@@ -121,37 +119,6 @@ func _setup_throwing() -> void:
 	thrower._update_lamps()
 
 
-## The basket. Sited 70 m due north of the tee for now; seeded siting comes
-## with hole.gd. `-- --no-hole` leaves the world without one.
-func _setup_basket() -> void:
-	if "--no-hole" in OS.get_cmdline_user_args():
-		return
-	var b := Node3D.new()
-	b.set_script(BASKET_SCRIPT)
-	b.name = "Basket"
-	b.terrain = terrain
-	b.beam_on = thrower.paths_on
-	add_child(b)
-	terrain.basket = b
-	b.place(terrain.spawn_point() + Vector3(0, 0, -70.0))
-
-
-## B: drop the basket on the ground under your crosshair.
-func _place_basket_at_aim() -> void:
-	if terrain.basket == null:
-		return
-	var cam: Camera3D = $Player/Head/Camera3D
-	var from := cam.global_position
-	var to := from + (-cam.global_transform.basis.z) * 200.0
-	var q := PhysicsRayQueryParameters3D.create(from, to)
-	q.exclude = [terrain.basket.get_node("Pole").get_rid(),
-		terrain.basket.get_node("Tray").get_rid()]
-	var hit := get_world_3d().direct_space_state.intersect_ray(q)
-	var at: Vector3 = hit.position if not hit.is_empty() else to
-	terrain.basket.place(at)
-	thrower._note("basket moved", 1.2)
-
-
 func _input(event: InputEvent) -> void:
 	# Debug: run with `-- --debug-keys` to log every key event to stdout.
 	if event is InputEventKey and "--debug-keys" in OS.get_cmdline_user_args():
@@ -172,10 +139,6 @@ func _unhandled_input(event: InputEvent) -> void:
 		return
 	if event.is_action_pressed("clouds"):
 		clouds.visible = not clouds.visible
-		get_viewport().set_input_as_handled()
-		return
-	if event.is_action_pressed("basket"):
-		_place_basket_at_aim()
 		get_viewport().set_input_as_handled()
 		return
 	if event.is_action_pressed("new_world"):

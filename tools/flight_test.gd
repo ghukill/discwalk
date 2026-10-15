@@ -258,7 +258,7 @@ func _stub_terrain_script() -> GDScript:
 	s.source_code = """extends Node3D
 var block_size := 1.0
 var lakes: Array = []
-var basket: Node3D = null
+var baskets: Array = []
 var flora := Flora.new()
 func height_at(_x: float, _z: float) -> float:
 	return 0.0

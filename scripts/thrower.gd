@@ -78,6 +78,7 @@ var _last: Node = null
 var _flying_text := ""
 var _result_text := ""
 var _collected := 0
+var basket_hits := 0                 ## Baskets hit this session (just for fun).
 
 
 func _ready() -> void:
@@ -223,6 +224,7 @@ func throw_disc(p: Dictionary) -> Node:
 ## the VIEW / WARP toggles pick it up (only the latest throw counts).
 func _track(disc: Node) -> void:
 	disc.came_to_rest.connect(_on_rest)
+	disc.hit_basket.connect(_on_basket_hit)
 	disc.tree_exited.connect(_on_gone.bind(disc))
 	discs.append(disc)
 	_last = disc
@@ -255,6 +257,18 @@ func collect() -> void:
 	if n > 0:
 		_collected = 0
 		_result_text = ""
+
+
+## A disc hit a basket: confetti is the basket's job; ours is to send that
+## one disc rolling home, exactly like C does for all of them.
+func _on_basket_hit(disc: Node, _basket: Node, part: String) -> void:
+	if not is_instance_valid(disc) or disc.collecting:
+		return
+	disc.start_collect(player)
+	if not disc.collected.is_connected(_on_collected):
+		disc.collected.connect(_on_collected)
+	basket_hits += 1
+	_note("BASKET!  (%s)" % part, 2.0)
 
 
 ## A throw left the tree (collected home, fell off the world, cleared

@@ -18,6 +18,7 @@ extends RigidBody3D
 
 signal came_to_rest(disc)
 signal collected(disc)
+signal hit_basket(disc, basket, part)   ## First touch of any basket (basket.gd).
 
 const FLORA := preload("res://scripts/flora.gd")
 
@@ -49,7 +50,7 @@ var splashed := false
 var resting := false
 var max_height := 0.0                ## Peak height above release (m).
 var collecting := false
-var in_basket := false               ## Parked in a basket's tray.
+var struck: Node = null              ## The basket this throw hit, if any.
 var collect_target: Node3D
 var _collect_t := 0.0
 var _shape: CollisionShape3D
@@ -174,16 +175,17 @@ func _integrate_forces(state: PhysicsDirectBodyState3D) -> void:
 			_in_water = true
 			break
 
-	# Basket: the chains and top band are swept, not colliders, for the same
+	# Baskets: the chains and top band are swept, not colliders, for the same
 	# reason leaves are (too thin, a fast disc would tunnel straight through).
-	var basket: Node3D = terrain.basket
-	if basket != null and not collecting and not in_basket:
-		var res: Dictionary = basket.sweep(p, p + v * dt, v, mass, dt)
-		v = res.v
-		if res.caught:
-			basket.capture.call_deferred(self)
-			state.linear_velocity = Vector3.ZERO
-			return
+	# The first touch of any basket counts as a hit (pole and tray are real
+	# colliders and report through _on_body_entered instead).
+	if struck == null and not collecting:
+		for basket: Node3D in terrain.baskets:
+			var res: Dictionary = basket.sweep(p, p + v * dt, v, mass, dt)
+			if res.hit != "":
+				v = res.v
+				_strike(basket, res.hit)
+				break
 
 	v = _rescue_if_under(state, v, p, bs)
 	if collecting:
@@ -216,8 +218,6 @@ func _rescue_if_under(state: PhysicsDirectBodyState3D, v: Vector3, p: Vector3, b
 
 ## Start rolling home to `target` (the player).
 func start_collect(target: Node3D) -> void:
-	if in_basket and terrain != null and terrain.basket != null:
-		terrain.basket.release()     # C pulls a holed disc back out of the tray
 	collecting = true
 	collect_target = target
 	_collect_t = 0.0
@@ -285,6 +285,16 @@ func _box_shape() -> BoxShape3D:
 func _on_body_entered(body: Node) -> void:
 	if body.name == "Trunks":
 		bark_hits += 1
+	elif body.has_meta("basket") and struck == null and not collecting:
+		_strike(body.get_meta("basket"), String(body.name).to_lower())
+
+
+## We hit a basket: tell it (confetti) and whoever threw us (collect).
+## Once per disc. Deferred so it never runs mid physics callback.
+func _strike(basket: Node, part: String) -> void:
+	struck = basket
+	basket.struck.call_deferred(self, part)
+	hit_basket.emit.call_deferred(self, basket, part)
 
 
 ## Future home of disc flight physics (lift, drag, gyroscopic fade). Today a
@@ -294,8 +304,6 @@ func apply_aero(_state: PhysicsDirectBodyState3D, v: Vector3) -> Vector3:
 
 
 func _physics_process(delta: float) -> void:
-	if in_basket:
-		return                       # sitting in a basket's tray: not a lie
 	if global_position.y < -30.0:
 		queue_free()
 		return

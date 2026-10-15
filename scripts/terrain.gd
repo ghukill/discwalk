@@ -18,6 +18,7 @@ signal generated
 const FLORA_SCRIPT := preload("res://scripts/flora.gd")
 const VoxelMesh := preload("res://scripts/voxel_mesh.gd")
 const DistanceCourse := preload("res://scripts/distance_course.gd")
+const BASKETS_SCRIPT := preload("res://scripts/baskets.gd")
 
 @export var world_seed: int = 1848
 ## "glacial" (generated from the seed) or "distance" (the flat distance
@@ -62,7 +63,10 @@ var heights := PackedInt32Array()          ## Top surface of each column, in blo
 var lakes: Array[Dictionary] = []          ## {center: Vector2 (m), radius: m, water_y: m}
 
 var flora: Node3D                          ## Oaks + wildflowers (scripts/flora.gd).
-var basket: Node3D                         ## The hole's basket (scripts/basket.gd), if any.
+var baskets: Array = []                    ## The world's baskets (scripts/basket.gd), via baskets.gd.
+var basket_field: Node3D                   ## scripts/baskets.gd: sites and owns them.
+## `-- --no-baskets` (or false here) builds the world without any.
+var baskets_on := true
 ## Optional hand-placed trees for tools (see tools/tree_gallery.gd):
 ## [{x: m, z: m, kind, form, crown?}]. Empty = normal generated placement.
 var flora_preset: Array = []
@@ -131,12 +135,22 @@ func generate() -> void:
 	flora.bare = world_kind == "distance"
 	add_child(flora)
 	flora.build(self)
+	var t2 := Time.get_ticks_msec()
+	basket_field = Node3D.new()
+	basket_field.set_script(BASKETS_SCRIPT)
+	basket_field.name = "Baskets"
+	if not baskets_on:
+		basket_field.count = 0
+	add_child(basket_field)
+	basket_field.build(self)
+	baskets = basket_field.baskets
+	var basket_ms := Time.get_ticks_msec() - t2
 	var flowers := 0
 	for n in flora.flower_counts.values():
 		flowers += n
-	print("discwalk: %s world seed %d (block %.2fm, %dx%d columns) generated in %d ms (%d lakes; flora %d ms: %d oaks, %d flowers)" % [
+	print("discwalk: %s world seed %d (block %.2fm, %dx%d columns) generated in %d ms (%d lakes; flora %d ms: %d oaks, %d flowers; %d baskets %d ms)" % [
 		world_kind, world_seed, block_size, size_x, size_z, Time.get_ticks_msec() - t0, lakes.size(),
-		Time.get_ticks_msec() - t1, flora.trees.size(), flowers])
+		t2 - t1, flora.trees.size(), flowers, baskets.size(), basket_ms])
 	generated.emit()
 
 
@@ -144,6 +158,8 @@ func generate() -> void:
 ## override the exports.
 func _apply_cmdline_overrides() -> void:
 	for arg in OS.get_cmdline_user_args():
+		if arg == "--no-baskets":
+			baskets_on = false
 		if arg.begins_with("--world="):
 			world_kind = arg.get_slice("=", 1)
 		if arg.begins_with("--block-size="):
