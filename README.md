@@ -108,6 +108,12 @@ A dead-flat field for measuring throws: tee pad on the south edge, chalk arcs ev
 
 See [docs/CONFIG.md](docs/CONFIG.md#distance-course).
 
+### Baskets
+
+Every glacial world has **nine baskets**, scattered from the seed about 65 m apart (clear of spawn, lakes, slopes and trees). They're built from 5 cm voxels at PDGA-ish size (band at 1.32 m, tray 0.635 m across). Hit any part of one and that disc rolls home on its own, just like **C**, while a shower of rainbow confetti bursts out of the basket. No holes or scoring yet. `-- --no-baskets` leaves them out; the distance course has none.
+
+![Confetti bursting out of a basket](docs/screenshot-basket-confetti.png)
+
 ## Screenshots
 
 All shot at the default 0.25 m blocks with the `tools/*_shots.gd` scripts (see [Development](docs/DEVELOPMENT.md)).
@@ -182,7 +188,9 @@ Next (pick any):
 - [ ] Throw HUD follow-ups: a better nose display (try it, iterate), a mouse-drag option, controller mapping
 - [ ] Golf-disc damping coefficients (Turner 2025, requested) in place of Hummel's Frisbee values; per-disc mass
 - [ ] Picture-in-picture follow cam
-- [ ] Discs resting in trees; baskets
+- [ ] Discs resting in trees
+- [x] **Baskets, step 1**: nine voxel baskets per world; a hit collects the disc and throws confetti
+- [ ] Baskets, next: a way to find them (not beams), holes/tees, scoring (Henry's chain-catch model in basket.gd already tells a catch from a clang)
 - [ ] **Wind grass**: instanced voxel tufts, reusing the flower sway shader
 - [ ] More tree variety (tuning, species, autumn)
 - [ ] Auto-walk toggle (helps over VNC, where held keys arrive as taps)

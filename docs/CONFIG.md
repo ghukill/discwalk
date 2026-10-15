@@ -32,6 +32,7 @@ Command-line flags override the scene and the code defaults.
 | `--debug-keys` | off | Prints every key press/release to stdout. Useful for diagnosing remote input (VNC). |
 | `--ui-scale=<x>` | `1.0` | Extra size for the HUD and help text (0.6–3). `-` / `=` change it in game. |
 | `--no-clouds` | off | Start with clouds hidden (K shows them). |
+| `--no-baskets` | off | Build the world without its nine baskets. |
 
 The dev tools accept the same flags, e.g.
 

@@ -197,8 +197,9 @@ func _build_visual() -> void:
 	mi.mesh = _mesh
 	var m := StandardMaterial3D.new()
 	m.vertex_color_use_as_albedo = true
-	m.metallic = 0.35
-	m.roughness = 0.5
+	m.vertex_color_is_srgb = true      # colours are written in sRGB, like the rest
+	m.metallic = 0.2
+	m.roughness = 0.6
 	mi.material_override = m
 	add_child(mi)
 

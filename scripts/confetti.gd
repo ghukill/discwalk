@@ -53,9 +53,8 @@ func burst(at: Vector3) -> void:
 	box.size = Vector3.ONE * size
 	var m := StandardMaterial3D.new()
 	m.vertex_color_use_as_albedo = true
+	m.vertex_color_is_srgb = true      # palette is sRGB: keep it saturated
 	m.roughness = 0.6
-	m.emission_enabled = true          # a touch of glow so it pops in shade
-	m.emission = Color(0.25, 0.25, 0.25)
 	box.material = m
 	_mm = MultiMesh.new()
 	_mm.transform_format = MultiMesh.TRANSFORM_3D
