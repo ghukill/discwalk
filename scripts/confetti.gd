@@ -20,14 +20,19 @@ const PALETTE := [
 
 @export var count := 280
 @export var size := 0.045              ## Cube edge (m).
-@export var speed_up := Vector2(4.0, 8.5)    ## Initial upward speed range (m/s).
-@export var speed_out := Vector2(0.5, 3.5)   ## Initial sideways speed range (m/s).
+## Initial upward speed range (m/s): tops out ~8.5 to ~15 m up, about the
+## height of a medium to big oak.
+@export var speed_up := Vector2(15.0, 21.0)
+@export var speed_out := Vector2(1.0, 4.0)   ## Initial sideways speed range (m/s).
 @export var gravity := 9.8
-@export var drag := 1.4                ## Air drag (1/s): confetti floats down.
-@export var flutter := 1.6             ## Sideways wobble once falling (m/s^2).
+## Air drag (1/s). Low on the way up so it shoots high; high once it starts
+## falling (the paper "opens"), so it drifts down at under 2 m/s.
+@export var drag_up := 0.35
+@export var drag_down := 5.5
+@export var flutter := 4.0             ## Sideways wobble once falling (m/s^2).
 @export var bounce := 0.35             ## Upward speed kept on a ground bounce.
-@export var life := Vector2(3.2, 5.0)  ## Seconds each piece lives.
-@export var fade_time := 0.8           ## Shrinks away over its last this-many s.
+@export var life := Vector2(10.0, 14.0)  ## Seconds each piece lives.
+@export var fade_time := 1.2           ## Shrinks away over its last this-many s.
 
 var terrain: Node3D
 
@@ -107,7 +112,7 @@ func _process(delta: float) -> void:
 		_age[i] += dt
 		var v := _vel[i]
 		v.y -= gravity * dt
-		v *= exp(-drag * dt)
+		v *= exp(-(drag_up if v.y > 0.0 else drag_down) * dt)
 		if v.y < 0.0:                  # fluttering down: a lazy side-to-side
 			var w := _age[i] * 6.0 + _phase[i]
 			v.x += cos(w) * flutter * dt

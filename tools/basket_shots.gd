@@ -50,7 +50,7 @@ func _process(_delta: float) -> bool:
 		1:
 			if el > 800:
 				_grab("basket_putt")
-				_view(Vector3(3.0, 1.5, 5.5), Vector3(0, 1.6, 0))
+				_view(Vector3(6.0, 1.5, 14.0), Vector3(0, 6.0, 0))
 				_b.celebrate()
 				_next()
 		2:
@@ -58,11 +58,11 @@ func _process(_delta: float) -> bool:
 				_grab("confetti_burst")
 				_next()
 		3:
-			if el > 1500:
+			if el > 2500:
 				_grab("confetti_falling")
 				_next()
 		4:
-			if el > 1300:
+			if el > 9000:
 				_view(Vector3(2.2, 1.3, 3.2), Vector3(0, 0.2, 0))
 				_next()
 		5:

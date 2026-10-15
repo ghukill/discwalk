@@ -54,7 +54,7 @@ func _process(_delta: float) -> bool:
 		return false
 	if _stage == 2:
 		var left := _confetti_left()
-		if left > 0 and Time.get_ticks_msec() - _t0 < 8000:
+		if left > 0 and Time.get_ticks_msec() - _t0 < 20000:
 			return false
 		_check("confetti clears itself", left == 0,
 			"%d bursts left after %.1f s" % [left, (Time.get_ticks_msec() - _t0) / 1000.0])
