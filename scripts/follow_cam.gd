@@ -50,8 +50,10 @@ func follow(disc: Node3D) -> bool:
 	return true
 
 
+## Keyed on `current`, not `target`: once the disc is freed (collected home)
+## `target == null` is already true, and we'd never hand the view back.
 func stop() -> void:
-	if target == null:
+	if not current:
 		return
 	target = null
 	current = false
@@ -60,7 +62,7 @@ func stop() -> void:
 
 
 func _process(delta: float) -> void:
-	if target == null:
+	if not current:
 		return
 	if not is_instance_valid(target) or target.resting:
 		stop()
