@@ -1,6 +1,8 @@
 extends SceneTree
 ## Headless basket check: the nine baskets, where they stand, the chain model,
-## and what a hit does (that disc rolls home, confetti flies, then clears).
+## and what a hit does (that disc rolls home, confetti flies and stays on the
+## ground until collect calls it in). Only the chains (or ending up in the cage) count: the band, pole
+## and tray just bounce a disc off.
 ##
 ##   godot --headless --path . --script res://tools/basket_test.gd [-- --block-size=1]
 
@@ -15,13 +17,15 @@ var _ran := {}                       ## Test functions that reached their end.
 ## Every test that must run to completion. A GDScript error aborts only the
 ## function it happens in, so without this a broken test would skip all its
 ## checks and the run would still report PASS.
-const MUST_RUN := ["geometry", "siting", "chains", "hit_collider", "hit_chains", "confetti"]
+const MUST_RUN := ["geometry", "siting", "chains", "band", "no_count", "hit_chains", "hold", "confetti",
+	"glow", "confetti_collect"]
 
 # The live hit tests run across frames, timed in real seconds (headless runs
 # frames as fast as it can, so frame counts aren't time).
 var _stage := 0
 var _t0 := 0
 var _cube: Node
+var _under: Node
 var _flyer: Node
 var _other: Node
 var _target: Node3D
@@ -41,24 +45,48 @@ func _process(_delta: float) -> bool:
 		_test_geometry()
 		_test_siting()
 		_test_chains()
+		_test_band()
 		_start_hits()
 		_stage = 1
 		_t0 = Time.get_ticks_msec()
 		return false
 	if _stage == 1:
-		if Time.get_ticks_msec() - _t0 < 2000:
+		var ms := Time.get_ticks_msec() - _t0
+		if ms >= 800 and not _ran.has("hold"):
+			_check_hold()
+		if ms < 2000:
 			return false
 		_check_hits()
 		_stage = 2
 		_t0 = Time.get_ticks_msec()
 		return false
 	if _stage == 2:
+		var bursts := get_nodes_in_group("confetti")
+		var flying := 0
+		for c in bursts:
+			if not c.settled():
+				flying += 1
+		if flying > 0 and Time.get_ticks_msec() - _t0 < 30000:
+			return false
+		_check("confetti lands", flying == 0 and not bursts.is_empty(),
+			"%d of %d bursts still moving after %.1f s" % [flying, bursts.size(),
+			(Time.get_ticks_msec() - _t0) / 1000.0])
+		_check("confetti stays", _confetti_left() == bursts.size() and _confetti_left() > 0,
+			"%d bursts on the ground" % _confetti_left())
+		_done("confetti")
+		_check("glow fades out", _target.glow_level() == 0.0 and not _target.is_processing())
+		_done("glow")
+		_main.thrower.collect()
+		_stage = 3
+		_t0 = Time.get_ticks_msec()
+		return false
+	if _stage == 3:
 		var left := _confetti_left()
 		if left > 0 and Time.get_ticks_msec() - _t0 < 20000:
 			return false
-		_check("confetti clears itself", left == 0,
+		_check("collect gathers confetti", left == 0,
 			"%d bursts left after %.1f s" % [left, (Time.get_ticks_msec() - _t0) / 1000.0])
-		_done("confetti")
+		_done("confetti_collect")
 	for name: String in MUST_RUN:
 		if not _ran.has(name):
 			print("BASKET %-26s BAD  (aborted before finishing)" % name)
@@ -190,9 +218,30 @@ func _test_chains() -> void:
 	_done("chains")
 
 
-## Live: a cube low into the pole (a real collider), a flying disc into the
-## chains (the swept path), and a bystander disc lying nearby that must NOT
-## be collected.
+## The top band clangs a disc back without counting: rising into it from
+## under the rim, or dropping onto it from above.
+func _test_band() -> void:
+	var t = _main.get_node("Terrain")
+	if t.baskets.is_empty():
+		return
+	var b: Node3D = t.baskets[0]
+	var c: Vector3 = b.global_position
+	var rim := c + Vector3(Basket.TARGET_RADIUS, Basket.BAND_Y, 0)
+	var dt := 1.0 / 60.0
+	var up: Dictionary = b.sweep(rim - Vector3(0, 0.05, 0), rim + Vector3(0, 0.05, 0),
+		Vector3(0, 6.0, 0), DISC_MASS, dt)
+	_check("band from below clangs", up.hit == "band" and up.v.y < 0.0 and not up.caught,
+		"hit=%s vy=%.2f" % [up.hit, up.v.y])
+	var down: Dictionary = b.sweep(rim + Vector3(0, 0.05, 0), rim - Vector3(0, 0.05, 0),
+		Vector3(0, -6.0, 0), DISC_MASS, dt)
+	_check("band from above clangs", down.hit == "band" and down.v.y > 0.0 and not down.caught,
+		"hit=%s vy=%.2f" % [down.hit, down.v.y])
+	_done("band")
+
+
+## Live: a cube low into the pole and another up into the bottom of the tray
+## (real colliders, must NOT count), a flying disc into the chains (the swept
+## path, counts), and a bystander disc lying nearby that must NOT be collected.
 func _start_hits() -> void:
 	var t = _main.get_node("Terrain")
 	var th = _main.thrower
@@ -211,26 +260,42 @@ func _start_hits() -> void:
 	# Low, under the tray: only the pole collider can stop it.
 	_cube.launch(c + Vector3(-2.0, 0.3, 0.0), Vector3(9.0, 1.5, 0.0), Vector3.ZERO)
 
+	_under = th.throw_cube(1.0)
+	# Straight up under the tray, beside the pole: the bottom of the cage.
+	_under.launch(c + Vector3(0.0, 0.15, 0.2), Vector3(0.0, 5.0, 0.0), Vector3.ZERO)
+
 	_flyer = th.throw_disc(th.setup.params())
 	_flyer.launch_disc(c + Vector3(0.0, 1.05, -3.0), Vector3(0.0, 0.5, 10.0),
 		Vector3.UP, 50.0, 1.0)
 
-	for d in [_cube, _flyer, _other]:
+	for d in [_cube, _under, _flyer, _other]:
 		d.hit_basket.connect(func(dd, bb, part) -> void: _hits.append([dd, bb, part]))
+
+
+## Mid-hold: the scoring disc sits frozen in the chains, the basket glows.
+func _check_hold() -> void:
+	_check("disc held in the chains", is_instance_valid(_flyer) and _flyer.holding
+		and _flyer.freeze and not _flyer.collecting
+		and _flyer.global_position.distance_to(_target.global_position) < 1.0)
+	_check("basket glows", _target.glow_level() > 0.5, "level %.2f" % _target.glow_level())
+	_done("hold")
 
 
 func _check_hits() -> void:
 	var by := {}
 	for h in _hits:
 		by[h[0]] = h
-	var cube_hit: bool = by.has(_cube)
-	_check("cube hits a basket", cube_hit,
-		("part=%s" % by[_cube][2]) if cube_hit else "no hit")
-	_check("cube is going home", not is_instance_valid(_cube) or _cube.collecting
-		or _cube.struck != null)
-	_done("hit_collider")
+	for pair in [["pole", _cube], ["tray bottom", _under]]:
+		var d: Node = pair[1]
+		_check("%s doesn't count" % pair[0], not by.has(d)
+			and is_instance_valid(d) and not d.collecting and d.struck == null,
+			("part=%s" % by[d][2]) if by.has(d) else "")
+	_check("pole cube bounced off", is_instance_valid(_cube)
+		and _cube.global_position.x < _target.global_position.x,
+		"x %+.2f m from the pole" % (_cube.global_position.x - _target.global_position.x))
+	_done("no_count")
 	var fly_hit: bool = by.has(_flyer)
-	_check("disc hits a basket", fly_hit,
+	_check("disc hits the chains", fly_hit and by[_flyer][2] == "chains",
 		("part=%s" % by[_flyer][2]) if fly_hit else "no hit")
 	_check("disc is going home", is_instance_valid(_flyer) and _flyer.collecting
 		or not is_instance_valid(_flyer))

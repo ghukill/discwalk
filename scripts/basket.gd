@@ -2,9 +2,11 @@ extends Node3D
 ## A disc golf basket: pole, tray, top band and chains, built from little
 ## 5 cm voxels. Nine of them stand in every glacial world (baskets.gd).
 ##
-## Hitting one: touch ANY part (pole, tray, band, chains) and the disc is
-## "struck". It starts the ordinary collect roll home (that disc only) and
-## the basket throws a shower of confetti. No holes, no scoring yet.
+## Hitting one: touch the CHAINS, or end up inside the cage (dropped into the
+## tray), and the disc is "struck". It starts the ordinary collect roll home
+## (that disc only) and the basket throws a shower of confetti. The top band,
+## pole and tray just bounce it off, as a real basket would. No holes, no
+## scoring yet.
 ##
 ## What touches what:
 ## - Pole and tray are ordinary collision shapes, so a disc clangs off the
@@ -20,14 +22,14 @@ extends Node3D
 ##   A force limit makes contact time decide: a putt dawdles through over
 ##   several ticks and is wrung out, a drive is past in one and keeps most of
 ##   its speed. sweep() still reports a proper "caught" for the day holes and
-##   scoring arrive; today any hit at all counts.
+##   scoring arrive; today any chain touch counts.
 ##
 ## Sizes are PDGA-ish and in METRES (from Henry's branch), independent of
 ## terrain.block_size. The look is voxels like everything else, but at
 ## VOXEL = 5 cm rather than the ground's 25 cm: at ground size the 0.635 m
 ## tray would be two and a half blocks across, which destroys the shape.
 
-signal hit(basket, disc, part)       ## Any touch: part is pole/tray/band/chains/cage.
+signal hit(basket, disc, part)       ## A counted hit: part is chains or cage.
 
 const Confetti := preload("res://scripts/confetti.gd")
 
@@ -42,6 +44,11 @@ const POLE_RADIUS := 0.05
 const CHAIN_COUNT := 12         ## Outer chains (plus half as many inner).
 
 const VOXEL := 0.05             ## Basket voxel edge (m).
+
+## A scoring disc is held in the chains this long before it rolls home
+## (thrower.gd), and the basket glows for the same beat.
+const HOLD_TIME := 1.0
+const GLOW_COLOR := Color(1.0, 0.82, 0.35)
 
 const COLOR_STEEL := Color(0.62, 0.64, 0.66)
 const COLOR_STEEL_DARK := Color(0.42, 0.44, 0.47)
@@ -68,11 +75,23 @@ const COLOR_BAND := Color(0.98, 0.78, 0.10)   ## Safety yellow, easy to pick out
 @export var sweep_step := 0.05
 ## Confetti cubes per hit.
 @export var confetti_count := 280
+## Glow: each hit adds a level, up to glow_max, held for HOLD_TIME after the
+## latest hit, then fading over glow_fade s. Emission + a small gold light
+## (so the ground lights up too, for when you can't see the top).
+@export var glow_max := 3.0
+@export var glow_fade := 0.6
+@export var glow_energy := 0.7         ## Emission per level.
+@export var glow_light := 1.6          ## Light energy per level.
 
 var terrain: Node3D
 var hits := 0                   ## Times struck this world (tests, curiosity).
 
 var _rng := RandomNumberGenerator.new()
+var _mat: StandardMaterial3D
+var _light: OmniLight3D
+var _glow := 0.0                ## Target level (hits stacked).
+var _glow_shown := 0.0          ## Smoothed toward _glow.
+var _glow_hold := 0.0
 
 static var _mesh: ArrayMesh     ## Built once, shared by every basket.
 
@@ -81,6 +100,7 @@ func _ready() -> void:
 	_build_visual()
 	_build_colliders()
 	_rng.randomize()
+	set_process(false)          # only while glowing
 
 
 ## Stand the basket on the ground under `at` (x/z used, y from the terrain).
@@ -97,6 +117,43 @@ func struck(disc: Node, part: String) -> void:
 	hits += 1
 	hit.emit(self, disc, part)
 	celebrate()
+	glow()
+
+
+## Light up: one more level (up to glow_max), held for HOLD_TIME.
+func glow() -> void:
+	_glow = minf(maxf(_glow, 0.0) + 1.0, glow_max)
+	_glow_hold = HOLD_TIME
+	if _light == null:
+		_light = OmniLight3D.new()
+		_light.name = "Glow"
+		_light.light_color = GLOW_COLOR
+		_light.omni_range = 4.0
+		_light.shadow_enabled = false
+		_light.position.y = (BAND_Y + TRAY_RIM_Y) * 0.5
+		add_child(_light)
+	_mat.emission_enabled = true
+	_light.visible = true
+	set_process(true)
+
+
+## Current glow level, 0 when dark (tests).
+func glow_level() -> float:
+	return _glow_shown
+
+
+func _process(delta: float) -> void:
+	if _glow_hold > 0.0:
+		_glow_hold -= delta
+	else:
+		_glow = maxf(_glow - delta * glow_max / glow_fade, 0.0)
+	_glow_shown = move_toward(_glow_shown, _glow, delta * 12.0)
+	_mat.emission_energy_multiplier = _glow_shown * glow_energy
+	_light.light_energy = _glow_shown * glow_light
+	if _glow <= 0.0 and _glow_shown <= 0.0:
+		_mat.emission_enabled = false
+		_light.visible = false
+		set_process(false)
 
 
 ## Confetti! Bursts up and out of the cage, flutters down, bounces, fades.
@@ -200,7 +257,9 @@ func _build_visual() -> void:
 	m.vertex_color_is_srgb = true      # colours are written in sRGB, like the rest
 	m.metallic = 0.2
 	m.roughness = 0.6
+	m.emission = GLOW_COLOR            # off until a hit (glow())
 	mi.material_override = m
+	_mat = m
 	add_child(mi)
 
 
@@ -310,7 +369,8 @@ static func _face(st: SurfaceTool, centre: Vector3, n: Vector3, col: Color) -> v
 
 
 ## Pole and tray are real static bodies. Chains and band are swept (see sweep).
-## Both carry a "basket" meta so disc.gd knows what it bumped into.
+## Both carry a "basket" meta so you can tell what a disc bumped into; neither
+## counts as a hit (bouncing off the bottom of the tray is not a basket).
 func _build_colliders() -> void:
 	var pole := StaticBody3D.new()
 	pole.name = "Pole"

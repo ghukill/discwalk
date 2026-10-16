@@ -24,6 +24,8 @@ const FLORA := preload("res://scripts/flora.gd")
 
 const SIZE := 0.22                   ## Block edge (m). About a disc's thickness x3.
 const COLOR := Color(1.0, 0.36, 0.1) ## Safety orange, easy to spot.
+## Basket sweep() parts that count as getting it in (band, pole, tray don't).
+const COUNTS_AS_HIT := ["chains", "cage"]
 
 ## Fraction of speed kept per metre of leaves flown through.
 @export var leaf_keep_per_metre := 0.72
@@ -51,6 +53,7 @@ var resting := false
 var max_height := 0.0                ## Peak height above release (m).
 var collecting := false
 var struck: Node = null              ## The basket this throw hit, if any.
+var holding := false                 ## Frozen in a basket's chains (hold()).
 var collect_target: Node3D
 var _collect_t := 0.0
 var _shape: CollisionShape3D
@@ -177,14 +180,15 @@ func _integrate_forces(state: PhysicsDirectBodyState3D) -> void:
 
 	# Baskets: the chains and top band are swept, not colliders, for the same
 	# reason leaves are (too thin, a fast disc would tunnel straight through).
-	# The first touch of any basket counts as a hit (pole and tray are real
-	# colliders and report through _on_body_entered instead).
+	# Only the chains, or ending up inside the cage, count as a hit. The band
+	# just clangs it back, and the pole and tray are plain colliders.
 	if struck == null and not collecting:
 		for basket: Node3D in terrain.baskets:
 			var res: Dictionary = basket.sweep(p, p + v * dt, v, mass, dt)
 			if res.hit != "":
 				v = res.v
-				_strike(basket, res.hit)
+				if res.hit in COUNTS_AS_HIT:
+					_strike(basket, res.hit)
 				break
 
 	v = _rescue_if_under(state, v, p, bs)
@@ -216,8 +220,21 @@ func _rescue_if_under(state: PhysicsDirectBodyState3D, v: Vector3, p: Vector3, b
 	return Vector3.ZERO
 
 
+## Freeze right where we are (a basket catch: a beat in the chains so you
+## can see it went in) until start_collect() lets go.
+func hold() -> void:
+	holding = true
+	linear_velocity = Vector3.ZERO
+	angular_velocity = Vector3.ZERO
+	freeze_mode = RigidBody3D.FREEZE_MODE_STATIC
+	freeze = true
+
+
 ## Start rolling home to `target` (the player).
 func start_collect(target: Node3D) -> void:
+	if holding:
+		holding = false
+		freeze = false
 	collecting = true
 	collect_target = target
 	_collect_t = 0.0
@@ -285,8 +302,6 @@ func _box_shape() -> BoxShape3D:
 func _on_body_entered(body: Node) -> void:
 	if body.name == "Trunks":
 		bark_hits += 1
-	elif body.has_meta("basket") and struck == null and not collecting:
-		_strike(body.get_meta("basket"), String(body.name).to_lower())
 
 
 ## We hit a basket: tell it (confetti) and whoever threw us (collect).
@@ -307,7 +322,7 @@ func _physics_process(delta: float) -> void:
 	if global_position.y < -30.0:
 		queue_free()
 		return
-	if resting or collecting:
+	if resting or collecting or holding:
 		return
 	var moving := linear_velocity.length()
 	if _in_water:

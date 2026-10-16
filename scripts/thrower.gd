@@ -27,8 +27,8 @@ extends Node
 ##            paths drift down and go poof, beams go out, new throws leave
 ##            none.
 ##   U        hide / show the throw HUD
-##   C        collect: every disc rolls home to you, building up speed
-##            (ignores chase and goto)
+##   C        collect: every disc rolls home to you, building up speed,
+##            and basket confetti flies in (ignores chase and goto)
 ##
 ## Controller (docs/CONTROLS.md): B throws the disc, RB + B a cube; Y is L;
 ## LB + X is collect (X alone crouches, player.gd).
@@ -242,10 +242,13 @@ func _track(disc: Node) -> void:
 		follow_cam.stop()               # was still watching an older throw
 
 
-## Sends every disc rolling home to the player. Ignores VIEW and WARP: the
+## Sends every disc rolling home to the player, and calls in all the basket
+## confetti too (it flies straight at you). Ignores VIEW and WARP: the
 ## camera stays with you and nobody warps anywhere.
 func collect() -> void:
 	follow_cam.stop()
+	for c in get_tree().get_nodes_in_group("confetti"):
+		c.collect(player)
 	_warp_target = null
 	var n := 0
 	for d in discs:
@@ -259,16 +262,25 @@ func collect() -> void:
 		_result_text = ""
 
 
-## A disc hit a basket: confetti is the basket's job; ours is to send that
-## one disc rolling home, exactly like C does for all of them.
-func _on_basket_hit(disc: Node, _basket: Node, part: String) -> void:
+## A disc hit a basket: confetti and glow are the basket's job; ours is to
+## hold the disc in the chains for a beat (so it reads as in, not bounced
+## out), then send it rolling home, exactly like C does for all of them.
+func _on_basket_hit(disc: Node, basket: Node, part: String) -> void:
+	if not is_instance_valid(disc) or disc.collecting:
+		return
+	disc.hold()
+	get_tree().create_timer(basket.HOLD_TIME).timeout.connect(_send_home.bind(disc))
+	basket_hits += 1
+	_note("BASKET!  (%s)" % part, 2.0)
+
+
+## Untyped: the disc may have been freed (or collected by C) meanwhile.
+func _send_home(disc) -> void:
 	if not is_instance_valid(disc) or disc.collecting:
 		return
 	disc.start_collect(player)
 	if not disc.collected.is_connected(_on_collected):
 		disc.collected.connect(_on_collected)
-	basket_hits += 1
-	_note("BASKET!  (%s)" % part, 2.0)
 
 
 ## A throw left the tree (collected home, fell off the world, cleared
