@@ -39,6 +39,7 @@ var _confirm := ""                   ## Mode waiting for a second press.
 func _ready() -> void:
 	layer = 20
 	process_mode = Node.PROCESS_MODE_ALWAYS
+	_ensure_pad_accept()
 	var dim := ColorRect.new()
 	dim.color = Color(0.03, 0.03, 0.04, 0.55)
 	dim.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -82,6 +83,18 @@ func _ready() -> void:
 	add_child(_controls)
 	_centre(_controls)
 	visible = false
+
+
+## Godot's built-in ui_accept is keys only (Enter, Space), so a controller
+## could move the focus with the D-pad but never press a button. Add A.
+static func _ensure_pad_accept() -> void:
+	for e in InputMap.action_get_events("ui_accept"):
+		if e is InputEventJoypadButton and e.button_index == JOY_BUTTON_A:
+			return
+	var ev := InputEventJoypadButton.new()
+	ev.button_index = JOY_BUTTON_A
+	ev.device = -1   # any controller
+	InputMap.action_add_event("ui_accept", ev)
 
 
 func _centre(c: Control) -> void:
