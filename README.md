@@ -208,13 +208,14 @@ Done:
 - [x] **Throw HUD** ([spec](docs/THROW-HUD.md)): the T panel is gone. A small warm cockpit block in the lower right shows a tilting 3D disc, ✋ for backhand/forehand, speed + spin bars, heading + horizon dials and the Chase view / Goto / Paths lamps. Arrows tilt, Shift+arrows speed/spin, X spin lock, R flat, H hand, Tab discs, click/Enter throw, right click cube, G goto (was Z), U hides the HUD, -/= resize it. Launch offset removed: the view is the launch angle
 - [x] **Distance course** (`--world=distance`): flat field with painted distance arcs; worlds can be non-square
 
+- [x] **Game controller support** ([CONTROLS.md](docs/CONTROLS.md)): sticks walk and look, face buttons throw / jump / crouch / launch, D-pad sets up the throw, RB and LB hold pages for speed/spin and disc/collect/circle/overview
 - [x] **Courses and holes**: a world is a course, its baskets are holes with painted tee pads; a menu (Free Play / Course Play); Course Play counts strokes, goto walks you to your disc and faces the basket (or walk there yourself), a 1 m shot circle, walking to the next tee, a hole overview (M)
 
 Next (pick any):
 - [ ] Menu, more: New world, **Display** sub-menu (fullscreen toggle to start)
 - [ ] Course Play, more: scorecard + par, OB / water penalties, mandos, tee signs, smarter hole order (2-opt) and fairways
 - [ ] **Wind**: static vector to start (the flight model already subtracts it), maybe gusts; a wind arrow on the dials; drives cloud drift
-- [ ] Throw HUD follow-ups: a better nose display (try it, iterate), a mouse-drag option, controller mapping
+- [ ] Throw HUD follow-ups: a better nose display (try it, iterate), a mouse-drag option
 - [ ] Golf-disc damping coefficients (Turner 2025, requested) in place of Hummel's Frisbee values; per-disc mass
 - [ ] Picture-in-picture follow cam
 - [ ] Discs resting in trees
@@ -225,7 +226,6 @@ Next (pick any):
 
 Explore later:
 - [ ] **Export + import worlds**: write a world to a file (seed + settings, plus anything hand-edited or placed, e.g. discs, baskets) and load it back. That's the foundation for **pre-made worlds** shipped as files you pick at startup, e.g. a **flat distance world**: long and narrow, no plants, no lakes, distance markings in the ground
-- [ ] **Game controller support** (Graham has ideas): left stick walk, right stick look, triggers/buttons for throw, chase, paths, goto; d-pad for tilt, shoulder buttons for speed (the throw HUD keys map straight across)
 - [ ] **Single-file builds**: Godot export for Linux (one binary with the game data embedded) and macOS (a universal .app, zipped), built headless on the T480
 - [ ] **Web build (WASM)**: Godot web export, single-threaded so it works on GitHub Pages/itch. Needs the Compatibility (WebGL2) renderer instead of Forward+ (check shadows, lakes, shaders), URL params instead of CLI flags (`?block=0.25&clouds=0`), a loading screen, probably 0.5 m blocks by default on the web, and a check that Jolt is in the web build
 - [ ] **Distance throwing zone**: a field marked with distance lines in the ground, either near one edge of every world (e.g. the west edge) or, better, its own pre-made world (which opens the door to hand-made/pre-made worlds generally)
