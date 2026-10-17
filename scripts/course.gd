@@ -208,6 +208,31 @@ static func _paint_local(t: Node3D, out: PackedByteArray, c: Vector2, fwd: Vecto
 					out[iz * t.size_x + ix] = k
 
 
+## Waypoints for walking from -> to (m): round any lake the straight line
+## would cross. Course Play's walk to the next tee, and goto's walk to your
+## disc (thrower.gd).
+static func route(t: Node3D, from: Vector3, to: Vector3) -> Array[Vector3]:
+	var out: Array[Vector3] = []
+	var a := Vector2(from.x, from.z)
+	var b := Vector2(to.x, to.z)
+	var lakes: Array = t.lakes.duplicate()
+	var nearer := func(l1, l2): return a.distance_to(l1.center) < a.distance_to(l2.center)
+	lakes.sort_custom(nearer)
+	for lake in lakes:
+		var c: Vector2 = lake.center
+		var r: float = lake.radius + 4.0
+		var q := Geometry2D.get_closest_point_to_segment(c, a, b)
+		if q.distance_to(c) >= r:
+			continue
+		var side := q - c
+		if side.length() < 0.1:
+			side = (b - a).orthogonal()
+		var w := c + side.normalized() * r
+		out.append(Vector3(w.x, t.height_at(w.x, w.y), w.y))
+		a = w
+	return out
+
+
 ## Flat forward (x, z) for a yaw (0 = -z, like a Node3D's rotation.y).
 static func _fwd(yaw: float) -> Vector2:
 	return Vector2(-sin(yaw), -cos(yaw))

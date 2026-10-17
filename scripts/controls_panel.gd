@@ -44,7 +44,7 @@ const RIGHT := [
 	]],
 	["Course Play", [
 		["hole overview", "M", "LB + B"],
-		["skip the walk to the tee", "move / throw", "move / throw"],
+		["skip a walk (to the tee, to your disc)", "move / throw", "move / throw"],
 	]],
 	["World and display", [
 		["controls (this)", "?", "menu → Controls"],

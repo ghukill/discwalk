@@ -71,9 +71,9 @@ A tap moves one fine step (0.5° nose, 1° hyzer, 0.5 m/s, 2 rad/s spin); hold t
 | Key | Action |
 |---|---|
 | V | **Chase view** lamp (starts off): the camera chases every throw through its flight and ground play, then snaps back to you, unmoved, once it stops. Off mid-flight snaps back now |
-| G | **Goto** lamp (starts off): once a throw stops, you're moved to it, standing just behind it facing down the fairway (a lake puts you on the shore). Off mid-flight cancels it. **Chase + Goto**: watch the flight, then end up there |
+| G | **Goto** lamp (starts off): once a throw stops, you're walked over to it at a jog, ending up just behind it facing down the fairway (a lake puts you on the shore). Any move or throw key skips the walk. Off mid-flight cancels it; off mid-walk stops you there. **Chase + Goto**: watch the flight, then go there |
 | P | **Paths** lamp (starts on): flight paths *and* the beams over resting discs. Every disc throw leaves a trail of little cubes in its own colour (bright in the air, dimmer for skips and rolls). The cubes are see-through, start about 1 m from where you threw (fading in), and fade away when the camera gets within a few metres, so a pile of paths from the same tee never fills your view. Off: beams go out, paths drift down and go *poof* |
-| O | **Shot circle** lamp (starts off; on in Course Play): after a goto, you're held within 1 m of where the disc stopped (a faint ring shows it) |
+| O | **Shot circle** lamp (starts off; on in Course Play): once you're at your lie, you're held within 1 m of where the disc stopped (a faint ring shows it) |
 | M | **hole overview** (Course Play): the camera flies up over the hole and back |
 | C | **collect**: every disc rolls home to you, slow at first then faster. Trunks and cliffs block them unless they have the momentum. Basket confetti flies straight in too |
 | ? | show / hide the **controls** overlay, keyboard and controller (also in the menu). The top left only says "Press ? for controls" |
@@ -123,10 +123,11 @@ In Course Play:
 
 - You start on hole 1's tee, facing down the pad. **Goto** and the **shot circle** start on.
 - Every disc you throw is a stroke (cubes and launches are toys). Top left: `Hole 3 / 9 · 92 m · Strokes 2 · Total 9`.
-- Goto stands you a step behind your disc, **facing the basket** (left/right and up/down), and picks the disc up.
-- **Shot circle (O)**: after a goto you can't walk more than 1 m from where your disc stopped; a faint ring on the ground shows it. Turn it off for friendly play and roam free; on again puts you back round the same lie. It's a toggle in Free Play too.
+- Goto **walks you to your disc** (round lakes; a move or throw key skips the walk), stands you a step behind it **facing the basket** (left/right and up/down), and picks the disc up.
+- **Goto off**: walk there yourself. A ring marks where your disc lies; step into it and the disc is picked up. With the shot circle on you can't throw a disc till you're there. G on meanwhile walks you over.
+- **Shot circle (O)**: once you're at your lie you can't walk more than 1 m from where your disc stopped; a faint ring on the ground shows it. Turn it off for friendly play: roam free, throw from anywhere. On again puts you back round the same lie. It's a toggle in Free Play too.
 - Get it in **this hole's** chains: confetti, then "Walking to next hole..." and you're walked to the next tee (around lakes; any move or throw key skips it). Other holes' baskets are just for fun.
-- **M** (LB + B): the **hole overview**. The camera flies up until the tee (white ring), the basket (yellow ring) and you (blue ring) are all in view, so you can see the lie of the land. M again flies back down.
+- **M** (LB + B): the **hole overview**. The camera flies up until the tee (white ring), the basket (yellow ring), you (blue ring) and your lie if you're not at it (pink ring) are all in view, so you can see the lie of the land. M again flies back down.
 - After the last hole: "Round complete!" with your total, and you're free to roam.
 
 A course with no holes (the distance course, `--no-baskets`) only has Free Play.
@@ -207,7 +208,7 @@ Done:
 - [x] **Throw HUD** ([spec](docs/THROW-HUD.md)): the T panel is gone. A small warm cockpit block in the lower right shows a tilting 3D disc, ✋ for backhand/forehand, speed + spin bars, heading + horizon dials and the Chase view / Goto / Paths lamps. Arrows tilt, Shift+arrows speed/spin, X spin lock, R flat, H hand, Tab discs, click/Enter throw, right click cube, G goto (was Z), U hides the HUD, -/= resize it. Launch offset removed: the view is the launch angle
 - [x] **Distance course** (`--world=distance`): flat field with painted distance arcs; worlds can be non-square
 
-- [x] **Courses and holes**: a world is a course, its baskets are holes with painted tee pads; a menu (Free Play / Course Play); Course Play counts strokes, goto faces the basket, a 1 m shot circle, walking to the next tee, a hole overview (M)
+- [x] **Courses and holes**: a world is a course, its baskets are holes with painted tee pads; a menu (Free Play / Course Play); Course Play counts strokes, goto walks you to your disc and faces the basket (or walk there yourself), a 1 m shot circle, walking to the next tee, a hole overview (M)
 
 Next (pick any):
 - [ ] Menu, more: New world, **Display** sub-menu (fullscreen toggle to start)

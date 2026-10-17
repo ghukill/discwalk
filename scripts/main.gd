@@ -45,6 +45,9 @@ func _ready() -> void:
 	_apply_ui_scale()
 	get_tree().root.size_changed.connect(_apply_ui_scale)
 	_setup_throwing()
+	for a in OS.get_cmdline_user_args():
+		if a == "--goto=warp":
+			thrower.goto_walk = false
 	_setup_controls()
 	_setup_round()
 	var want := ""

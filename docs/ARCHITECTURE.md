@@ -10,8 +10,8 @@ scenes/main.tscn         The one scene: sky/environment, sun, Terrain, Player, H
 scripts/main.gd          Glue: spawns the player, "? for controls" hint + overlay toggle, HUD scale (-/=, --ui-scale), N = new world, --debug-keys, Free / Course Play (--mode)
 scripts/menu.gd          The game menu (title screen + Esc): Resume, Free Play, Course Play, Controls, Quit; pauses the tree
 scripts/course.gd        Lays out a course over the baskets: hole order, a tee pad per hole, paints pads + hole numbers
-scripts/course_round.gd  Course Play: current hole, strokes, goto faces the basket, hole out -> walk to the next tee, hole overview (M)
-scripts/shot_circle.gd   A ring of flat squares on the ground: the shot circle, and the overview's tee/basket/you markers
+scripts/course_round.gd  Course Play: current hole, strokes, goto faces the basket, picks up your disc, hole out -> walk to the next tee, hole overview (M)
+scripts/shot_circle.gd   A ring of flat squares on the ground: the shot circle, the lie marker, and the overview's tee/basket/you/lie markers
 scripts/terrain.gd       Height field, kettle lakes, chunk meshes, water, collision
 scripts/flora.gd         Oaks (voxel trees) and wildflowers (MultiMesh)
 scripts/voxel_mesh.gd    Greedy face merging + quad/mesh helpers (shared)
@@ -37,7 +37,7 @@ shaders/sway.gdshader    Wind sway for flowers (and grass, later)
 tools/smoke_test.gd      Headless PASS/FAIL check
 tools/basket_test.gd     Headless baskets: nine sited and spread, chain model, band/pole/tray don't count, a chain hit collects that disc + confetti that stays: PASS/FAIL
 tools/basket_shots.gd    Screenshots: a basket close and at putting distance, confetti in the air and landed
-tools/course_test.gd     Headless courses + Course Play: holes and tees, strokes, goto facing, shot circle, hole out + walk, overview: PASS/FAIL
+tools/course_test.gd     Headless courses + Course Play: holes and tees, strokes, goto walk + facing, walking in yourself, shot circle, hole out + walk, overview: PASS/FAIL
 tools/course_shots.gd    Screenshots: hole 1 from its tee, the pad, the shot circle, the overview, the menu
 tools/screenshot.gd      Renders PNG views incl. one portrait per oak form (needs a display/GPU)
 tools/tree_gallery.gd    Flat-ground lineup of every oak form, for tuning trees
@@ -99,9 +99,9 @@ A glacial world is a **course**: `baskets.gd` sites the nine baskets, then `cour
 
 Generation order matters: trees first (tees and baskets avoid them), then baskets + tees, then `Course.paint()` into the paint layer, then the ground meshes (so the pads are just voxel colours, like the distance course), then flowers (kept off painted columns).
 
-Free Play and Course Play share the course. `main.start_mode()` switches: Course Play is `course_round.start()` (goto + shot circle on, hole 1's tee), Free Play turns those off and stands you at the spawn. `course_round.gd` hooks into the thrower through `thrower.course_round` (`goto_aim()`: face the basket after a goto) and three signals: `thrown` (a disc = a stroke), `warped` (pick the disc up), `basket_scored` (this hole's basket = hole out). Holing out locks throwing (`thrower.locked`), shows the banner, then `player.walk()` to the next tee with lake-dodging waypoints; a move/throw key or getting stuck puts you straight there.
+Free Play and Course Play share the course. `main.start_mode()` switches: Course Play is `course_round.start()` (goto + shot circle on, hole 1's tee), Free Play turns those off and stands you at the spawn. `course_round.gd` hooks into the thrower through `thrower.course_round` (`goto_aim()`: face the basket after a goto) and three signals: `thrown` (a disc = a stroke), `reached` (you're at your lie, by goto or on foot: pick the disc up), `basket_scored` (this hole's basket = hole out). Holing out locks throwing (`thrower.locked`), shows the banner, then `player.walk()` to the next tee with lake-dodging waypoints; a move/throw key or getting stuck puts you straight there. The walking itself is `player.walk(to, route, speed)`, which goto uses too; `Course.route()` makes the lake-dodging waypoints.
 
-The **shot circle** belongs to the thrower (it's a toggle in both modes): a goto sets the lie (`set_lie()`), and while the toggle is on `player.set_tether()` clamps you to 1 m of it after `move_and_slide()`. A throw with goto off, a launch, or a new tee releases it.
+The **shot circle** belongs to the thrower (it's a toggle in both modes). Your **lie** is where your last throw stopped (`_goto_spot()`: the disc, or the shore for a splash). A goto marks it (`_mark_lie()`), walks you over and then you've *reached* it (`_reach_lie()`, the `reached` signal). In Course Play the lie is marked with goto off too, when the disc comes to rest (`_on_rest()`): a brighter `LieMarker` ring shows it, and walking into it is reaching it. Only a reached lie holds you: while the toggle is on, `player.set_tether()` clamps you to 1 m of it after `move_and_slide()`. With the circle on and the lie not reached yet, `must_walk()` turns away disc throws from the keys and pad (`throw_disc()` itself, which tools call, doesn't check). G on with an unreached lie walks you there. A throw with goto off, a launch, or a new tee releases the lie.
 
 The **hole overview** (M) is a second camera in `course_round.gd`, tweened from the walker's camera to a tilted view along tee → basket that fits tee, basket and you; clouds hide and fog thins while it's up, and the walker is frozen.
 
@@ -288,4 +288,4 @@ Altitudes: the 3 lowest (`low_count`) are smaller puffs (0.6×) 18–30 m above 
 
 ### Goto (G toggle, `thrower.set_warp()`)
 
-The first piece of "walk to your lie". With Goto on, each throw becomes `_warp_target` and the Goto lamp breathes while everything else (chase view, walking, throwing) carries on. When it rests, `_do_warp()` stands you 1.2 m behind it on the line back to where it was thrown from, facing down that line, with a brief soft white flash and a "goto N m" note. A disc floating in a lake puts you on the nearest dry ground back along that line. G off while waiting cancels; the disc being collected or removed, or launching with it (L), also cancels. If chase view is on, the camera hands back on rest in the same frame, so you see the arrival from the walker's eyes.
+The first piece of "walk to your lie". With Goto on, each throw becomes `_warp_target` and the Goto lamp breathes while everything else (chase view, walking, throwing) carries on. When it rests, `_do_warp()` works out a spot 1.2 m behind it on the line back to where it was thrown from and walks you there (`player.walk()` at `GOTO_SPEED`, 7 m/s, round lakes; a "walking to your disc" note counts down the metres). On arrival you turn smoothly (`player.face(target, secs)`) down that line and get a "goto N m" note. A move or throw key mid-walk, or getting stuck, puts you there at once with a brief soft white flash, as does `goto_walk = false` (`--goto=warp`; the older tests use it). G off mid-walk stops you where you are. A disc floating in a lake puts you on the nearest dry ground back along that line. G off while waiting cancels; the disc being collected or removed, or launching with it (L), also cancels. If chase view is on, the camera hands back on rest in the same frame, so you see the arrival from the walker's eyes.

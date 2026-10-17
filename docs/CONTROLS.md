@@ -68,16 +68,16 @@ A tap moves one fine step (0.5° nose, 1° hyzer, 0.5 m/s speed, 2 rad/s spin). 
 | Action | Keyboard | Controller |
 |---|---|---|
 | Chase view (camera follows each throw) | V | Right stick click (the look stick) |
-| Goto (moved to each throw once it stops; "warp" in code) | G | Left stick click (the walk stick) |
+| Goto (walked to each throw once it stops; "warp" in code) | G | Left stick click (the walk stick) |
 | Paths + rest beams | P | Share button |
-| Shot circle (after a goto, held within 1 m of the lie; a faint ring shows it) | O | **LB** (hold) + Y |
+| Shot circle (at your lie, held within 1 m of it; a faint ring shows it) | O | **LB** (hold) + Y |
 
 ## Course Play
 
 | Action | Keyboard | Controller |
 |---|---|---|
 | Hole overview (camera flies up over tee, basket and you; again to come back) | M | **LB** (hold) + B |
-| Skip the walk to the next tee | any move key, Space, or a throw | left stick, A, or B |
+| Skip the walk to the next tee, or goto's walk to your disc | any move key, Space, or a throw | left stick, A, or B |
 
 ## World and display
 

@@ -7,17 +7,20 @@ extends Node
 ##     circle start on (both still toggle, for friendly play).
 ##   - Every disc you throw is a stroke (cubes and launches are toys and
 ##     don't count).
-##   - A goto stands you a step behind your disc facing the basket (left /
-##     right and up / down), and picks the disc up.
+##   - A goto walks you to your disc and stands you a step behind it facing
+##     the basket (left / right and up / down). Goto off, you walk there
+##     yourself: a ring marks the lie, and stepping into it picks the disc
+##     up (with the shot circle on, no throwing a disc until you have).
 ##   - A disc in THIS hole's basket holes out: the confetti flies, then
 ##     "Walking to next hole..." and you're walked to the next tee. Moving
 ##     or throwing skips the walk. Another hole's basket is just for fun.
 ##   - M (controller LB + B): the hole overview. The camera flies up until
-##     tee, basket and you are all in view, with big rings on each; M again
+##     tee, basket, you (and your lie) are all in view, with big rings on each; M again
 ##     flies back down.
 ## After the last hole: "Round complete!" and you roam free.
 
 const ShotCircle := preload("res://scripts/shot_circle.gd")
+const Course := preload("res://scripts/course.gd")
 
 signal finished(strokes)
 
@@ -57,7 +60,7 @@ func _ready() -> void:
 	_ov_cam.far = 1200.0
 	add_child(_ov_cam)
 	var looks := [[Color(1.0, 1.0, 1.0, 0.95), 4.0], [Color(1.0, 0.82, 0.2, 0.95), 4.0],
-		[Color(0.55, 0.85, 1.0, 0.95), 2.5]]      # tee, basket, you
+		[Color(0.55, 0.85, 1.0, 0.95), 2.5], [Color(1.0, 0.55, 0.85, 0.95), 2.5]]   # tee, basket, you, lie
 	for l in looks:
 		var r := ShotCircle.new()
 		r.terrain = terrain
@@ -71,7 +74,7 @@ func _ready() -> void:
 	player.walk_done.connect(_arrive)
 	player.walk_stuck.connect(_arrive)
 	thrower.thrown.connect(_on_thrown)
-	thrower.warped.connect(_on_warped)
+	thrower.reached.connect(_on_reached)
 	thrower.basket_scored.connect(_on_scored)
 
 
@@ -114,6 +117,11 @@ func stop() -> void:
 		label.visible = false
 
 
+## True while you're playing a hole (on its tee or out on it).
+func in_hole() -> bool:
+	return active and (state == "tee" or state == "playing")
+
+
 ## Where a goto should face: the current basket's chains, while you're
 ## playing a hole (null otherwise, and the goto faces down the throw).
 func goto_aim():
@@ -149,10 +157,10 @@ func _on_thrown(disc: Node) -> void:
 	state = "playing"
 
 
-## Course Play picks your disc up when goto puts you at it (it's back in
-## your hand for the next throw).
-func _on_warped(disc: Node, _lie: Vector3) -> void:
-	if active and (state == "tee" or state == "playing") and is_instance_valid(disc):
+## Course Play picks your disc up when you get to it (goto or on foot):
+## it's back in your hand for the next throw. Untyped: may be freed.
+func _on_reached(disc, _lie: Vector3) -> void:
+	if in_hole() and is_instance_valid(disc):
 		disc.queue_free()
 
 
@@ -183,29 +191,7 @@ func _after_hole_out() -> void:
 	state = "walking"
 	_show_banner("Walking to next hole...", 1e9)
 	var to := tee_spot(holes()[hole + 1])
-	player.walk(to, _route(player.global_position, to))
-
-
-## Waypoints round any lake the straight line would cross.
-func _route(from: Vector3, to: Vector3) -> Array[Vector3]:
-	var out: Array[Vector3] = []
-	var a := Vector2(from.x, from.z)
-	var b := Vector2(to.x, to.z)
-	var lakes: Array = terrain.lakes.duplicate()
-	lakes.sort_custom(func(l1, l2): return a.distance_to(l1.center) < a.distance_to(l2.center))
-	for lake in lakes:
-		var c: Vector2 = lake.center
-		var r: float = lake.radius + 4.0
-		var q := Geometry2D.get_closest_point_to_segment(c, a, b)
-		if q.distance_to(c) >= r:
-			continue
-		var side := q - c
-		if side.length() < 0.1:
-			side = (b - a).orthogonal()
-		var w := c + side.normalized() * r
-		out.append(Vector3(w.x, terrain.height_at(w.x, w.y), w.y))
-		a = w
-	return out
+	player.walk(to, Course.route(terrain, player.global_position, to))
 
 
 ## On the next tee: either walked all the way, or skipped / stuck (then
@@ -273,6 +259,11 @@ func _start_overview() -> void:
 	_ov_rings[0].show_at(tee)
 	_ov_rings[1].show_at(bk)
 	_ov_rings[2].show_at(me)
+	var pts := [tee, bk, me]
+	var lie: Vector3 = thrower.lie()
+	if thrower.has_lie() and Vector2(lie.x - me.x, lie.z - me.z).length() > 2.0:
+		_ov_rings[3].show_at(lie)       # still to walk to
+		pts.append(lie)
 	if clouds != null:
 		_ov_clouds = clouds.visible
 		clouds.visible = false
@@ -283,7 +274,6 @@ func _start_overview() -> void:
 	var along := Vector3(bk.x - tee.x, 0, bk.z - tee.z)
 	along = along.normalized() if along.length() > 1.0 else Vector3.FORWARD
 	var side := along.cross(Vector3.UP)
-	var pts := [tee, bk, me]
 	var mid := Vector3.ZERO
 	for p in pts:
 		mid += p

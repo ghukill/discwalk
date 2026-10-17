@@ -36,15 +36,17 @@ var _stand_height := 1.8
 ## that (flat) from tether_center. You slide round the edge instead.
 var tether_center := Vector3.ZERO
 var tether_radius := 0.0
-## Course Play's "walking to the next hole" (course_round.gd): while set, the walker
-## heads for walk_to itself (your keys don't move it; looking still works)
-## and walk_done fires on arrival. walk_stuck fires if it stops getting
+## Walking for you: Course Play's walk to the next tee (course_round.gd) and
+## goto's walk to your disc (thrower.gd). While set, the walker heads for
+## walk_to itself (your keys don't move it; looking still works) and
+## walk_done fires on arrival. walk_stuck fires if it stops getting
 ## anywhere (a cliff, a trunk).
 signal walk_done
 signal walk_stuck
 var walking := false
 var walk_to := Vector3.ZERO
-var walk_speed_auto := 5.0
+var walk_speed_auto := 5.0      ## This walk's pace (m/s; walk() sets it).
+var _turn: Tween                 ## face() turning you smoothly.
 var _walk_route: Array[Vector3] = []
 var _walk_check := Vector3.ZERO
 var _walk_check_t := 0.0
@@ -72,6 +74,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		return
 	if event is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
 		_look_t = 0.0
+		_stop_turn()
 		rotate_y(-event.relative.x * mouse_sensitivity)
 		head.rotate_x(-event.relative.y * mouse_sensitivity)
 		head.rotation.x = clampf(head.rotation.x, deg_to_rad(-88), deg_to_rad(88))
@@ -104,6 +107,7 @@ func _process(delta: float) -> void:
 	if look == Vector2.ZERO:
 		return
 	_look_t = 0.0
+	_stop_turn()
 	look *= look.length() * stick_look_speed * delta
 	rotate_y(-look.x)
 	head.rotate_x(-look.y)
@@ -186,9 +190,11 @@ func clear_tether() -> void:
 	tether_radius = 0.0
 
 
-## Walk yourself to `to` (m) along `route` (waypoints before it, if any).
-func walk(to: Vector3, route: Array[Vector3] = []) -> void:
+## Walk yourself to `to` (m) along `route` (waypoints before it, if any),
+## at `speed` m/s.
+func walk(to: Vector3, route: Array[Vector3] = [], speed := 5.0) -> void:
 	walk_to = to
+	walk_speed_auto = speed
 	_walk_route = route.duplicate()
 	_walk_route.append(to)
 	walking = true
@@ -237,19 +243,39 @@ func _flat_to(p: Vector3) -> Vector2:
 	return Vector2(p.x - global_position.x, p.z - global_position.z)
 
 
-## Turn (left/right and up/down) so your eyes look straight at `target`.
-func face(target: Vector3) -> void:
+## Turn (left/right and up/down) so your eyes look straight at `target`,
+## at once or over `secs`.
+func face(target: Vector3, secs := 0.0) -> void:
 	var d := target - global_position
-	rotation.y = atan2(-d.x, -d.z)
-	var eye := head.global_position
-	var e := target - eye
+	var yaw := atan2(-d.x, -d.z)
+	var e := target - head.global_position
 	var flat := Vector2(e.x, e.z).length()
-	head.rotation.x = clampf(atan2(e.y, flat), deg_to_rad(-88), deg_to_rad(88))
+	var pitch := clampf(atan2(e.y, flat), deg_to_rad(-88), deg_to_rad(88))
+	_stop_turn()
+	if secs <= 0.0:
+		rotation.y = yaw
+		head.rotation.x = pitch
+		return
+	var y0 := rotation.y
+	var p0 := head.rotation.x
+	var turn := func(k: float) -> void:
+		rotation.y = lerp_angle(y0, yaw, k)
+		head.rotation.x = lerpf(p0, pitch, k)
+	_turn = create_tween().set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	_turn.tween_method(turn, 0.0, 1.0, secs)
+
+
+## Looking yourself (or being put somewhere) wins over a face() turn.
+func _stop_turn() -> void:
+	if _turn != null:
+		_turn.kill()
+		_turn = null
 
 
 ## `yaw` (radians, 0 = facing -z) turns the walker too; NAN keeps the facing.
 func respawn(at: Vector3, yaw := NAN) -> void:
 	global_position = at
+	_stop_turn()
 	if not is_nan(yaw):
 		rotation.y = yaw
 		head.rotation.x = 0.0

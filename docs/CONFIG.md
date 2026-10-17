@@ -28,6 +28,7 @@ Command-line flags override the scene and the code defaults.
 | Flag | Default | What it does |
 |---|---|---|
 | `--block-size=<m>` | `0.25` | Edge length of one voxel. Bigger = chunkier but faster to build and lighter on memory (`0.5`, `1`). Valid range: 0.125 to 4. |
+| `--goto=warp` | (walk) | Goto puts you at your disc at once, the old way, instead of walking you over. |
 | `--mode=<mode>` | (menu) | Skip the menu: `free` (Free Play) or `course` (Course Play, a round over the course's holes). Without it the game opens on the menu. Tools that build the scene themselves start in Free Play. |
 | `--world=<kind>` | `glacial` | Which world to build: `glacial` (from the seed) or `distance` (the flat [distance course](#distance-course)). |
 | `--debug-keys` | off | Prints every key press/release to stdout. Useful for diagnosing remote input (VNC). |

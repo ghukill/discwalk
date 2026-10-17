@@ -6,8 +6,11 @@ extends SceneTree
 ##  tee:      Course Play starts on hole 1's tee facing down it, GOTO and
 ##            the shot circle on
 ##  stroke:   a disc counts, a cube doesn't
-##  goto:     you end up a step behind the disc facing the basket (left /
-##            right and up / down), the disc is picked up, circle on the lie
+##  goto:     you're walked over (not put there), end up a step behind the
+##            disc facing the basket (left / right and up / down), the disc
+##            is picked up, circle on the lie; a move key skips the walk
+##  on foot:  goto off, the lie gets a ring, no disc throw till you're in it
+##            (circle on), stepping in picks the disc up; G on walks you there
 ##  circle:   walking can't take you past 1 m; off = free; on again = back
 ##            round the lie
 ##  basket:   another hole's basket doesn't finish the hole; this one does,
@@ -15,7 +18,8 @@ extends SceneTree
 ##            and a move key skips you onto it (strokes back to 0)
 ##  overview: M flies the camera up over the hole and back
 ##  end:      holing the last hole ends the round
-##  free:     Free Play turns it all off (goto faces down the throw again)
+##  free:     Free Play turns it all off (goto walks you over facing down
+##            the throw again)
 ##
 ##   godot --headless --path . --script res://tools/course_test.gd [-- --block-size=0.5]
 
@@ -117,6 +121,31 @@ func _disc_params() -> Dictionary:
 	return p
 
 
+## Waits until a throw has stopped (or ~20 s).
+func _await_rest(d) -> bool:
+	for i in 60 * 20:
+		await physics_frame
+		if not is_instance_valid(d) or d.resting:
+			return is_instance_valid(d)
+	return false
+
+
+## Throw away from the basket (so test throws never hole out by accident).
+func _turn_away(h: Dictionary) -> void:
+	_pl.face(h.basket.global_position)
+	_pl.rotation.y += PI
+	_pl.get_node("Head").rotation.x = 0.0
+
+
+## An action press + release, through the input queue like a real key.
+func _tap(action: String) -> void:
+	for down in [true, false]:
+		var ev := InputEventAction.new()
+		ev.action = action
+		ev.pressed = down
+		Input.parse_input_event(ev)
+
+
 ## Waits until the goto after the last throw has happened (or ~20 s).
 func _await_goto(warps0: int) -> bool:
 	for i in 60 * 20:
@@ -143,7 +172,15 @@ func _test_play() -> void:
 	var warps0: int = _th.warps
 	var d = _th.throw_disc(_disc_params())
 	_check("disc counts", _r.strokes == 1 and _r.state == "playing")
+	await _await_rest(d)
+	await _frames(3)
+	var p0 := _pl.global_position
+	await _frames(30)
+	var stepped := _flat(_pl.global_position, p0)
+	_check("goto walks you over", _th.going() and _pl.walking and stepped > 1.5 and stepped < 5.0,
+		"%.1f m in 0.5 s" % stepped)
 	var went: bool = await _await_goto(warps0)
+	await _frames(40)                   # the turn to the basket
 	var bk: Vector3 = h1.basket.global_position
 	var to_b := bk - _pl.global_position
 	var yaw_ok := absf(angle_difference(_pl.rotation.y, atan2(-to_b.x, -to_b.z))) < 0.02
@@ -170,6 +207,65 @@ func _test_play() -> void:
 	_th.set_circle(true)
 	await _frames(2)
 	_check("circle on again: back round the lie", _flat(_pl.global_position, lie) <= 1.02)
+
+	# A move key skips the walk: you're put there.
+	_turn_away(h1)
+	warps0 = _th.warps
+	var d5 = _th.throw_disc(_disc_params())
+	await _await_rest(d5)
+	await _frames(10)
+	var walking5: bool = _th.going()
+	_tap("move_forward")
+	await _frames(2)
+	_check("move skips the goto walk", walking5 and _th.warps == warps0 + 1 and not _th.going()
+		and _th.lie_reached() and _flat(_pl.global_position, _th.lie()) <= 1.0)
+	await _frames(5)
+
+	# Goto off: walk there yourself.
+	_th.set_warp(false)
+	_turn_away(h1)
+	var n_discs: int = _th.discs.size()
+	var d6 = _th.throw_disc(_disc_params())
+	await _await_rest(d6)
+	await _frames(3)
+	var lie6: Vector3 = _th.lie()
+	_check("goto off: lie marked", _th.has_lie() and not _th.lie_reached() and _th.marker.visible
+		and not _th.circle.visible and _pl.tether_radius == 0.0 and _flat(lie6, d6.global_position) < 0.1,
+		"lie %s reached %s marker %s circle %s tether %.1f off %.2f m splashed %s" % [_th.has_lie(), _th.lie_reached(),
+		_th.marker.visible, _th.circle.visible, _pl.tether_radius, _flat(lie6, d6.global_position), d6.splashed])
+	var s6: int = _r.strokes
+	_tap("throw_disc")
+	await _frames(3)
+	_check("no throw till you're there", _r.strokes == s6 and _th.discs.size() == n_discs + 1)
+	var to6 := lie6 - _pl.global_position
+	to6.y = 0.0
+	_pl.respawn(lie6 - to6.normalized() * 3.0)
+	_pl.face(lie6 + Vector3(0, 1.6, 0))
+	Input.action_press("move_forward")
+	var in6 := false
+	for i in 120:
+		await physics_frame
+		if _th.lie_reached():
+			in6 = true
+			break
+	Input.action_release("move_forward")
+	await _frames(30)
+	var gone6: bool = not is_instance_valid(d6) or d6.is_queued_for_deletion()
+	_check("walk in: picked up, held", in6 and gone6 and _th.circle.visible and not _th.marker.visible
+		and _flat(_pl.global_position, lie6) <= 1.02)
+
+	# ...and G on with your disc out there walks you to it.
+	_turn_away(h1)
+	var d7 = _th.throw_disc(_disc_params())
+	await _await_rest(d7)
+	await _frames(3)
+	warps0 = _th.warps
+	_th.set_warp(true)
+	var going7: bool = _th.going()
+	went = await _await_goto(warps0)
+	_check("G on: walks you to it", going7 and went and _th.lie_reached()
+		and (not is_instance_valid(d7) or d7.is_queued_for_deletion()))
+	await _frames(40)
 
 	# Overview: the camera goes up, then comes back.
 	_r.set_overview(true)
@@ -248,6 +344,7 @@ func _test_free() -> void:
 	var warps0: int = _th.warps
 	var d = _th.throw_disc(_disc_params())
 	var went: bool = await _await_goto(warps0)
+	await _frames(40)                   # the turn down the throw
 	var faced := false
 	if went and is_instance_valid(d):
 		var dir := Vector3(d.global_position.x - d.start.x, 0, d.global_position.z - d.start.z).normalized()

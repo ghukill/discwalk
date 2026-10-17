@@ -56,6 +56,7 @@ func _process(_d: float) -> bool:
 		return false
 	var th = _main.thrower
 	th.assume_captured = true            # headless: no real mouse capture
+	th.goto_walk = false
 	var s = th.setup
 	var pl: CharacterBody3D = _main.get_node("Player")
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
