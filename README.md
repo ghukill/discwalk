@@ -73,13 +73,15 @@ A tap moves one fine step (0.5° nose, 1° hyzer, 0.5 m/s, 2 rad/s spin); hold t
 | V | **Chase view** lamp (starts off): the camera chases every throw through its flight and ground play, then snaps back to you, unmoved, once it stops. Off mid-flight snaps back now |
 | G | **Goto** lamp (starts off): once a throw stops, you're moved to it, standing just behind it facing down the fairway (a lake puts you on the shore). Off mid-flight cancels it. **Chase + Goto**: watch the flight, then end up there |
 | P | **Paths** lamp (starts on): flight paths *and* the beams over resting discs. Every disc throw leaves a trail of little cubes in its own colour (bright in the air, dimmer for skips and rolls). The cubes are see-through, start about 1 m from where you threw (fading in), and fade away when the camera gets within a few metres, so a pile of paths from the same tee never fills your view. Off: beams go out, paths drift down and go *poof* |
+| O | **Shot circle** lamp (starts off; on in Course Play): after a goto, you're held within 1 m of where the disc stopped (a faint ring shows it) |
+| M | **hole overview** (Course Play): the camera flies up over the hole and back |
 | C | **collect**: every disc rolls home to you, slow at first then faster. Trunks and cliffs block them unless they have the momentum. Basket confetti flies straight in too |
-| ? | show / hide the **controls** overlay, keyboard and controller (Menu on a controller). The top left only says "Press ? for controls" |
+| ? | show / hide the **controls** overlay, keyboard and controller (also in the menu). The top left only says "Press ? for controls" |
 | U | hide / show the throw HUD and the "? for controls" hint (screenshots, or just walking in the woods); just the crosshair stays |
 | - / = | HUD smaller / bigger (also `-- --ui-scale=1.5` at launch) |
-| N | roll a brand-new world |
+| N | roll a brand-new world (course); a round starts over on hole 1 |
 | K | clouds on/off (launch with `-- --no-clouds` to start without them) |
-| Esc | free the mouse (click to grab it again) |
+| Esc | the **menu** (pauses, frees the mouse): Resume, Free Play, Course Play, Controls, Quit |
 
 The HUD grows with the window (1× up to 900 px tall, then in proportion), so fullscreen on a big or Retina screen stays readable. If it's still small or too big, - / = adjust it.
 
@@ -108,9 +110,32 @@ A dead-flat field for measuring throws: tee pad on the south edge, chalk arcs ev
 
 See [docs/CONFIG.md](docs/CONFIG.md#distance-course).
 
+### Free Play and Course Play
+
+Launch the game and a menu asks how you want to play (`-- --mode=free` or `-- --mode=course` skips it; **Esc** brings it back any time, and pauses):
+
+1. **Free Play**: walk around and sling discs. The course is all there (tee pads, baskets), nothing is enforced.
+2. **Course Play**: play a round of disc golf over the course's holes.
+
+A glacial world is a **course**: its nine baskets are **holes**, played in order, each with a grey tee pad painted into the ground (its number beside it in yellow). Each tee is 40–150 m from its basket and faces roughly at it, give or take a few degrees, so the basket isn't always dead ahead.
+
+In Course Play:
+
+- You start on hole 1's tee, facing down the pad. **Goto** and the **shot circle** start on.
+- Every disc you throw is a stroke (cubes and launches are toys). Top left: `Hole 3 / 9 · 92 m · Strokes 2 · Total 9`.
+- Goto stands you a step behind your disc, **facing the basket** (left/right and up/down), and picks the disc up.
+- **Shot circle (O)**: after a goto you can't walk more than 1 m from where your disc stopped; a faint ring on the ground shows it. Turn it off for friendly play and roam free; on again puts you back round the same lie. It's a toggle in Free Play too.
+- Get it in **this hole's** chains: confetti, then "Walking to next hole..." and you're walked to the next tee (around lakes; any move or throw key skips it). Other holes' baskets are just for fun.
+- **M** (LB + B): the **hole overview**. The camera flies up until the tee (white ring), the basket (yellow ring) and you (blue ring) are all in view, so you can see the lie of the land. M again flies back down.
+- After the last hole: "Round complete!" with your total, and you're free to roam.
+
+A course with no holes (the distance course, `--no-baskets`) only has Free Play.
+
+![Hole overview](docs/screenshots/overview.jpg)
+
 ### Baskets
 
-Every glacial world has **nine baskets**, scattered from the seed about 65 m apart (clear of spawn, lakes, slopes and trees). They're built from 5 cm voxels at PDGA-ish size (band at 1.32 m, tray 0.635 m across). Get it in the chains (or drop it into the tray) and the basket glows gold while the disc hangs there for a second, then the disc rolls home on its own, just like **C**. A shower of rainbow confetti bursts out of the basket and settles on the ground around it, until **C** calls it all in (it whooshes up and soars over to you). The newest 100 bursts stay; past that the oldest fades. Clipping the top band, the pole or the bottom of the tray just bounces it off. No holes or scoring yet. `-- --no-baskets` leaves them out; the distance course has none.
+Every glacial world has **nine baskets**, scattered from the seed about 65 m apart (clear of spawn, lakes, slopes and trees). They're built from 5 cm voxels at PDGA-ish size (band at 1.32 m, tray 0.635 m across). Get it in the chains (or drop it into the tray) and the basket glows gold while the disc hangs there for a second, then the disc rolls home on its own, just like **C**. A shower of rainbow confetti bursts out of the basket and settles on the ground around it, until **C** calls it all in (it whooshes up and soars over to you). The newest 100 bursts stay; past that the oldest fades. Clipping the top band, the pole or the bottom of the tray just bounces it off. `-- --no-baskets` leaves them out; the distance course has none.
 
 ![Confetti bursting out of a basket](docs/screenshot-basket-confetti.png)
 
@@ -182,15 +207,17 @@ Done:
 - [x] **Throw HUD** ([spec](docs/THROW-HUD.md)): the T panel is gone. A small warm cockpit block in the lower right shows a tilting 3D disc, ✋ for backhand/forehand, speed + spin bars, heading + horizon dials and the Chase view / Goto / Paths lamps. Arrows tilt, Shift+arrows speed/spin, X spin lock, R flat, H hand, Tab discs, click/Enter throw, right click cube, G goto (was Z), U hides the HUD, -/= resize it. Launch offset removed: the view is the launch angle
 - [x] **Distance course** (`--world=distance`): flat field with painted distance arcs; worlds can be non-square
 
+- [x] **Courses and holes**: a world is a course, its baskets are holes with painted tee pads; a menu (Free Play / Course Play); Course Play counts strokes, goto faces the basket, a 1 m shot circle, walking to the next tee, a hole overview (M)
+
 Next (pick any):
-- [ ] **Menu** (Esc?): Resume, Help (screen of key bindings), New world, **Display** sub-menu (fullscreen toggle to start), Quit
+- [ ] Menu, more: New world, **Display** sub-menu (fullscreen toggle to start)
+- [ ] Course Play, more: scorecard + par, OB / water penalties, mandos, tee signs, smarter hole order (2-opt) and fairways
 - [ ] **Wind**: static vector to start (the flight model already subtracts it), maybe gusts; a wind arrow on the dials; drives cloud drift
 - [ ] Throw HUD follow-ups: a better nose display (try it, iterate), a mouse-drag option, controller mapping
 - [ ] Golf-disc damping coefficients (Turner 2025, requested) in place of Hummel's Frisbee values; per-disc mass
 - [ ] Picture-in-picture follow cam
 - [ ] Discs resting in trees
 - [x] **Baskets, step 1**: nine voxel baskets per world; a chain hit collects the disc and throws confetti
-- [ ] Baskets, next: a way to find them (not beams), holes/tees, scoring (Henry's chain-catch model in basket.gd already tells a catch from a clang)
 - [ ] **Wind grass**: instanced voxel tufts, reusing the flower sway shader
 - [ ] More tree variety (tuning, species, autumn)
 - [ ] Auto-walk toggle (helps over VNC, where held keys arrive as taps)
@@ -198,7 +225,6 @@ Next (pick any):
 Explore later:
 - [ ] **Export + import worlds**: write a world to a file (seed + settings, plus anything hand-edited or placed, e.g. discs, baskets) and load it back. That's the foundation for **pre-made worlds** shipped as files you pick at startup, e.g. a **flat distance world**: long and narrow, no plants, no lakes, distance markings in the ground
 - [ ] **Game controller support** (Graham has ideas): left stick walk, right stick look, triggers/buttons for throw, chase, paths, goto; d-pad for tilt, shoulder buttons for speed (the throw HUD keys map straight across)
-- [ ] **Disc golf mechanics**: baskets, holes/tees, stroke counting (warp is the first piece)
 - [ ] **Single-file builds**: Godot export for Linux (one binary with the game data embedded) and macOS (a universal .app, zipped), built headless on the T480
 - [ ] **Web build (WASM)**: Godot web export, single-threaded so it works on GitHub Pages/itch. Needs the Compatibility (WebGL2) renderer instead of Forward+ (check shadows, lakes, shaders), URL params instead of CLI flags (`?block=0.25&clouds=0`), a loading screen, probably 0.5 m blocks by default on the web, and a check that Jolt is in the web build
 - [ ] **Distance throwing zone**: a field marked with distance lines in the ground, either near one edge of every world (e.g. the west edge) or, better, its own pre-made world (which opens the door to hand-made/pre-made worlds generally)

@@ -1,5 +1,6 @@
 extends Node3D
-## The nine baskets of a glacial world, sited from the world seed.
+## The nine baskets of a glacial world, sited from the world seed, and the
+## course they make (course.gd: playing order and a tee pad for each).
 ##
 ## terrain.gd builds this after the flora (so baskets can steer clear of
 ## trees), and throws it away with everything else on a new world. The
@@ -17,6 +18,7 @@ extends Node3D
 
 const BASKET_SCRIPT := preload("res://scripts/basket.gd")
 const FLORA := preload("res://scripts/flora.gd")
+const Course := preload("res://scripts/course.gd")
 
 @export var count := 9
 @export var spacing := 65.0            ## Wanted gap between baskets (m).
@@ -28,7 +30,8 @@ const FLORA := preload("res://scripts/flora.gd")
 @export var max_slope := 0.5           ## Ground rise (m) allowed across 2 m.
 
 var terrain: Node3D
-var baskets: Array = []                ## basket.gd nodes, in siting order.
+var baskets: Array = []                ## basket.gd nodes, in hole order.
+var holes: Array[Dictionary] = []      ## The course: course.gd plan() + "basket" (the node).
 var spacing_used := 0.0                ## The spacing the nine actually fitted at.
 
 
@@ -38,15 +41,18 @@ func build(t: Node3D) -> void:
 		if is_instance_valid(b):
 			b.queue_free()
 	baskets.clear()
-	var sites := pick_sites()
-	for i in sites.size():
+	# The course (course.gd) puts them in playing order and finds each a tee;
+	# Basket<n> is hole n.
+	holes = Course.plan(terrain, pick_sites())
+	for h in holes:
 		var b := Node3D.new()
 		b.set_script(BASKET_SCRIPT)
-		b.name = "Basket%d" % (i + 1)
+		b.name = "Basket%d" % h.n
 		b.terrain = terrain
 		add_child(b)
-		b.place(sites[i])
+		b.place(h.basket_at)
 		baskets.append(b)
+		h.basket = b
 
 
 ## Where the baskets go (m, on the ground). Deterministic for a given seed.

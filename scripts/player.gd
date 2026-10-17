@@ -32,6 +32,26 @@ var _capsule: CapsuleShape3D
 var _shape: CollisionShape3D
 var _stand_height := 1.8
 
+## Shot-circle (thrower.gd): with a radius > 0 you can't walk further than
+## that (flat) from tether_center. You slide round the edge instead.
+var tether_center := Vector3.ZERO
+var tether_radius := 0.0
+## Course Play's "walking to the next hole" (course_round.gd): while set, the walker
+## heads for walk_to itself (your keys don't move it; looking still works)
+## and walk_done fires on arrival. walk_stuck fires if it stops getting
+## anywhere (a cliff, a trunk).
+signal walk_done
+signal walk_stuck
+var walking := false
+var walk_to := Vector3.ZERO
+var walk_speed_auto := 5.0
+var _walk_route: Array[Vector3] = []
+var _walk_check := Vector3.ZERO
+var _walk_check_t := 0.0
+var _look_t := 10.0              ## Seconds since you last looked around.
+## Hole overview (course_round.gd): the walker stands still and ignores look input.
+var frozen := false
+
 
 func _ready() -> void:
 	_ensure_input_actions()
@@ -48,7 +68,10 @@ func _ready() -> void:
 
 
 func _unhandled_input(event: InputEvent) -> void:
+	if frozen:
+		return
 	if event is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
+		_look_t = 0.0
 		rotate_y(-event.relative.x * mouse_sensitivity)
 		head.rotate_x(-event.relative.y * mouse_sensitivity)
 		head.rotation.x = clampf(head.rotation.x, deg_to_rad(-88), deg_to_rad(88))
@@ -74,9 +97,13 @@ func _mouse_ui_open() -> bool:
 
 ## Right stick look, squared so small pushes aim finely.
 func _process(delta: float) -> void:
+	_look_t += delta
+	if frozen:
+		return
 	var look := Input.get_vector("look_left", "look_right", "look_up", "look_down")
 	if look == Vector2.ZERO:
 		return
+	_look_t = 0.0
 	look *= look.length() * stick_look_speed * delta
 	rotate_y(-look.x)
 	head.rotate_x(-look.y)
@@ -99,10 +126,15 @@ func _physics_process(delta: float) -> void:
 	_update_crouch()
 
 	var input := Input.get_vector("move_left", "move_right", "move_forward", "move_back")
+	if frozen:
+		input = Vector2.ZERO
 	var dir := (transform.basis * Vector3(input.x, 0, input.y)).normalized()
 	var speed := sprint_speed if _run_on or Input.is_action_pressed("sprint") else walk_speed
 	if crouched:
 		speed = crouch_speed
+	if walking:
+		dir = _walk_dir(delta)
+		speed = walk_speed_auto
 	if _flung:
 		# Riding a disc's momentum: keep it until we land, with a touch of
 		# air control (and the same whisper of drag the disc has).
@@ -118,10 +150,101 @@ func _physics_process(delta: float) -> void:
 		velocity.z = lerpf(velocity.z, dir.z * speed, k)
 
 	move_and_slide()
+	_hold_tether()
+	if walking and is_on_floor() and is_on_wall():
+		velocity.y = jump_velocity        # hop up a step that's in the way
 	_head_bob(delta)
 
 	if global_position.y < -30.0:
 		respawn(get_parent().get_node("Terrain").spawn_point())
+
+
+## Shot-circle: pull back inside the tether and drop any outward speed, so
+## you slide along the edge.
+func _hold_tether() -> void:
+	if tether_radius <= 0.0:
+		return
+	var off := Vector2(global_position.x - tether_center.x, global_position.z - tether_center.z)
+	var d := off.length()
+	if d <= tether_radius:
+		return
+	var n := off / d
+	global_position.x = tether_center.x + n.x * tether_radius
+	global_position.z = tether_center.z + n.y * tether_radius
+	var out := velocity.x * n.x + velocity.z * n.y
+	if out > 0.0:
+		velocity.x -= n.x * out
+		velocity.z -= n.y * out
+
+
+func set_tether(center: Vector3, radius: float) -> void:
+	tether_center = center
+	tether_radius = radius
+
+
+func clear_tether() -> void:
+	tether_radius = 0.0
+
+
+## Walk yourself to `to` (m) along `route` (waypoints before it, if any).
+func walk(to: Vector3, route: Array[Vector3] = []) -> void:
+	walk_to = to
+	_walk_route = route.duplicate()
+	_walk_route.append(to)
+	walking = true
+	_walk_check = global_position
+	_walk_check_t = 0.0
+	set_crouch(false)
+
+
+func stop_walk() -> void:
+	walking = false
+	_walk_route.clear()
+
+
+## Flat direction to the next waypoint; turns you to face the way you're
+## going unless you've looked around in the last second or so.
+func _walk_dir(delta: float) -> Vector3:
+	while _walk_route.size() > 1 and _flat_to(_walk_route[0]).length() < 2.0:
+		_walk_route.pop_front()
+	var to := _flat_to(_walk_route[0])
+	if _walk_route.size() == 1 and to.length() < 0.4:
+		walking = false
+		_walk_route.clear()
+		walk_done.emit()
+		return Vector3.ZERO
+	# Stuck: barely moved in the last 1.5 s.
+	_walk_check_t += delta
+	if _walk_check_t > 1.5:
+		var moved := _flat_to(_walk_check).length()
+		_walk_check = global_position
+		_walk_check_t = 0.0
+		if moved < 0.75:
+			walking = false
+			_walk_route.clear()
+			walk_stuck.emit()
+			return Vector3.ZERO
+	var dir := Vector3(to.x, 0, to.y).normalized()
+	if _look_t > 1.2:
+		var want := atan2(-dir.x, -dir.z)
+		rotation.y = lerp_angle(rotation.y, want, clampf(delta * 2.5, 0.0, 1.0))
+		head.rotation.x = lerpf(head.rotation.x, 0.0, clampf(delta * 2.0, 0.0, 1.0))
+	# Slow down for the last couple of metres.
+	return dir * clampf(to.length() / 2.0, 0.25, 1.0)
+
+
+func _flat_to(p: Vector3) -> Vector2:
+	return Vector2(p.x - global_position.x, p.z - global_position.z)
+
+
+## Turn (left/right and up/down) so your eyes look straight at `target`.
+func face(target: Vector3) -> void:
+	var d := target - global_position
+	rotation.y = atan2(-d.x, -d.z)
+	var eye := head.global_position
+	var e := target - eye
+	var flat := Vector2(e.x, e.z).length()
+	head.rotation.x = clampf(atan2(e.y, flat), deg_to_rad(-88), deg_to_rad(88))
 
 
 ## `yaw` (radians, 0 = facing -z) turns the walker too; NAN keeps the facing.
@@ -132,6 +255,8 @@ func respawn(at: Vector3, yaw := NAN) -> void:
 		head.rotation.x = 0.0
 	velocity = Vector3.ZERO
 	_flung = false
+	walking = false
+	_walk_route.clear()
 	set_crouch(false)
 
 
@@ -170,6 +295,7 @@ func fling(at: Vector3, vel: Vector3) -> void:
 	_flung = true
 	_fling_t = 0.0
 	set_crouch(false)
+	clear_tether()
 
 
 ## Gentle walking bob, because strolling should feel like strolling.
@@ -202,6 +328,9 @@ static func _ensure_input_actions() -> void:
 		"hud": [KEY_U],
 		"clouds": [KEY_K],
 		"controls": [KEY_SLASH],         # ? (Shift+/): the controls overlay
+		"menu": [KEY_ESCAPE],            # the game menu (also frees the mouse)
+		"circle": [KEY_O],               # shot-circle
+		"overview": [KEY_M],             # hole overview (Course Play)
 		# Throw setup (throw_setup.gd). Shift + up/down = speed, + left/right = spin.
 		"tilt_up": [KEY_UP],
 		"tilt_down": [KEY_DOWN],
@@ -243,12 +372,14 @@ static func _ensure_input_actions() -> void:
 		"throw_cube": [JOY_BUTTON_B],
 		"crouch": [JOY_BUTTON_X],                   # LB + X: collect instead
 		"collect": [JOY_BUTTON_X],
-		"launch": [JOY_BUTTON_Y],
+		"launch": [JOY_BUTTON_Y],                   # LB + Y: shot-circle instead
+		"circle": [JOY_BUTTON_Y],
+		"overview": [JOY_BUTTON_B],                 # LB + B: hole overview (B alone throws)
 		"paths": [JOY_BUTTON_MISC1],                # Share: the discs share where they went
 		"warp": [JOY_BUTTON_LEFT_STICK],
 		"view": [JOY_BUTTON_RIGHT_STICK],
 		"run_toggle": [JOY_BUTTON_BACK],
-		"controls": [JOY_BUTTON_START],             # Menu: the controls overlay
+		"menu": [JOY_BUTTON_START],                 # Menu: the game menu
 	}
 	for action in bindings.keys() + pad.keys():
 		if InputMap.has_action(action):

@@ -7,16 +7,20 @@ A short tour of how discwalk is put together. It is written for "future us" open
 ```
 project.godot            Godot project settings (window, physics tick, MSAA)
 scenes/main.tscn         The one scene: sky/environment, sun, Terrain, Player, HUD
-scripts/main.gd          Glue: spawns the player, "? for controls" hint + overlay toggle, HUD scale (-/=, --ui-scale), N = new world, --debug-keys
+scripts/main.gd          Glue: spawns the player, "? for controls" hint + overlay toggle, HUD scale (-/=, --ui-scale), N = new world, --debug-keys, Free / Course Play (--mode)
+scripts/menu.gd          The game menu (title screen + Esc): Resume, Free Play, Course Play, Controls, Quit; pauses the tree
+scripts/course.gd        Lays out a course over the baskets: hole order, a tee pad per hole, paints pads + hole numbers
+scripts/course_round.gd  Course Play: current hole, strokes, goto faces the basket, hole out -> walk to the next tee, hole overview (M)
+scripts/shot_circle.gd   A ring of flat squares on the ground: the shot circle, and the overview's tee/basket/you markers
 scripts/terrain.gd       Height field, kettle lakes, chunk meshes, water, collision
 scripts/flora.gd         Oaks (voxel trees) and wildflowers (MultiMesh)
 scripts/voxel_mesh.gd    Greedy face merging + quad/mesh helpers (shared)
-scripts/player.gd        First-person walker: input bindings, movement, crouch (toggle, headroom check), head bob
+scripts/player.gd        First-person walker: input bindings, movement, crouch (toggle, headroom check), head bob, shot-circle tether, auto-walk
 scripts/controls_panel.gd  The ? / Menu controls overlay (keep in step with docs/CONTROLS.md)
-scripts/thrower.gd       Throw input (click/Enter disc, right-click cube), chase/goto/paths toggles, launch (L), U, status line
+scripts/thrower.gd       Throw input (click/Enter disc, right-click cube), chase/goto/paths/shot-circle toggles, launch (L), U, status line
 scripts/throw_setup.gd   The throw you have set up (disc, speed, nose, hyzer, spin, hand) + its keys
 scripts/throw_hud.gd     Lower-right cockpit block: tilting disc, ✋, speed/spin bars, holds dials + lamps
-scripts/lamps.gd         Warm toggle lamps in the HUD: Chase view, Goto, Paths
+scripts/lamps.gd         Warm toggle lamps in the HUD: Chase view, Goto, Paths, Shot circle
 scripts/disc.gd          The thrown block (RigidBody3D): physics + tree/water interaction
 scripts/flying_disc.gd   A real disc (extends disc.gd): flat collider, pixel-circle mesh, flight
 scripts/disc_model.gd    Disc aerodynamics: coefficient tables, lift/drag, gyroscopic roll
@@ -33,6 +37,8 @@ shaders/sway.gdshader    Wind sway for flowers (and grass, later)
 tools/smoke_test.gd      Headless PASS/FAIL check
 tools/basket_test.gd     Headless baskets: nine sited and spread, chain model, band/pole/tray don't count, a chain hit collects that disc + confetti that stays: PASS/FAIL
 tools/basket_shots.gd    Screenshots: a basket close and at putting distance, confetti in the air and landed
+tools/course_test.gd     Headless courses + Course Play: holes and tees, strokes, goto facing, shot circle, hole out + walk, overview: PASS/FAIL
+tools/course_shots.gd    Screenshots: hole 1 from its tee, the pad, the shot circle, the overview, the menu
 tools/screenshot.gd      Renders PNG views incl. one portrait per oak form (needs a display/GPU)
 tools/tree_gallery.gd    Flat-ground lineup of every oak form, for tuning trees
 tools/throw_test.gd      Headless throws (open ground, into an oak, into a lake): PASS/FAIL
@@ -68,21 +74,36 @@ Main (main.gd)
 │     ├─ Trees/Trees_x_z         one MeshInstance3D of tree voxels per chunk
 │     ├─ Trunks (StaticBody3D)   one box collider per trunk
 │     └─ Flowers/<species>_x_z   MultiMeshInstance3D per species per 64 m region
-│  └─ Baskets (baskets.gd)       nine Basket<n> (basket.gd): Mesh (5 cm voxels), Pole + Tray colliders,
-│                                 Confetti (confetti.gd), one per hit, left lying on the ground
+│  └─ Baskets (baskets.gd)       nine Basket<n> (basket.gd), Basket<n> = hole n: Mesh (5 cm voxels), Pole + Tray
+│                                 colliders, Confetti (confetti.gd), one per hit, left lying on the ground
 ├─ Player (player.gd)            CharacterBody3D + capsule + Head/Camera3D
 ├─ Clouds (clouds.gd)            one MeshInstance3D per cloud, drifting
 ├─ Thrower (thrower.gd)
 │  ├─ FollowCam (follow_cam.gd)  chase camera (V)
-│  └─ Paths (paths.gd)           one MultiMeshInstance3D per flight path
+│  ├─ Paths (paths.gd)           one MultiMeshInstance3D per flight path
+│  └─ ShotCircle (shot_circle.gd) the ring round your lie (O)
+├─ CourseRound (course_round.gd) Course Play; OverviewCam + three marker rings
+├─ Menu (menu.gd)                CanvasLayer 20, runs while paused
 ├─ Disc / FlyingDisc …           RigidBody3D per throw (up to 12 kept)
 └─ HUD/Help, Crosshair, Throw, ThrowHud (Dials, Lamps), Controls (controls_panel.gd),
-       WarpFlash, Warp, Dials (dials.gd)
+       WarpFlash, Warp, Dials (dials.gd), Round (hole line), Banner ("Walking to next hole...")
 ```
 
 ## Baskets
 
 A basket hit is the first time a disc that isn't already rolling home touches the chains, or ends up inside the cage (`sweep()`'s `chains` and `cage`, `disc.gd`'s `COUNTS_AS_HIT`). Pole and tray are real colliders that just bounce a disc (a disc rising into the bottom of the tray is not a basket). The chains and top band are too thin for colliders, so `disc.gd` sweeps each tick's path through every basket with `basket.sweep()` (Henry's bounded-force chain model, which also slows the disc); a band clip bounces the disc back without counting. On a counted hit the disc calls `_strike()` once: the basket counts it and throws confetti, and the disc emits `hit_basket`, which `thrower.gd` answers by freezing the disc in place (`hold()`) for `Basket.HOLD_TIME` and then starting that one disc's collect. The basket glows (emission plus a small gold light) for the same beat, stacking up to `glow_max` on rapid hits. `sweep()` still reports a proper `caught` (cage, slow enough) for when holes and scoring arrive.
+
+## Courses and Course Play
+
+A glacial world is a **course**: `baskets.gd` sites the nine baskets, then `course.gd` `plan()` orders them (nearest neighbour from the spawn) and finds each a tee: back toward where you're coming from, 40–150 m out, swinging the bearing and length until the pad fits (dry, off the shore, level, clear of baskets, other tees and trees, with a tree-free first 15 m down the fairway). The facing is the basket ± 25°; the painted pad is snapped to the nearest 45° (painting follows the block grid), the hole number to the nearest 90° so it stays legible. `terrain.holes` holds `{n, tee, yaw, pad_yaw, length, basket_at, basket}`.
+
+Generation order matters: trees first (tees and baskets avoid them), then baskets + tees, then `Course.paint()` into the paint layer, then the ground meshes (so the pads are just voxel colours, like the distance course), then flowers (kept off painted columns).
+
+Free Play and Course Play share the course. `main.start_mode()` switches: Course Play is `course_round.start()` (goto + shot circle on, hole 1's tee), Free Play turns those off and stands you at the spawn. `course_round.gd` hooks into the thrower through `thrower.course_round` (`goto_aim()`: face the basket after a goto) and three signals: `thrown` (a disc = a stroke), `warped` (pick the disc up), `basket_scored` (this hole's basket = hole out). Holing out locks throwing (`thrower.locked`), shows the banner, then `player.walk()` to the next tee with lake-dodging waypoints; a move/throw key or getting stuck puts you straight there.
+
+The **shot circle** belongs to the thrower (it's a toggle in both modes): a goto sets the lie (`set_lie()`), and while the toggle is on `player.set_tether()` clamps you to 1 m of it after `move_and_slide()`. A throw with goto off, a launch, or a new tee releases it.
+
+The **hole overview** (M) is a second camera in `course_round.gd`, tweened from the walker's camera to a tilted view along tee → basket that fits tee, basket and you; clouds hide and fog thins while it's up, and the walker is frozen.
 
 ## Units: metres vs blocks
 
@@ -112,13 +133,14 @@ Noise is always sampled at **metre** coordinates, which is why the same seed loo
 2. **Kettles**: up to `lake_count` round bowls, kept off the moraine, away from spawn and from each other. Each one subtracts a smooth bowl from the height field.
 3. **Quantise**: metres → whole blocks (`heights`).
 4. **Fill lakes**: water level = lowest rim block (sampled on a ring at 92% of the radius) − 0.35 block. Columns at or below waterline + 1 block become shore (sand above water, mud below).
-5. **Chunk meshes** (greedy, see below):
+5. **Flora, then baskets and tees** ([Courses](#courses-and-course-play)): trees, then the course, painted into the paint layer.
+6. **Chunk meshes** (greedy, see below):
    - Tops: one row per z. Faces with the same height and kind (grass, sand, mud) merge into rectangles.
    - Sides: for each direction and each column line, a column's exposed side is split into soil-layer runs (sand, turf, dirt, stone, by metres below the surface). Identical runs on neighbouring columns merge.
    - Hidden faces are never emitted.
-6. **Water**: one thin transparent cylinder per lake.
-7. **Collision**: a `HeightMapShape3D` with one sample per column at block centres, plus 4 invisible boundary walls. Smooth collision means one-block steps behave like 45° ramps (the player allows 50°), and two-block steps are walls.
-8. **Flora**: `flora.build(terrain)`, described next.
+7. **Water**: one thin transparent cylinder per lake.
+8. **Collision**: a `HeightMapShape3D` with one sample per column at block centres, plus 4 invisible boundary walls. Smooth collision means one-block steps behave like 45° ramps (the player allows 50°), and two-block steps are walls.
+9. **Flowers**: `flora.scatter_flowers()` (deferred from `flora.build()`), described next.
 
 ## Flora (`flora.gd`)
 

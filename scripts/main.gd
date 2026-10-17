@@ -1,10 +1,17 @@
 extends Node3D
 ## Wires the world together: spawns the walker, shows the HUD, sets up disc
-## throwing, and lets you press N to roll a brand-new world.
+## throwing, and lets you press N to roll a brand-new world (course).
+##
+## Two ways to play the same course (menu.gd, or `-- --mode=free|course`):
+## Free Play (walk around and sling discs, nothing enforced) and Course Play
+## (a round of disc golf, course_round.gd). Launched normally you get the
+## menu first; tools that build this scene themselves get Free Play.
 
 const THROWER_SCRIPT := preload("res://scripts/thrower.gd")
 const CLOUDS_SCRIPT := preload("res://scripts/clouds.gd")
 const ControlsPanel := preload("res://scripts/controls_panel.gd")
+const CourseRound := preload("res://scripts/course_round.gd")
+const Menu := preload("res://scripts/menu.gd")
 
 @onready var terrain: Node3D = $Terrain
 @onready var player: CharacterBody3D = $Player
@@ -12,7 +19,10 @@ const ControlsPanel := preload("res://scripts/controls_panel.gd")
 
 var thrower: Node
 var clouds: Node3D
-var controls: PanelContainer           ## ? / Menu: the controls overlay.
+var controls: PanelContainer           ## ?: the controls overlay.
+var course_round: Node                 ## Course Play (course_round.gd).
+var menu: CanvasLayer                  ## Esc / Menu: the game menu (menu.gd).
+var mode := ""                         ## "free" or "course" ("" = still on the title menu).
 var ui_scale := 1.0                  ## On top of the screen's own scale (- / = keys, --ui-scale=).
 
 const UI_SCALE_MIN := 0.6
@@ -36,7 +46,35 @@ func _ready() -> void:
 	get_tree().root.size_changed.connect(_apply_ui_scale)
 	_setup_throwing()
 	_setup_controls()
-	_place_player()
+	_setup_round()
+	var want := ""
+	for a in OS.get_cmdline_user_args():
+		if a.begins_with("--mode="):
+			want = a.get_slice("=", 1)
+	if want == "free" or want == "course":
+		start_mode(want)
+	elif get_tree().current_scene == self:
+		start_mode("free")
+		mode = ""
+		menu.open(false, false, not terrain.holes.is_empty())
+	else:
+		start_mode("free")
+
+
+## Free Play or Course Play, from the top, on the course as it stands.
+func start_mode(m: String) -> void:
+	if m == "course" and terrain.holes.is_empty():
+		m = "free"
+		thrower._note("this course has no holes: free play", 2.5)
+	mode = m
+	thrower.clear()
+	if mode == "course":
+		course_round.start()
+	else:
+		course_round.stop()
+		thrower.set_warp(false)
+		thrower.set_circle(false)
+		_place_player()
 	_update_hud()
 
 
@@ -133,6 +171,12 @@ func _unhandled_input(event: InputEvent) -> void:
 		set_ui_scale(ui_scale + (0.1 if event.is_action_pressed("ui_bigger") else -0.1))
 		get_viewport().set_input_as_handled()
 		return
+	if event.is_action_pressed("menu"):
+		set_controls(false)
+		menu.open(true, course_round.active and course_round.state != "done",
+			not terrain.holes.is_empty())
+		get_viewport().set_input_as_handled()
+		return
 	if event.is_action_pressed("controls"):
 		set_controls(not controls.visible)
 		get_viewport().set_input_as_handled()
@@ -146,8 +190,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		thrower.clear()
 		terrain.generate()
 		clouds.generate(terrain.world_seed, Vector2(terrain.world_x, terrain.world_z), terrain.flora.canopy_top())
-		_place_player()
-		_update_hud()
+		start_mode(mode if mode != "" else "free")
 
 
 ## The ? overlay, centred and hidden; the top-left help is just a faint hint.
@@ -166,6 +209,54 @@ func set_controls(on: bool) -> void:
 	controls.visible = on
 
 
+## Course Play's round, its two HUD lines, and the menu.
+func _setup_round() -> void:
+	var line := Label.new()
+	line.name = "Round"
+	line.visible = false
+	line.add_theme_color_override("font_color", Color(1, 0.85, 0.6, 0.95))
+	line.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.6))
+	line.add_theme_constant_override("shadow_offset_x", 1)
+	line.add_theme_constant_override("shadow_offset_y", 1)
+	line.add_theme_font_size_override("font_size", 18)
+	line.position = Vector2(16, 64)
+	$HUD.add_child(line)
+	var banner := Label.new()
+	banner.name = "Banner"
+	banner.visible = false
+	banner.add_theme_color_override("font_color", Color(1, 0.9, 0.7))
+	banner.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.7))
+	banner.add_theme_constant_override("shadow_offset_x", 2)
+	banner.add_theme_constant_override("shadow_offset_y", 2)
+	banner.add_theme_font_size_override("font_size", 30)
+	banner.set_anchors_and_offsets_preset(Control.PRESET_CENTER_TOP)
+	banner.offset_left = -400
+	banner.offset_right = 400
+	banner.offset_top = 120
+	banner.offset_bottom = 170
+	banner.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	$HUD.add_child(banner)
+
+	course_round = Node.new()
+	course_round.set_script(CourseRound)
+	course_round.name = "CourseRound"
+	course_round.terrain = terrain
+	course_round.player = player
+	course_round.thrower = thrower
+	course_round.camera = $Player/Head/Camera3D
+	course_round.clouds = clouds
+	course_round.environment = $WorldEnvironment.environment
+	course_round.label = line
+	course_round.banner = banner
+	add_child(course_round)
+
+	menu = CanvasLayer.new()
+	menu.set_script(Menu)
+	menu.name = "Menu"
+	add_child(menu)
+	menu.chosen.connect(start_mode)
+
+
 func _place_player() -> void:
 	# On the distance course, start on the tee facing down the field.
 	player.respawn(terrain.spawn_point(), 0.0 if terrain.world_kind == "distance" else NAN)
@@ -174,4 +265,5 @@ func _place_player() -> void:
 func _update_hud() -> void:
 	var world := "distance course" if terrain.world_kind == "distance" \
 		else "seed %d" % terrain.world_seed
-	hud.text = "discwalk  ·  %s\nPress ? for controls" % world
+	var play := "Course Play" if mode == "course" else "Free Play"
+	hud.text = "discwalk  ·  %s  ·  %s\nPress ? for controls, Esc for the menu" % [world, play]

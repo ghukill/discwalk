@@ -20,7 +20,7 @@ const Dials := preload("res://scripts/dials.gd")
 const Lamps := preload("res://scripts/lamps.gd")
 
 const W := 300.0
-const H := 244.0
+const H := 266.0
 const PAD := 14.0
 const DISC_R := 46.0                 ## Instrument circle radius.
 const BAR_W := 16.0
@@ -70,7 +70,7 @@ func _ready() -> void:
 	lamps.set_script(Lamps)
 	lamps.name = "Lamps"
 	lamps.font = font
-	lamps.position = Vector2(W - PAD - 118.0, H - PAD - 66.0 - 2)
+	lamps.position = Vector2(W - PAD - 118.0, H - PAD - Lamps.PITCH * Lamps.LAMPS.size() - 2)
 	add_child(lamps)
 
 

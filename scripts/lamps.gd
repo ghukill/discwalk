@@ -1,6 +1,7 @@
 extends Control
 ## Warm toggle lamps, like the little indicator lights on an old aircraft
-## panel: Chase view (V), Goto (G) and Paths (P), stacked in the throw HUD.
+## panel: Chase view (V), Goto (G), Paths (P) and Shot circle (O), stacked
+## in the throw HUD.
 ##
 ## On, a lamp glows warm amber with a soft halo; off, it sits dark brown in
 ## its bezel. Lamps don't snap: they warm up and cool down over a fraction
@@ -9,7 +10,8 @@ extends Control
 ##
 ## Drawn with _draw (no textures).
 
-const LAMPS := [["view", "Chase view", "V"], ["warp", "Goto", "G"], ["path", "Paths", "P"]]
+const LAMPS := [["view", "Chase view", "V"], ["warp", "Goto", "G"], ["path", "Paths", "P"],
+	["circle", "Shot circle", "O"]]
 const R := 6.0                       ## Lens radius (px).
 const PITCH := 22.0                  ## Row spacing (px).
 const FONT_SIZE := 12
@@ -20,8 +22,8 @@ const WARM_UP := 9.0                 ## How fast a lamp heats / cools (1/s).
 var pulse_warp := false              ## Goto armed: breathe.
 var font: Font
 
-var _want := {"view": 0.0, "warp": 0.0, "path": 1.0}
-var _glow := {"view": 0.0, "warp": 0.0, "path": 1.0}
+var _want := {"view": 0.0, "warp": 0.0, "path": 1.0, "circle": 0.0}
+var _glow := {"view": 0.0, "warp": 0.0, "path": 1.0, "circle": 0.0}
 var _t := 0.0
 
 
@@ -32,10 +34,11 @@ func _ready() -> void:
 	custom_minimum_size = Vector2(120, PITCH * LAMPS.size())
 
 
-func set_lamps(view: bool, warp: bool, path: bool) -> void:
+func set_lamps(view: bool, warp: bool, path: bool, circle := false) -> void:
 	_want.view = 1.0 if view else 0.0
 	_want.warp = 1.0 if warp else 0.0
 	_want.path = 1.0 if path else 0.0
+	_want.circle = 1.0 if circle else 0.0
 
 
 ## How lit a lamp is right now (0..1); handy for tests.

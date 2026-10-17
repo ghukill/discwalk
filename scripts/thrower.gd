@@ -21,6 +21,10 @@ extends Node
 ##            with it until you land. For that throw only, chase and goto
 ##            stand down. Does nothing once it has stopped.
 ##
+##   O        SHOT CIRCLE lamp (starts off; on in Course Play): after a goto,
+##            you can't walk more than 1 m from where the throw stopped (a
+##            faint ring on the ground shows it). Off: free to roam. On again:
+##            back round the same lie. A throw with goto off lets go of it.
 ##   P        PATHS lamp: flight paths + rest beams on/off (starts on). On:
 ##            every disc throw leaves a path (bright cubes in the air,
 ##            dimmer for skips and rolls) and resting discs get a beam. Off:
@@ -30,8 +34,12 @@ extends Node
 ##   C        collect: every disc rolls home to you, building up speed,
 ##            and basket confetti flies in (ignores chase and goto)
 ##
-## Controller (docs/CONTROLS.md): B throws the disc, RB + B a cube; Y is L;
-## LB + X is collect (X alone crouches, player.gd).
+## Controller (docs/CONTROLS.md): B throws the disc, RB + B a cube; Y is L,
+## LB + Y the shot circle; LB + X is collect (X alone crouches, player.gd).
+##
+## Course Play (course_round.gd) hooks in through `course_round`: it decides where
+## a goto puts you (facing the basket) and hears about throws, gotos and
+## basket hits through the signals below.
 ##
 ## (In code "warp" is the old name for goto.)
 
@@ -42,6 +50,13 @@ const ThrowSetup := preload("res://scripts/throw_setup.gd")
 const ThrowHud := preload("res://scripts/throw_hud.gd")
 const FollowCam := preload("res://scripts/follow_cam.gd")
 const Paths := preload("res://scripts/paths.gd")
+const ShotCircle := preload("res://scripts/shot_circle.gd")
+
+signal thrown(disc)                      ## A real disc left your hand (not a cube).
+signal warped(disc, lie)                 ## Goto put you at a throw; lie = where it lies (m).
+signal basket_scored(disc, basket)       ## A throw counted in a basket.
+
+const CIRCLE_RADIUS := 1.0               ## Shot-circle (m).
 
 @export var speed_per_level := 4.0      ## Old block power levels (tests): m/s per level.
 @export var max_discs := 12          ## Older discs are cleared away.
@@ -60,6 +75,12 @@ var disc_models: Array = []
 var paths_on := true                     ## Paths + rest beams (P).
 var view_on := false                     ## VIEW toggle (V).
 var warp_on := false                     ## GOTO toggle (G).
+var circle_on := false                   ## SHOT CIRCLE toggle (O).
+var circle: MultiMeshInstance3D          ## The ring on the ground (shot_circle.gd).
+var course_round: Node = null            ## course_round.gd, when Course Play is on.
+var locked := false                      ## No throwing (walking to the next tee, overview).
+var _lie := Vector3.ZERO                 ## Where the last goto put the shot-circle.
+var _has_lie := false
 var lamps: Control                       ## Warm lamps in the HUD (lamps.gd).
 var warp_label: Label                    ## Top centre: brief notes ("warped 42 m").
 var warp_flash: ColorRect                ## Soft white fade when you arrive.
@@ -112,13 +133,20 @@ func _ready() -> void:
 	paths.name = "Paths"
 	paths.terrain = terrain
 	add_child(paths)
+	circle = ShotCircle.new()
+	circle.name = "ShotCircle"
+	circle.terrain = terrain
+	circle.radius = CIRCLE_RADIUS
+	add_child(circle)
 	_update_label()
 
 
 func _unhandled_input(event: InputEvent) -> void:
 	var captured := assume_captured or Input.mouse_mode == Input.MOUSE_MODE_CAPTURED
-	if event.is_action_pressed("launch"):
+	if event.is_action_pressed("launch") and not _pad_shoulder(event, "setup_disc"):
 		launch_self()
+	elif event.is_action_pressed("circle") and _pad_page(event, "setup_disc"):
+		set_circle(not circle_on)
 	elif event.is_action_pressed("warp"):
 		set_warp(not warp_on)
 	elif event.is_action_pressed("paths"):
@@ -129,10 +157,12 @@ func _unhandled_input(event: InputEvent) -> void:
 		set_hud(not hud_shown())
 	elif event.is_action_pressed("collect") and _pad_page(event, "setup_disc"):
 		collect()
+	elif locked:
+		return                          # no throws now (course_round.gd may skip the walk)
 	elif event.is_action_pressed("throw_cube") and _pad_page(event, "setup_alt"):
 		throw_cube()
 	elif event.is_action_pressed("throw_disc") and not event.is_echo() \
-			and not _pad_shoulder(event, "setup_alt"):
+			and not _pad_shoulder(event, "setup_alt") and not _pad_shoulder(event, "setup_disc"):
 		throw_disc(setup.params())
 	elif event is InputEventMouseButton and event.pressed and captured \
 			and event.button_index == MOUSE_BUTTON_LEFT:
@@ -217,6 +247,7 @@ func throw_disc(p: Dictionary) -> Node:
 	if paths_on:
 		paths.track(disc, disc.color)
 	_track(disc)
+	thrown.emit(disc)
 	return disc
 
 
@@ -236,10 +267,20 @@ func _track(disc: Node) -> void:
 			old.queue_free()
 	_result_text = ""
 	_warp_target = disc if warp_on else null
+	if not warp_on:
+		release_lie()                   # no goto to move the circle on: let go
 	if view_on:
 		follow_cam.follow(disc)
 	elif follow_cam.active():
 		follow_cam.stop()               # was still watching an older throw
+
+
+## Just the discs roll home (the confetti stays where it fell). Course Play
+## does this when you hole out.
+func collect_discs() -> void:
+	for d in discs:
+		if is_instance_valid(d) and not d.collecting:
+			_send_home(d)
 
 
 ## Sends every disc rolling home to the player, and calls in all the basket
@@ -271,7 +312,10 @@ func _on_basket_hit(disc: Node, basket: Node, part: String) -> void:
 	disc.hold()
 	get_tree().create_timer(basket.HOLD_TIME).timeout.connect(_send_home.bind(disc))
 	basket_hits += 1
+	if _warp_target == disc:
+		_warp_target = null             # it's in: no goto to it
 	_note("BASKET!  (%s)" % part, 2.0)
+	basket_scored.emit(disc, basket)
 
 
 ## Untyped: the disc may have been freed (or collected by C) meanwhile.
@@ -372,7 +416,48 @@ func launch_self() -> bool:
 	if follow_cam.active():
 		follow_cam.stop()
 	_warp_target = null
+	release_lie()
 	return true
+
+
+## O: SHOT CIRCLE toggle. On: if a goto has put you somewhere, you're held
+## within CIRCLE_RADIUS of that lie (not of where you stand now). Off: free.
+func set_circle(on: bool) -> void:
+	circle_on = on
+	_apply_circle()
+	_update_lamps()
+
+
+## The shot-circle goes round `at` from now on (if it's on).
+func set_lie(at: Vector3) -> void:
+	_lie = at
+	_has_lie = true
+	_apply_circle()
+
+
+## No lie any more (a new tee, a launch, a throw without goto): no circle.
+func release_lie() -> void:
+	_has_lie = false
+	_apply_circle()
+
+
+func has_lie() -> bool:
+	return _has_lie
+
+
+func lie() -> Vector3:
+	return _lie
+
+
+func _apply_circle() -> void:
+	if circle_on and _has_lie:
+		player.set_tether(_lie, CIRCLE_RADIUS)
+		if circle != null:
+			circle.show_at(_lie)
+	else:
+		player.clear_tether()
+		if circle != null:
+			circle.visible = false
 
 
 func warp_pending() -> bool:
@@ -381,6 +466,7 @@ func warp_pending() -> bool:
 
 ## Stand just behind the disc, facing the way it was thrown (ready for the
 ## next shot). A disc floating in a lake puts you on the nearest shore.
+## In Course Play you face the basket instead (course_round.goto_aim()).
 func _do_warp() -> void:
 	var d = _warp_target
 	_warp_target = null
@@ -389,7 +475,16 @@ func _do_warp() -> void:
 	var p: Vector3 = d.global_position
 	var dir := Vector3(p.x - d.start.x, 0, p.z - d.start.z)
 	dir = dir.normalized() if dir.length() > 0.5 else _flat_forward()
-	var at := p - dir * 1.2
+	var aim = null                      # Vector3 to look at, or null
+	if course_round != null:
+		aim = course_round.goto_aim()
+	if aim != null:
+		var to_aim := Vector3(aim.x - p.x, 0, aim.z - p.z)
+		if to_aim.length() > 0.5:
+			dir = to_aim.normalized()
+	# Inside the shot-circle if it's on (or will be): just a step back.
+	var back := 0.5 if circle_on or aim != null else 1.2
+	var at := p - dir * back
 	if terrain.lake_edge_distance(at.x, at.z) < 1.0:
 		# Walk back toward the throw until we're on dry land.
 		for i in 200:
@@ -401,10 +496,18 @@ func _do_warp() -> void:
 		at.y = maxf(at.y, p.y - 0.5)
 	player.respawn(at)
 	player.rotation.y = atan2(-dir.x, -dir.z)
+	if aim != null:
+		player.face(aim)
+	# The lie: where the disc stopped. In or by a lake, where you were put
+	# ashore instead (so the circle doesn't hold you in the water).
+	var ashore: bool = d.splashed or Vector2(at.x - p.x, at.z - p.z).length() > CIRCLE_RADIUS
+	var lie_at := at if ashore else Vector3(p.x, terrain.height_at(p.x, p.z), p.z)
+	set_lie(lie_at)
 	warps += 1
 	if warp_flash != null:
 		warp_flash.color.a = 0.55
 	_note("goto %.0f m" % Vector2(at.x - d.start.x, at.z - d.start.z).length(), 1.2)
+	warped.emit(d, lie_at)
 
 
 func _flat_forward() -> Vector3:
@@ -444,6 +547,7 @@ func _update_warp(delta: float) -> void:
 
 func clear() -> void:
 	_warp_target = null
+	release_lie()
 	follow_cam.stop()
 	paths.clear()
 	for d in discs:
@@ -459,7 +563,7 @@ func clear() -> void:
 
 func _update_lamps() -> void:
 	if lamps != null:
-		lamps.set_lamps(view_on, warp_on, paths_on)
+		lamps.set_lamps(view_on, warp_on, paths_on, circle_on)
 
 
 func _process(_delta: float) -> void:

@@ -2,9 +2,9 @@
 
 How every input works today, keyboard + mouse and controller side by side.
 
-> In game: press **?** (or Menu on a controller) for the same tables as an overlay (`scripts/controls_panel.gd`; keep it in step with this file).
+> In game: press **?** (or open the menu, Esc / Menu on a controller, → Controls) for the same tables as an overlay (`scripts/controls_panel.gd`; keep it in step with this file).
 >
-> Code: bindings live in `scripts/player.gd` (`_ensure_input_actions`). Handlers: `scripts/player.gd` (walk, look, jump, crouch, run), `scripts/throw_setup.gd` (throw setup), `scripts/thrower.gd` (throws, toggles), `scripts/main.gd` (world, clouds, HUD size). The throw HUD itself is specced in [THROW-HUD.md](THROW-HUD.md).
+> Code: bindings live in `scripts/player.gd` (`_ensure_input_actions`). Handlers: `scripts/player.gd` (walk, look, jump, crouch, run), `scripts/throw_setup.gd` (throw setup), `scripts/thrower.gd` (throws, toggles), `scripts/course_round.gd` (Course Play: overview, skipping the walk), `scripts/menu.gd` (the menu), `scripts/main.gd` (world, clouds, HUD size). The throw HUD itself is specced in [THROW-HUD.md](THROW-HUD.md).
 > Controller: Xbox-style (tested with an Xbox Series X|S pad). Any connected controller works. Mapping notes: `scratch/controller.md` (not committed). Tests: `tools/controls_test.gd` (controller pages, crouch), `tools/hud_test.gd` (throw setup keys).
 
 ## Controller at a glance
@@ -14,9 +14,9 @@ The two bumpers are pages: hold one and the D-pad (and one face button) do somet
 | Input | Plain | RB held | LB held |
 |---|---|---|---|
 | A | jump | (jump) | (jump) |
-| B | throw the disc | throw a cube | — |
+| B | throw the disc | throw a cube | hole overview (Course Play) |
 | X | crouch / stand (toggle) | (crouch) | collect |
-| Y | launch yourself | — | — |
+| Y | launch yourself | — | shot circle |
 | D-pad ↑ / ↓ | nose | release speed | ↑ reset to flat · ↓ spin lock |
 | D-pad ← / → | tilt (hyzer / anhyzer) | spin | previous / next disc |
 | Tap alone | — | nothing | backhand ↔ forehand |
@@ -24,7 +24,7 @@ The two bumpers are pages: hold one and the D-pad (and one face button) do somet
 - LB page actions fire once per fresh press (no repeat); a D-pad already held when LB goes down doesn't count.
 - LB tap flips the hand on release, and only if nothing else was pressed during the hold.
 - LB + RB held together: the D-pad does nothing.
-- Sticks: walk / look; clicking them toggles goto (left) and chase view (right). View = run toggle, Menu = controls overlay, Share = paths.
+- Sticks: walk / look; clicking them toggles goto (left) and chase view (right). View = run toggle, Menu = the game menu (D-pad + A to pick, B to go back), Share = paths.
 
 The mouse (or right stick) only ever looks. Where you look is where the throw goes: left/right is the direction, and how high you look is the launch angle (the horizon dial shows it). The throw setup carries over from throw to throw.
 
@@ -37,7 +37,7 @@ The mouse (or right stick) only ever looks. Where you look is where the throw go
 | Faster | Shift (hold) | View button: **toggle** run on/off (stays on until pressed again; also applies to keyboard walking) |
 | Jump | Space (fixed hop, `jump_velocity` 5 m/s ≈ 1.3 m) | A |
 | Crouch / stand (toggle) | Tab | X |
-| Free the mouse | Esc (click to grab it again) | — |
+| Menu (pauses; frees the mouse) | Esc | Menu (Start) |
 
 ## Set up the throw
 
@@ -70,16 +70,25 @@ A tap moves one fine step (0.5° nose, 1° hyzer, 0.5 m/s speed, 2 rad/s spin). 
 | Chase view (camera follows each throw) | V | Right stick click (the look stick) |
 | Goto (moved to each throw once it stops; "warp" in code) | G | Left stick click (the walk stick) |
 | Paths + rest beams | P | Share button |
+| Shot circle (after a goto, held within 1 m of the lie; a faint ring shows it) | O | **LB** (hold) + Y |
+
+## Course Play
+
+| Action | Keyboard | Controller |
+|---|---|---|
+| Hole overview (camera flies up over tee, basket and you; again to come back) | M | **LB** (hold) + B |
+| Skip the walk to the next tee | any move key, Space, or a throw | left stick, A, or B |
 
 ## World and display
 
 | Action | Keyboard | Controller |
 |---|---|---|
-| Show / hide the controls overlay | ? (Shift + /) | Menu (Start) |
+| The menu: Resume, Free Play, Course Play, Controls, Quit (1 / 2 pick a mode) | Esc | Menu (Start) |
+| Show / hide the controls overlay | ? (Shift + /) | menu → Controls |
 | Hide / show the throw HUD and the "Press ? for controls" hint | U | — |
 | HUD smaller / bigger | - / = (also keypad; `--ui-scale=` at launch) | — |
 | Clouds on / off | K | — |
-| New world | N | — |
+| New world (course) | N | — |
 
 ## Crouching
 
@@ -94,13 +103,13 @@ One height, toggled (Tab / X), no need to hold. Crouched: eyes drop 0.65 m, the 
 | Input | Notes |
 |---|---|
 | LT, RT | Analog. `scratch/controller.md` has them "saved for the dynamic throw" |
-| RB / LB held + Y | |
-| LB held + A / B | Work as plain A / B for now |
+| RB held + Y | |
+| LB held + A | Works as plain A for now |
 | Xbox (Guide) | macOS may grab it |
 
 ## Not on the controller yet
 
-Hide HUD (U), HUD size, clouds (K), new world (N), free mouse (Esc).
+Hide HUD (U), HUD size, clouds (K), new world (N).
 
 ## Notes
 
