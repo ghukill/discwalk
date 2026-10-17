@@ -1,7 +1,8 @@
 extends PanelContainer
-## The controls overlay: ? (or the controller's Menu button) shows and hides
-## it. Keyboard and controller side by side; the full write-up is
-## docs/CONTROLS.md, so keep the two in step.
+## The controls overlay: ? shows and hides it, and the game menu (Esc, or
+## the controller's Menu button) has it under Controls. Keyboard and
+## controller side by side; the full write-up is docs/CONTROLS.md, so keep
+## the two in step.
 
 const KEY_COLOR := Color(1, 0.85, 0.7)       ## Same warm tone as the status line.
 const PAD_COLOR := Color(0.7, 0.85, 1)
@@ -15,7 +16,7 @@ const LEFT := [
 		["faster", "Shift (hold)", "View (toggle run)"],
 		["hop", "Space", "A"],
 		["crouch / stand (toggle)", "Tab", "X"],
-		["free the mouse", "Esc", ""],
+		["menu (frees the mouse)", "Esc", "Menu"],
 	]],
 	["Set up the throw", [
 		["nose up / down", "↑ ↓", "D-pad ↑ ↓"],
@@ -39,13 +40,18 @@ const RIGHT := [
 		["chase view", "V", "right stick click"],
 		["goto", "G", "left stick click"],
 		["paths + beams", "P", "Share"],
+		["shot circle", "O", "LB + Y"],
+	]],
+	["Course Play", [
+		["hole overview", "M", "LB + B"],
+		["skip a walk (to the tee, to your disc)", "move / throw", "move / throw"],
 	]],
 	["World and display", [
-		["controls (this)", "?", "Menu"],
+		["controls (this)", "?", "menu → Controls"],
 		["hide / show HUD", "U", ""],
 		["HUD smaller / bigger", "- / =", ""],
 		["clouds", "K", ""],
-		["new world", "N", ""],
+		["new course", "N", ""],
 	]],
 ]
 
@@ -66,7 +72,7 @@ func _ready() -> void:
 	outer.add_child(cols)
 	cols.add_child(_column(LEFT))
 	cols.add_child(_column(RIGHT))
-	var foot := _label("? or Menu to close  ·  full list: docs/CONTROLS.md", HEAD_COLOR, 12)
+	var foot := _label("? (or Esc in the menu) to close  ·  full list: docs/CONTROLS.md", HEAD_COLOR, 12)
 	foot.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	outer.add_child(foot)
 

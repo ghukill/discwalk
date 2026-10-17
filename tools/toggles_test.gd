@@ -61,6 +61,7 @@ func _lob() -> Node:
 func _process(_dt: float) -> bool:
 	if _th == null:
 		_th = _main.thrower
+		_th.goto_walk = false            # these check the instant goto (course_test walks)
 		_pl = _main.get_node("Player")
 		_cam = _main.get_node("Player/Head/Camera3D")
 		_home = _main.terrain.spawn_point()

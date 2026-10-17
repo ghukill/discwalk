@@ -51,6 +51,7 @@ var voxel_count := 0
 var timings := {}                            ## Build step -> ms (for the smoke test).
 var preset_trees: Array = []                 ## Hand-placed trees (tools); skips placement.
 var bare := false                            ## No trees or flowers (distance course).
+var defer_flowers := false                   ## build() leaves the flowers for scatter_flowers().
 
 var _vox := {}                               ## Vector3i -> BARK/LEAF
 var _vox_color := {}                         ## Vector3i -> base Color (alpha = jitter strength)
@@ -96,10 +97,18 @@ func build(t: Node3D) -> void:
 	var t1 := Time.get_ticks_msec()
 	_build_tree_meshes()
 	var t2 := Time.get_ticks_msec()
-	_scatter_flowers()
 	timings["place"] = t1 - t0
 	timings["trees"] = t2 - t1
-	timings["flowers"] = Time.get_ticks_msec() - t2
+	if not defer_flowers:
+		scatter_flowers()
+
+
+## The wildflowers. build() does this itself unless defer_flowers is set;
+## then terrain.gd calls it once the tee pads are painted (no flowers on them).
+func scatter_flowers() -> void:
+	var t0 := Time.get_ticks_msec()
+	_scatter_flowers()
+	timings["flowers"] = Time.get_ticks_msec() - t0
 
 
 # --- tree placement ----------------------------------------------------------
@@ -681,7 +690,7 @@ func _scatter_flowers() -> void:
 			if roll >= max_roll:
 				continue
 			var i := z * size_x + x
-			if _trunk_cols[i] == 1 or terrain.is_underwater(x, z):
+			if _trunk_cols[i] == 1 or terrain.is_underwater(x, z) or terrain.painted(x, z):
 				continue
 			var h: int = terrain.heights[i]
 			if _vox.has(Vector3i(x, h, z)):

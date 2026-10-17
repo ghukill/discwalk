@@ -66,7 +66,7 @@ Ground play (skips and skids) has a tuning check: 48 throws over flat ground, re
 $G --headless --path . --script res://tools/skip_test.gd
 ```
 
-The chase view (V) / goto (G) toggles and launch (L) have their own, run as a string of little scenes from spawn: view only, warp only, both, launch mid-flight (overrides both, no warp after), L after the throw stopped (does nothing), L while a disc skids/rolls (still works), toggles off mid-flight, a second throw taking over, collect ignoring the toggles, and P putting beams out with the paths:
+The chase view (V) / goto (G) toggles and launch (L) have their own, run as a string of little scenes from spawn (with the instant goto, `goto_walk = false`): view only, warp only, both, launch mid-flight (overrides both, no warp after), L after the throw stopped (does nothing), L while a disc skids/rolls (still works), toggles off mid-flight, a second throw taking over, collect ignoring the toggles, and P putting beams out with the paths:
 
 ```sh
 $G --headless --path . --script res://tools/toggles_test.gd [-- --block-size=0.5]
@@ -89,6 +89,13 @@ Collecting has one too. It scatters 8 discs around spawn, presses C, and passes 
 
 ```sh
 $G --headless --path . --script res://tools/collect_test.gd [-- --block-size=0.5]
+```
+
+Courses and Course Play have one. It checks the nine holes (in order, Basket<n> = hole n, tees a hole's length out, painted, level, dry, clear of baskets), then plays: on hole 1's tee with goto + shot circle on, a cube doesn't count but a disc does, the goto walks you over (a move key skips it), faces the basket and picks the disc up, the circle holds you to 1 m (off = free, on = back round the lie), with goto off the lie gets a ring and you can't throw till you walk into it (which picks the disc up), G on walks you to it, the overview flies up and back (also LB + B, and LB + Y is the circle), another hole's basket doesn't finish the hole, this one does, then the walk to the next tee and a move key skipping it, the last hole ending the round, and Free Play turning it all off. `course_shots.gd` shoots hole 1 from its tee, the pad from above, the shot circle, the overview and the menu:
+
+```sh
+$G --headless --path . --script res://tools/course_test.gd [-- --block-size=1]
+DISPLAY=:0 $G --path . --resolution 1280x720 --script res://tools/course_shots.gd -- /tmp/course_shots
 ```
 
 The smoke test passes when:

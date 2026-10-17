@@ -24,6 +24,7 @@ func _initialize() -> void:
 func _process(_dt: float) -> bool:
 	_f += 1
 	var th = _main.thrower
+	th.goto_walk = false
 	if _f == 10:
 		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 		_main.get_node("Player/Head").rotation.x = deg_to_rad(12)

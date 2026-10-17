@@ -126,6 +126,7 @@ func _process(_delta: float) -> bool:
 		_frames = 0
 	if _main != null and _frames == 5:
 		var thrower = _main.thrower
+		thrower.goto_walk = false                  # put there at once (the check is the camera)
 		var p := {"disc": _models["outwash"], "speed": 20.0, "pitch": 12.0, "nose": 0.0,
 			"roll": 10.0, "spin": DiscModel.auto_spin(20.0)}
 		_world_disc = thrower.throw_disc(p)

@@ -19,6 +19,7 @@ const FLORA_SCRIPT := preload("res://scripts/flora.gd")
 const VoxelMesh := preload("res://scripts/voxel_mesh.gd")
 const DistanceCourse := preload("res://scripts/distance_course.gd")
 const BASKETS_SCRIPT := preload("res://scripts/baskets.gd")
+const Course := preload("res://scripts/course.gd")
 
 @export var world_seed: int = 1848
 ## "glacial" (generated from the seed) or "distance" (the flat distance
@@ -65,6 +66,10 @@ var lakes: Array[Dictionary] = []          ## {center: Vector2 (m), radius: m, w
 var flora: Node3D                          ## Oaks + wildflowers (scripts/flora.gd).
 var baskets: Array = []                    ## The world's baskets (scripts/basket.gd), via baskets.gd.
 var basket_field: Node3D                   ## scripts/baskets.gd: sites and owns them.
+## The course: one hole per basket, in playing order (scripts/course.gd):
+## {n, tee, yaw, pad_yaw, length, basket_at, basket}. Empty on the distance
+## course or with --no-baskets.
+var holes: Array[Dictionary] = []
 ## `-- --no-baskets` (or false here) builds the world without any.
 var baskets_on := true
 ## Optional hand-placed trees for tools (see tools/tree_gallery.gd):
@@ -124,15 +129,16 @@ func generate() -> void:
 	else:
 		_paint.resize(size_x * size_z)
 		_paint.fill(0)
-	_build_chunks()
-	_build_water()
-	_build_collision()
+	# Trees, then baskets and tees (which steer clear of the trees), then the
+	# ground meshes (so the painted tee pads are in them), then flowers (kept
+	# off the pads).
 	var t1 := Time.get_ticks_msec()
 	flora = Node3D.new()
 	flora.set_script(FLORA_SCRIPT)
 	flora.name = "Flora"
 	flora.preset_trees = flora_preset
 	flora.bare = world_kind == "distance"
+	flora.defer_flowers = true
 	add_child(flora)
 	flora.build(self)
 	var t2 := Time.get_ticks_msec()
@@ -144,13 +150,21 @@ func generate() -> void:
 	add_child(basket_field)
 	basket_field.build(self)
 	baskets = basket_field.baskets
+	holes = basket_field.holes
+	Course.paint(self, _paint, holes)
 	var basket_ms := Time.get_ticks_msec() - t2
+	_build_chunks()
+	_build_water()
+	_build_collision()
+	var t3 := Time.get_ticks_msec()
+	flora.scatter_flowers()
+	var flora_ms := (t2 - t1) + (Time.get_ticks_msec() - t3)
 	var flowers := 0
 	for n in flora.flower_counts.values():
 		flowers += n
-	print("discwalk: %s world seed %d (block %.2fm, %dx%d columns) generated in %d ms (%d lakes; flora %d ms: %d oaks, %d flowers; %d baskets %d ms)" % [
+	print("discwalk: %s world seed %d (block %.2fm, %dx%d columns) generated in %d ms (%d lakes; flora %d ms: %d oaks, %d flowers; %d holes %d ms)" % [
 		world_kind, world_seed, block_size, size_x, size_z, Time.get_ticks_msec() - t0, lakes.size(),
-		t2 - t1, flora.trees.size(), flowers, baskets.size(), basket_ms])
+		flora_ms, flora.trees.size(), flowers, holes.size(), basket_ms])
 	generated.emit()
 
 
@@ -190,6 +204,11 @@ func col_height(ix: int, iz: int) -> int:
 ## True if grid column (ix, iz) is inside the world.
 func in_grid(ix: int, iz: int) -> bool:
 	return ix >= 0 and iz >= 0 and ix < size_x and iz < size_z
+
+
+## True if column (ix, iz) has a painted top (tee pad, number, chalk...).
+func painted(ix: int, iz: int) -> bool:
+	return in_grid(ix, iz) and _paint[iz * size_x + ix] != 0
 
 
 ## True for sandy shore / lake-bed columns (grid indices).
@@ -437,7 +456,7 @@ func _side_segments(x: int, z: int, h: int, nh: int) -> Array:
 
 
 ## Top kinds: 0 grass, 1 sand, 2 mud (underwater shore); painted markings
-## 3 chalk, 4 yellow, 5 tee pad (scripts/distance_course.gd).
+## 3 chalk, 4 yellow, 5 tee pad (scripts/distance_course.gd, scripts/course.gd).
 func _top_kind(x: int, z: int, h: int) -> int:
 	var paint := _paint[z * size_x + x]
 	if paint:

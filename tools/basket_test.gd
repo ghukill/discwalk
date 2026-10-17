@@ -156,11 +156,15 @@ func _test_siting() -> void:
 		"closest pair %.0f m (fitted at %.0f m)" % [min_gap, field.spacing_used])
 	_check("clear of spawn", near_spawn >= field.spawn_clear, "nearest %.0f m" % near_spawn)
 	_check("out of lakes", lake >= field.lake_clear, "nearest lake edge %.1f m" % lake)
+	# Baskets stand in hole order (course.gd), so match the sites in any order.
 	var again: Array = field.pick_sites()
 	var same: bool = again.size() == t.baskets.size()
-	for i in mini(again.size(), t.baskets.size()):
-		var p: Vector3 = t.baskets[i].global_position
-		same = same and Vector2(again[i].x - p.x, again[i].z - p.z).length() < 0.01
+	for b in t.baskets:
+		var p: Vector3 = b.global_position
+		var found := false
+		for q: Vector3 in again:
+			found = found or Vector2(q.x - p.x, q.z - p.z).length() < 0.01
+		same = same and found
 	_check("same seed, same sites", same)
 	_done("siting")
 
