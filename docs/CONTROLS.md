@@ -61,7 +61,7 @@ A tap moves one fine step (0.5° nose, 1° hyzer, 0.5 m/s speed, 2 rad/s spin). 
 | Throw the disc | Left click / Enter | B |
 | Throw an orange cube (same speed) | Right click | **RB** (hold) + B |
 | Launch yourself with your last throw, while it's still moving (stands you up) | L | Y |
-| Collect: every disc rolls home to you | C | **LB** (hold) + X |
+| Collect: every disc rolls home to you (and basket confetti flies in) | C | **LB** (hold) + X |
 
 ## Toggles (lamps in the HUD)
 

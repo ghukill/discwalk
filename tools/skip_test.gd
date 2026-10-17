@@ -10,7 +10,7 @@ const DM := preload("res://scripts/disc_model.gd")
 var cases := []; var f := 0
 func _initialize():
 	var fl := StaticBody3D.new(); var cs := CollisionShape3D.new(); var b := BoxShape3D.new(); b.size = Vector3(16000, 1, 2000); cs.shape = b; cs.position = Vector3(7000, -0.5, 0); fl.add_child(cs); root.add_child(fl)
-	var s := GDScript.new(); s.source_code = "extends Node3D\nvar block_size := 1.0\nvar lakes: Array = []\nvar flora := F.new()\nfunc height_at(_x: float, _z: float) -> float:\n\treturn 0.0\nclass F:\n\tfunc voxel_at(_c: Vector3i) -> int:\n\t\treturn 0\n"; s.reload()
+	var s := GDScript.new(); s.source_code = "extends Node3D\nvar block_size := 1.0\nvar lakes: Array = []\nvar baskets: Array = []\nvar flora := F.new()\nfunc height_at(_x: float, _z: float) -> float:\n\treturn 0.0\nclass F:\n\tfunc voxel_at(_c: Vector3i) -> int:\n\t\treturn 0\n"; s.reload()
 	var stub := Node3D.new(); stub.set_script(s); root.add_child(stub)
 	var models := {}
 	for m in DM.load_all(): models[m.id] = m

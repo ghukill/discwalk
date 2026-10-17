@@ -73,7 +73,7 @@ A tap moves one fine step (0.5° nose, 1° hyzer, 0.5 m/s, 2 rad/s spin); hold t
 | V | **Chase view** lamp (starts off): the camera chases every throw through its flight and ground play, then snaps back to you, unmoved, once it stops. Off mid-flight snaps back now |
 | G | **Goto** lamp (starts off): once a throw stops, you're moved to it, standing just behind it facing down the fairway (a lake puts you on the shore). Off mid-flight cancels it. **Chase + Goto**: watch the flight, then end up there |
 | P | **Paths** lamp (starts on): flight paths *and* the beams over resting discs. Every disc throw leaves a trail of little cubes in its own colour (bright in the air, dimmer for skips and rolls). The cubes are see-through, start about 1 m from where you threw (fading in), and fade away when the camera gets within a few metres, so a pile of paths from the same tee never fills your view. Off: beams go out, paths drift down and go *poof* |
-| C | **collect**: every disc rolls home to you, slow at first then faster. Trunks and cliffs block them unless they have the momentum |
+| C | **collect**: every disc rolls home to you, slow at first then faster. Trunks and cliffs block them unless they have the momentum. Basket confetti flies straight in too |
 | ? | show / hide the **controls** overlay, keyboard and controller (Menu on a controller). The top left only says "Press ? for controls" |
 | U | hide / show the throw HUD and the "? for controls" hint (screenshots, or just walking in the woods); just the crosshair stays |
 | - / = | HUD smaller / bigger (also `-- --ui-scale=1.5` at launch) |
@@ -107,6 +107,12 @@ A dead-flat field for measuring throws: tee pad on the south edge, chalk arcs ev
 ```
 
 See [docs/CONFIG.md](docs/CONFIG.md#distance-course).
+
+### Baskets
+
+Every glacial world has **nine baskets**, scattered from the seed about 65 m apart (clear of spawn, lakes, slopes and trees). They're built from 5 cm voxels at PDGA-ish size (band at 1.32 m, tray 0.635 m across). Get it in the chains (or drop it into the tray) and the basket glows gold while the disc hangs there for a second, then the disc rolls home on its own, just like **C**. A shower of rainbow confetti bursts out of the basket and settles on the ground around it, until **C** calls it all in (it whooshes up and soars over to you). The newest 100 bursts stay; past that the oldest fades. Clipping the top band, the pole or the bottom of the tray just bounces it off. No holes or scoring yet. `-- --no-baskets` leaves them out; the distance course has none.
+
+![Confetti bursting out of a basket](docs/screenshot-basket-confetti.png)
 
 ## Screenshots
 
@@ -182,7 +188,9 @@ Next (pick any):
 - [ ] Throw HUD follow-ups: a better nose display (try it, iterate), a mouse-drag option, controller mapping
 - [ ] Golf-disc damping coefficients (Turner 2025, requested) in place of Hummel's Frisbee values; per-disc mass
 - [ ] Picture-in-picture follow cam
-- [ ] Discs resting in trees; baskets
+- [ ] Discs resting in trees
+- [x] **Baskets, step 1**: nine voxel baskets per world; a chain hit collects the disc and throws confetti
+- [ ] Baskets, next: a way to find them (not beams), holes/tees, scoring (Henry's chain-catch model in basket.gd already tells a catch from a clang)
 - [ ] **Wind grass**: instanced voxel tufts, reusing the flower sway shader
 - [ ] More tree variety (tuning, species, autumn)
 - [ ] Auto-walk toggle (helps over VNC, where held keys arrive as taps)

@@ -23,11 +23,16 @@ scripts/disc_model.gd    Disc aerodynamics: coefficient tables, lift/drag, gyros
 scripts/follow_cam.gd    Follow cam (V): chase camera for the last disc
 scripts/clouds.gd        Fluffy voxel clouds drifting high overhead (K toggles)
 scripts/dials.gd         Heading + horizon dials (in the throw HUD)
+scripts/basket.gd        One basket: 5 cm voxel mesh, pole/tray colliders, swept chains + band, confetti on a chain hit
+scripts/baskets.gd       Sites the world's nine baskets from the seed (spread out, clear of spawn/lakes/trees)
+scripts/confetti.gd      One-shot MultiMesh shower of rainbow voxels: burst, flutter, bounce, stay on the ground (newest 100), whoosh up and soar home on collect, 80% opaque
 scripts/paths.gd         Flight paths: voxel trail per disc throw; P toggles (off = fall + poof)
 data/discs/              Disc coefficient tables (JSON); see data/discs/README.md
 shaders/voxel.gdshader   Terrain + tree shading: base colour + per-block jitter
 shaders/sway.gdshader    Wind sway for flowers (and grass, later)
 tools/smoke_test.gd      Headless PASS/FAIL check
+tools/basket_test.gd     Headless baskets: nine sited and spread, chain model, band/pole/tray don't count, a chain hit collects that disc + confetti that stays: PASS/FAIL
+tools/basket_shots.gd    Screenshots: a basket close and at putting distance, confetti in the air and landed
 tools/screenshot.gd      Renders PNG views incl. one portrait per oak form (needs a display/GPU)
 tools/tree_gallery.gd    Flat-ground lineup of every oak form, for tuning trees
 tools/throw_test.gd      Headless throws (open ground, into an oak, into a lake): PASS/FAIL
@@ -63,6 +68,8 @@ Main (main.gd)
 │     ├─ Trees/Trees_x_z         one MeshInstance3D of tree voxels per chunk
 │     ├─ Trunks (StaticBody3D)   one box collider per trunk
 │     └─ Flowers/<species>_x_z   MultiMeshInstance3D per species per 64 m region
+│  └─ Baskets (baskets.gd)       nine Basket<n> (basket.gd): Mesh (5 cm voxels), Pole + Tray colliders,
+│                                 Confetti (confetti.gd), one per hit, left lying on the ground
 ├─ Player (player.gd)            CharacterBody3D + capsule + Head/Camera3D
 ├─ Clouds (clouds.gd)            one MeshInstance3D per cloud, drifting
 ├─ Thrower (thrower.gd)
@@ -72,6 +79,10 @@ Main (main.gd)
 └─ HUD/Help, Crosshair, Throw, ThrowHud (Dials, Lamps), Controls (controls_panel.gd),
        WarpFlash, Warp, Dials (dials.gd)
 ```
+
+## Baskets
+
+A basket hit is the first time a disc that isn't already rolling home touches the chains, or ends up inside the cage (`sweep()`'s `chains` and `cage`, `disc.gd`'s `COUNTS_AS_HIT`). Pole and tray are real colliders that just bounce a disc (a disc rising into the bottom of the tray is not a basket). The chains and top band are too thin for colliders, so `disc.gd` sweeps each tick's path through every basket with `basket.sweep()` (Henry's bounded-force chain model, which also slows the disc); a band clip bounces the disc back without counting. On a counted hit the disc calls `_strike()` once: the basket counts it and throws confetti, and the disc emits `hit_basket`, which `thrower.gd` answers by freezing the disc in place (`hold()`) for `Basket.HOLD_TIME` and then starting that one disc's collect. The basket glows (emission plus a small gold light) for the same beat, stacking up to `glow_max` on rapid hits. `sweep()` still reports a proper `caught` (cage, slow enough) for when holes and scoring arrive.
 
 ## Units: metres vs blocks
 

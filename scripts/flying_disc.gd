@@ -202,7 +202,12 @@ func _land(by: String, state: PhysicsDirectBodyState3D) -> void:
 
 
 func start_collect(target: Node3D) -> void:
-	flying = false
+	if flying:                       # collected mid-air (a basket hit): land it
+		flying = false
+		landed_by = "basket" if struck != null else "collect"
+		flight_dist = distance()
+		linear_damp_mode = RigidBody3D.DAMP_MODE_COMBINE
+		linear_damp = 0.05
 	super.start_collect(target)
 
 
