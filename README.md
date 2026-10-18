@@ -52,11 +52,12 @@ The mouse only ever looks. Where you look is where the disc goes, left/right **a
 | Shift + ↑ / ↓ | release speed (discs **and** cubes) |
 | Shift + ← / → | spin, when unlocked |
 | X | spin lock / unlock. Locked (dotted bar) = spin follows speed, like a real throw |
+| I | speed readout in **mph** (0–80, the default) or **m/s**. Display only — the flight is in m/s either way — but the arrows step in whichever unit you are reading |
 | R | reset to flat (nose 0, hyzer 0) |
 | H | backhand ↔ forehand. The ✋ sits right of the disc for backhand, left for forehand |
 | E / Q | next / previous disc |
 
-A tap moves one fine step (0.5° nose, 1° hyzer, 0.5 m/s, 2 rad/s spin); hold to sweep, faster the longer you hold.
+A tap moves one fine step (0.5° nose, 1° hyzer, 1 mph or 0.5 m/s, 2 rad/s spin); hold to sweep, faster the longer you hold.
 
 **Throw**
 

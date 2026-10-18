@@ -761,7 +761,10 @@ func _process(_delta: float) -> void:
 		_flying_text = "collecting: %d rolling home…%s" % [rolling,
 			("  (%d in)" % _collected) if _collected > 0 else ""]
 	elif is_instance_valid(_last) and "flying" in _last and _last.flying:
-		_flying_text = "disc in flight: %.1f m  ·  %.0f m/s" % [_last.distance(), _last.linear_velocity.length()]
+		# Whatever unit the HUD is set to (I toggles), so the two agree.
+		_flying_text = "disc in flight: %.1f m  ·  %s %s" % [
+			_last.distance(), setup.speed_str(_last.linear_velocity.length()),
+			setup.unit_name()]
 	elif is_instance_valid(_last) and not _last.resting:
 		_flying_text = "in flight: %.1f m" % _last.distance()
 	else:

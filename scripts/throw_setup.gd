@@ -12,6 +12,7 @@ extends Node
 ##   X                spin lock / unlock (locked = auto spin from speed)
 ##   R                reset to flat (nose 0, hyzer 0)
 ##   H                backhand <-> forehand
+##   I                speed readout in mph <-> m/s
 ##   Q / E            previous / next disc
 ##
 ## A tap nudges one fine step; holding repeats, faster the longer you hold.
@@ -25,9 +26,20 @@ const DiscModel := preload("res://scripts/disc_model.gd")
 
 signal changed
 
+## Release speed is stored in m/s, because the flight model is, but the player
+## sets it in mph: a disc golfer thinks in mph, and 0-80 is the human range (an
+## 80 mph release is a big arm; the old 35 m/s cap was 78 mph by accident).
+## The range and the step below are therefore whole mph converted to m/s, so
+## set_value()'s snap always lands on an exact mph and the readout never shows
+## a number the arrows cannot reach.
+const MPH_PER_MS := 2.2369363        ## mph per m/s.
+const SPEED_MAX_MPH := 80.0
+const SPEED_STEP_MPH := 1.0
+const SPEED_STEP_MS := 0.5           ## The step when the readout is in m/s.
+
 # name: [min, max, step]
 const RANGES := {
-	"speed": [5.0, 35.0, 0.5],      # m/s
+	"speed": [0.0, SPEED_MAX_MPH / MPH_PER_MS, SPEED_STEP_MPH / MPH_PER_MS],   # m/s, set in mph
 	"nose": [-10.0, 10.0, 0.5],     # deg, + = nose up
 	"roll": [-40.0, 40.0, 1.0],     # deg, + = hyzer, - = anhyzer
 	"spin": [20.0, 200.0, 2.0],     # rad/s
@@ -39,11 +51,20 @@ const REPEAT_MAX := 45.0             ## ... up to this.
 
 var discs: Array = []                ## DiscModel list
 var disc_index := 0
+## 24 m/s, which reads as 54 mph. Deliberately NOT an exact whole mph: every
+## tool and test that throws with params() inherits this, and nudging it even
+## 0.15 m/s moves a long throw far enough to change where it lands (it put
+## course_test's shot in a lake). The display rounds to 54 and the first arrow
+## press snaps to exactly 55 or 53, so it still steps by 1 mph on screen.
 var speed := 24.0
 var nose := 0.0
 var roll := 0.0
 var spin := 125.0
 var spin_locked := true
+## Show release speed in mph (the default) or m/s. Display only: the throw and
+## the flight are in m/s either way. It also picks the arrow step, so whichever
+## unit you are reading moves in round numbers rather than 0.447 at a time.
+var mph := true
 var hand := 1.0                      ## +1 backhand, -1 forehand (right-handed)
 
 var _held := {}                      ## action -> seconds held
@@ -93,6 +114,39 @@ func toggle_hand() -> void:
 	changed.emit()
 
 
+## Release speed as the player sets it (mph).
+func speed_mph() -> float:
+	return speed * MPH_PER_MS
+
+
+## Switch the speed readout between mph and m/s.
+##
+## Display only: the stored speed is left exactly as it is. Re-snapping it onto
+## the new unit's grid would make the readout a round number straight away, but
+## at the cost of quietly changing the throw you had dialled in (55 mph would
+## become 24.5 m/s), and a readout toggle has no business doing that. The next
+## arrow press lands on the new grid by itself.
+func toggle_units() -> void:
+	mph = not mph
+	changed.emit()
+
+
+## `ms` (m/s) in whatever unit the player is reading, and its name. Everything
+## that shows a speed goes through these two, so the HUD and the in-flight
+## readout can never disagree about what the number means.
+func in_units(ms: float) -> float:
+	return ms * MPH_PER_MS if mph else ms
+
+
+func unit_name() -> String:
+	return "mph" if mph else "m/s"
+
+
+## A speed, formatted for display: whole mph, or m/s to one decimal.
+func speed_str(ms: float) -> String:
+	return ("%.0f" if mph else "%.1f") % in_units(ms)
+
+
 ## How far the disc's left edge is dropped (deg), as you see it from behind.
 ## Hyzer drops the side it will fade toward: left for a backhand, right for a
 ## forehand.
@@ -100,15 +154,24 @@ func visual_tilt() -> float:
 	return roll * hand
 
 
-func set_value(name: String, v: float) -> void:
+## [min, max, step] for a dial, all in the unit it is stored in. Speed is the
+## only one that moves: its step follows the unit you are reading it in.
+func range_of(name: String) -> Array:
 	var r: Array = RANGES[name]
+	if name == "speed":
+		return [r[0], r[1], SPEED_STEP_MPH / MPH_PER_MS if mph else SPEED_STEP_MS]
+	return r
+
+
+func set_value(name: String, v: float) -> void:
+	var r: Array = range_of(name)
 	set(name, clampf(snappedf(v, r[2]), r[0], r[1]))
 	_sync_spin()
 	changed.emit()
 
 
 func nudge(name: String, steps: float) -> void:
-	set_value(name, float(get(name)) + steps * float(RANGES[name][2]))
+	set_value(name, float(get(name)) + steps * float(range_of(name)[2]))
 
 
 func _sync_spin() -> void:
@@ -136,6 +199,8 @@ func _unhandled_input(event: InputEvent) -> void:
 		reset_flat()
 	elif event.is_action_pressed("hand"):
 		toggle_hand()
+	elif event.is_action_pressed("units"):
+		toggle_units()
 	elif event.is_action_pressed("setup_disc"):
 		_lb_used = false
 	elif event.is_action_released("setup_disc"):
