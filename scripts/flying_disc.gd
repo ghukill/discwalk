@@ -201,6 +201,19 @@ func _land(by: String, state: PhysicsDirectBodyState3D) -> void:
 	state.angular_velocity = normal * -hand * minf(omega, LANDED_SPIN_MAX)
 
 
+## Parked in a basket: the flight is over, and `normal` must follow the pose
+## we were put in, or _flight_basis would snap the disc back to its old tilt.
+func _stop_flight() -> void:
+	if not flying:
+		return
+	flying = false
+	landed_by = "basket"
+	flight_dist = distance()
+	linear_damp_mode = RigidBody3D.DAMP_MODE_COMBINE
+	linear_damp = 0.05
+	normal = global_transform.basis.y
+
+
 func start_collect(target: Node3D) -> void:
 	if flying:                       # collected mid-air (a basket hit): land it
 		flying = false

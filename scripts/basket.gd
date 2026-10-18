@@ -73,6 +73,16 @@ const COLOR_BAND := Color(0.98, 0.78, 0.10)   ## Safety yellow, easy to pick out
 @export var catch_speed := 2.5
 ## March resolution through the chain volume (m).
 @export var sweep_step := 0.05
+## Where a made disc comes to rest. Both of these happen for real: a firm
+## putt drives into the chains and stays up there wrapped in them, while one
+## the chains wring out drops through and lies flat in the tray. Which you get
+## is decided by how high the disc was when it stopped, so it follows from the
+## throw rather than being picked at random.
+@export var hang_min_y := CHAIN_BOTTOM  ## Stops at or above this: hangs in the chains.
+@export var hang_tilt := 25.0           ## Deg the hanging disc leans back from on-edge.
+@export var hang_offset := 0.08         ## How far past the pole it wedges (m).
+@export var tray_lift := 0.025          ## Disc half-thickness above the tray floor (m).
+@export var tray_spread := 0.10         ## Random offset from the tray centre (m).
 ## Confetti cubes per hit.
 @export var confetti_count := 280
 ## Glow: each hit adds a level, up to glow_max, held for HOLD_TIME after the
@@ -241,7 +251,44 @@ func sweep(p0: Vector3, p1: Vector3, v: Vector3, mass: float, dt: float) -> Dict
 		out.caught = true
 		out.hit = "cage"
 	out.v = vv
+	# Where it ended up, so the caller can park it without redoing any of
+	# this geometry: height above our base, and how much chain it went through.
+	out["end_y"] = end_local.y
+	out["chain_metres"] = chain_metres
 	return out
+
+
+## Does this strike leave the disc up in the chains, rather than down in the
+## tray? True for a disc that stopped high AND actually went through chain --
+## a lob dropped straight into the cage touches none, and belongs in the tray.
+func hangs(res: Dictionary) -> bool:
+	return float(res.get("end_y", 0.0)) >= hang_min_y \
+		and float(res.get("chain_metres", 0.0)) > 0.0
+
+
+## Where a made disc should sit, in world space. `entry_dir` is the way it was
+## travelling when it struck, so a hanging disc faces back down its own line.
+func resting_pose(res: Dictionary, entry_dir: Vector3) -> Transform3D:
+	var dir := Vector3(entry_dir.x, 0.0, entry_dir.z)
+	dir = dir.normalized() if dir.length() > 0.01 else Vector3.FORWARD
+	if hangs(res):
+		# On edge in the chains, leaning back, a little past the pole: the
+		# look of a disc that drove in and got wrapped up.
+		var t := deg_to_rad(hang_tilt)
+		var n := (-dir * cos(t) + Vector3.UP * sin(t)).normalized()
+		var side := Vector3.UP.cross(dir).normalized()
+		var y := clampf(float(res.get("end_y", CHAIN_TOP)),
+			CHAIN_BOTTOM + 0.05, CHAIN_TOP - 0.05)
+		var at := global_position + dir * hang_offset + Vector3(0.0, y, 0.0)
+		return Transform3D(Basis(side, n, side.cross(n)), at)
+	# Flat in the tray, nudged off centre and spun a random way round, so two
+	# makes in a row do not look like the same frame twice.
+	var a := _rng.randf_range(0.0, TAU)
+	var off := _rng.randf_range(0.0, tray_spread)
+	var x := Vector3(cos(a), 0.0, sin(a))
+	var at := global_position + Vector3(
+		cos(a) * off, TRAY_FLOOR_Y + tray_lift, sin(a) * off)
+	return Transform3D(Basis(x, Vector3.UP, x.cross(Vector3.UP)), at)
 
 
 # --- building ----------------------------------------------------------------
