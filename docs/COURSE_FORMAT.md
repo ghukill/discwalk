@@ -163,7 +163,7 @@ A layout is **the part of the course that gets built and the holes played there*
 | `name` | required | Shown in the menu. `--layout=` matches it in any case, with spaces or dashes (`back-9`). |
 | `holes` | optional | Hole numbers, played in number order. Default: all of them. |
 | `bounds` | optional | `[x0, z0, x1, z1]`: the box that gets built. Default: the box round the layout's tees, baskets and aim points, plus 40 m all round (and never past `size`). |
-| `block_size` | optional | Voxel size for this layout in metres: 0.25, 0.5 or 1 make sense (0.125 to 4 allowed). Default: the game's (0.25 m, or `--block-size=`). `--block-size=` on the command line beats it. |
+| `block_size` | optional | Voxel size for this layout in metres: 0.25, 0.5 or 1 make sense (0.125 to 4 allowed). Default: the game's (0.25 m, or `--block-size=`). `--block-size=` on the command line beats it. Set it for any layout over about 300 m across: at 0.25 m a big layout takes minutes to build and can exceed the physics engine's limits. |
 
 The world ends at the bounds in a cliff, with invisible walls just inside. Layouts may overlap as much as you like: only one is built at a time.
 
@@ -191,6 +191,7 @@ uv run tools/courses/site_from_geo.py --ul 42.215551,-83.565320 --lr 42.210182,-
 
 # 2. Trees, guessed from the photo. Look at the preview; edit trees.json if it's wrong.
 uv run tools/courses/trees_from_aerial.py data/courses/my-course --preview /tmp/trees.png
+#    Too dense to play? --thin 0.3 drops 30% of the woods' trees (lone trees stay).
 
 # 3. Write course.json: size / height_min / height_max / geo from site.json, then water,
 #    holes and layouts by hand (positions read off aerial.png: x = col / 2, z = row / 2).

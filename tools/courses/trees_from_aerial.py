@@ -6,10 +6,13 @@
 
     uv run tools/courses/trees_from_aerial.py data/courses/ponds-at-lakeshore
     uv run tools/courses/trees_from_aerial.py <dir> --preview /tmp/trees.png
+    uv run tools/courses/trees_from_aerial.py <dir> --thin 0.3
 
 Writes <dir>/trees.json: [{"at": [x, z], "crown": r, "kind", "form"}, ...] in
 course metres (docs/COURSE_FORMAT.md), which course.json points at with
-"trees": "trees.json". --preview draws the guesses over the photo.
+"trees": "trees.json". --preview draws the guesses over the photo. --thin
+drops that share of the trees packed into woods (lone trees all stay), for a
+lighter, more open course.
 
 How: on a summer photo of mown grass, trees and their shadows are the dark
 things. Each dark blob is a crown plus its shadow, cast away from the sun, so:
@@ -63,6 +66,7 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("dir", type=pathlib.Path)
     ap.add_argument("--preview", type=pathlib.Path)
+    ap.add_argument("--thin", type=float, default=0.0, help="share of woods trees to drop (0..1)")
     a = ap.parse_args()
 
     photo = Image.open(a.dir / "aerial.png").convert("RGB")
@@ -142,6 +146,10 @@ def main():
             leafy.append(t)
     print(f"{len(trees) - len(leafy)} dark spots dropped as not leafy")
     trees = leafy
+    if a.thin > 0:
+        rng = np.random.default_rng(1)
+        trees = [t for t in trees if not t[4] or rng.random() >= a.thin]
+        print(f"thinned the woods to {len(trees)} trees")
 
     out = []
     for k, (x, z, crown, tall, grove) in enumerate(sorted(trees, key=lambda t: (t[1], t[0]))):

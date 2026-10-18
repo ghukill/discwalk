@@ -1,0 +1,48 @@
+{
+ "format": 1,
+ "name": "Ivy Hill",
+ "location": "Forest, Virginia",
+ "about": "Rolling hills on an old golf course, round a pond and down toward Ivy Creek. Ground from USGS 3DEP lidar with its relief doubled, trees guessed from a NAIP aerial photo with the woods thinned by a third (trees_from_aerial.py --thin 0.35), holes traced from the course map (long tees, main baskets).",
+ "size": [1551, 937],
+ "geo": {"upper_left": [37.396995, -79.327763], "lower_right": [37.388582, -79.310222]},
+ "terrain": {
+  "heightmap": "height.png",
+  "height_min": 234.3,
+  "height_max": 290.7,
+  "vertical_scale": 2.0
+ },
+ "water": [
+  {"at": [660, 360], "radius": 90, "level": 256.05},
+  {"at": [760, 385], "radius": 75, "level": 256.05},
+  {"at": [755, 480], "radius": 70, "level": 256.05},
+  {"at": [845, 410], "radius": 38, "level": 256.05},
+  {"at": [1400, 180], "radius": 270, "level": 242.2},
+  {"at": [1180, 372], "radius": 50, "level": 242.2}
+ ],
+ "trees": "trees.json",
+ "holes": [
+  {"n": 1, "tee": [262.7, 113.0], "basket": [246.8, 274.7]},
+  {"n": 2, "tee": [227.3, 340.6], "basket": [165.1, 411.9]},
+  {"n": 3, "tee": [288.3, 524.8], "basket": [433.5, 610.2]},
+  {"n": 4, "tee": [478.6, 641.9], "basket": [626.9, 640.7]},
+  {"n": 5, "tee": [700.0, 601.0], "basket": [760.4, 619.4]},
+  {"n": 6, "tee": [881.8, 714.5], "basket": [1014.8, 775.5]},
+  {"n": 7, "tee": [1070.9, 796.9], "basket": [1152.1, 726.7]},
+  {"n": 8, "tee": [1203.3, 705.4], "basket": [1136.8, 659.6]},
+  {"n": 9, "tee": [1194.8, 638.3], "basket": [1302.7, 610.8]},
+  {"n": 10, "tee": [1226.5, 568.1], "basket": [1026.4, 705.4]},
+  {"n": 11, "tee": [991.6, 647.4], "basket": [915.4, 623.0]},
+  {"n": 12, "tee": [921.5, 540.0], "basket": [909.3, 384.5]},
+  {"n": 13, "tee": [912.3, 335.7], "basket": [934.9, 259.4]},
+  {"n": 14, "tee": [866.6, 113.0], "basket": [811.7, 273.5]},
+  {"n": 15, "tee": [876.9, 430.2], "basket": [810.0, 466.0]},
+  {"n": 16, "tee": [801.9, 500.4], "basket": [706.1, 466.9]},
+  {"n": 17, "tee": [600.6, 360.1], "basket": [663.4, 190.5]},
+  {"n": 18, "tee": [593.3, 68.5], "basket": [410.3, 39.8]}
+ ],
+ "layouts": [
+  {"name": "Front 9", "holes": [1, 2, 3, 4, 5, 6, 7, 8, 9], "block_size": 1.0},
+  {"name": "Back 9", "holes": [10, 11, 12, 13, 14, 15, 16, 17, 18], "block_size": 1.0},
+  {"name": "Full 18", "holes": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18], "block_size": 1.0}
+ ]
+}
