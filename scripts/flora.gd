@@ -51,6 +51,7 @@ var voxel_count := 0
 var timings := {}                            ## Build step -> ms (for the smoke test).
 var preset_trees: Array = []                 ## Hand-placed trees (tools); skips placement.
 var bare := false                            ## No trees or flowers (distance course).
+var fixed_trees := false                     ## Only the preset trees, even none (a course from a file).
 var defer_flowers := false                   ## build() leaves the flowers for scatter_flowers().
 
 var _vox := {}                               ## Vector3i -> BARK/LEAF
@@ -85,7 +86,7 @@ func build(t: Node3D) -> void:
 	var t0 := Time.get_ticks_msec()
 	if bare:
 		trees.clear()
-	elif preset_trees.is_empty():
+	elif preset_trees.is_empty() and not fixed_trees:
 		_place_trees()
 	else:
 		trees.clear()

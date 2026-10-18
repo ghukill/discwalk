@@ -98,6 +98,16 @@ $G --headless --path . --script res://tools/course_test.gd [-- --block-size=1]
 DISPLAY=:0 $G --path . --resolution 1280x720 --script res://tools/course_shots.gd -- /tmp/course_shots
 ```
 
+Courses from files ([COURSE_FORMAT.md](COURSE_FORMAT.md)) have a checker and a preview. The checker reads a course, builds each layout at 1 m blocks and checks every hole (water, slope, trees on the tee); run it on every shipped course after touching terrain, flora or the format. The smoke test builds one too:
+
+```sh
+$G --headless --path . --script res://tools/course_check.gd -- ponds-at-lakeshore
+$G --headless --path . --script res://tools/smoke_test.gd -- --course=ponds-at-lakeshore --layout=back-9 --block-size=1
+DISPLAY=:0 $G --path . --resolution 1280x720 --script res://tools/course_preview.gd -- /tmp/preview --course=ponds-at-lakeshore --block-size=1
+```
+
+`tools/courses/` has the Python side (run with `uv run`, which fetches the dependencies): `site_from_geo.py` fetches a heightmap and aerial photo for a lat/lon box (USGS), `trees_from_aerial.py` guesses trees from the photo.
+
 The smoke test passes when:
 - all chunks are built
 - at least one lake exists

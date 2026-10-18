@@ -1,0 +1,42 @@
+{
+ "format": 1,
+ "name": "The Ponds at Lakeshore",
+ "location": "Ypsilanti, Michigan",
+ "about": "An open, nearly flat park course of scattered spruce and pine, with a wooded pond in the east. Ground from USGS 3DEP lidar, trees guessed from a NAIP aerial photo (tools/courses/trees_from_aerial.py), holes traced from the course map (main/long tees).",
+ "size": [618, 598],
+ "geo": {"upper_left": [42.215551, -83.56532], "lower_right": [42.210182, -83.557825]},
+ "terrain": {
+  "heightmap": "height.png",
+  "height_min": 211.1,
+  "height_max": 219.8
+ },
+ "water": [
+  {"at": [451, 386], "radius": 40, "level": 213.85}
+ ],
+ "trees": "trees.json",
+ "holes": [
+  {"n": 1, "tee": [174.6, 84.1], "basket": [254.1, 138.3]},
+  {"n": 2, "tee": [272.4, 118.0], "basket": [523.2, 212.3]},
+  {"n": 3, "tee": [491.3, 251.4], "basket": [588.4, 296.4]},
+  {"n": 4, "tee": [585.5, 347.1], "basket": [545.5, 461.7]},
+  {"n": 5, "tee": [584.7, 502.3], "basket": [515.4, 540.0], "aim": [526.1, 508.1]},
+  {"n": 6, "tee": [529.0, 484.9], "basket": [484.0, 403.7]},
+  {"n": 7, "tee": [531.9, 439.9], "basket": [479.1, 367.4]},
+  {"n": 8, "tee": [452.1, 342.8], "basket": [455.9, 424.0]},
+  {"n": 9, "tee": [444.9, 524.0], "basket": [362.2, 393.5], "aim": [381.1, 450.1]},
+  {"n": 10, "tee": [359.3, 370.3], "basket": [468.1, 290.6]},
+  {"n": 11, "tee": [455.0, 332.6], "basket": [545.5, 316.7]},
+  {"n": 12, "tee": [513.0, 302.2], "basket": [453.6, 221.0]},
+  {"n": 13, "tee": [432.7, 219.5], "basket": [415.0, 273.2]},
+  {"n": 14, "tee": [406.6, 221.0], "basket": [328.3, 337.0]},
+  {"n": 15, "tee": [309.2, 284.8], "basket": [376.8, 199.2]},
+  {"n": 16, "tee": [336.1, 209.4], "basket": [254.9, 296.4]},
+  {"n": 17, "tee": [237.5, 268.0], "basket": [305.1, 202.1]},
+  {"n": 18, "tee": [307.1, 178.9], "basket": [186.2, 139.8]}
+ ],
+ "layouts": [
+  {"name": "Front 9", "holes": [1, 2, 3, 4, 5, 6, 7, 8, 9], "block_size": 0.5},
+  {"name": "Back 9", "holes": [10, 11, 12, 13, 14, 15, 16, 17, 18], "block_size": 0.5},
+  {"name": "Full 18", "holes": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18], "block_size": 0.5}
+ ]
+}

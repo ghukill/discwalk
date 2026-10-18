@@ -71,6 +71,26 @@ static func plan(t: Node3D, sites: Array[Vector3]) -> Array[Dictionary]:
 	return holes
 
 
+## The holes of a course from a file (course_file.gd) in the layout being
+## built, in the same shape as plan(), in world metres. The tee faces its aim
+## point (the basket, or the corner of a dogleg); `length` goes via the aim.
+static func from_file(t: Node3D) -> Array[Dictionary]:
+	var holes: Array[Dictionary] = []
+	for h: Dictionary in t.course.holes:
+		if h.n not in t.course_layout.holes:
+			continue
+		var tee: Vector2 = t.to_world(h.tee)
+		var aim: Vector2 = t.to_world(h.aim)
+		var b: Vector2 = t.to_world(h.basket)
+		var to_aim := aim - tee
+		var yaw := atan2(-to_aim.x, -to_aim.y)
+		holes.append({"n": h.n, "tee": Vector3(tee.x, t.height_at(tee.x, tee.y), tee.y),
+			"yaw": yaw, "pad_yaw": snappedf(yaw, PI / 4.0),
+			"length": tee.distance_to(aim) + aim.distance_to(b) - TEE_SIZE.y * 0.5,
+			"basket_at": Vector3(b.x, t.height_at(b.x, b.y), b.y)})
+	return holes
+
+
 static func _tee_for(t: Node3D, rng: RandomNumberGenerator, b: Vector2, from: Vector2,
 		sites: Array[Vector3], holes: Array[Dictionary]) -> Dictionary:
 	var back := from - b

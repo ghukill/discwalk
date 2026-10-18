@@ -5,7 +5,9 @@ extends Node3D
 ## Two ways to play the same course (menu.gd, or `-- --mode=free|course`):
 ## Free Play (walk around and sling discs, nothing enforced) and Course Play
 ## (a round of disc golf, course_round.gd). Launched normally you get the
-## menu first; tools that build this scene themselves get Free Play.
+## menu first; tools that build this scene themselves get Free Play. The
+## menu also picks where to play; a different place is built before the
+## mode starts (`-- --course=<id>` starts on a course from a file).
 
 const THROWER_SCRIPT := preload("res://scripts/thrower.gd")
 const CLOUDS_SCRIPT := preload("res://scripts/clouds.gd")
@@ -59,7 +61,7 @@ func _ready() -> void:
 	elif get_tree().current_scene == self:
 		start_mode("free")
 		mode = ""
-		menu.open(false, false, not terrain.holes.is_empty())
+		menu.open(false, false, not terrain.holes.is_empty(), place_key())
 	else:
 		start_mode("free")
 
@@ -177,7 +179,7 @@ func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("menu"):
 		set_controls(false)
 		menu.open(true, course_round.active and course_round.state != "done",
-			not terrain.holes.is_empty())
+			not terrain.holes.is_empty(), place_key())
 		get_viewport().set_input_as_handled()
 		return
 	if event.is_action_pressed("controls"):
@@ -189,11 +191,44 @@ func _unhandled_input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 		return
 	if event.is_action_pressed("new_world"):
+		if terrain.world_kind == "course":
+			thrower._note("N rolls a new world on Glacial hills (Esc: pick it in the menu)", 3.0)
+			return
 		terrain.world_seed = randi() % 100000
-		thrower.clear()
-		terrain.generate()
-		clouds.generate(terrain.world_seed, Vector2(terrain.world_x, terrain.world_z), terrain.flora.canopy_top())
+		_rebuild()
 		start_mode(mode if mode != "" else "free")
+
+
+## The world (terrain, trees, holes, clouds) built again from the terrain's
+## settings as they stand.
+func _rebuild() -> void:
+	thrower.clear()
+	terrain.generate()
+	clouds.generate(terrain.world_seed, Vector2(terrain.world_x, terrain.world_z), terrain.flora.canopy_top())
+
+
+## Which menu place (menu.gd) the world standing now is.
+func place_key() -> String:
+	if terrain.world_kind == "course":
+		return "course:%s:%s" % [terrain.course_id.get_file(), terrain.course_layout.slug]
+	return terrain.world_kind
+
+
+## Menu: a mode was picked, maybe somewhere new. Building a course takes a
+## while (half a minute for a big one), so say so first.
+func _on_chosen(m: String) -> void:
+	var p: Dictionary = menu.picked()
+	if p.key != place_key():
+		terrain.world_kind = p.key.get_slice(":", 0)
+		if terrain.world_kind == "course":
+			terrain.course_id = p.id
+			terrain.layout_name = p.layout
+		course_round._show_banner("Building %s..." % p.label, 1e9)
+		for i in 3:
+			await get_tree().process_frame     # let the banner show before the long build
+		_rebuild()
+		course_round._show_banner("", 0.0)
+	start_mode(m)
 
 
 ## The ? overlay, centred and hidden; the top-left help is just a faint hint.
@@ -257,16 +292,22 @@ func _setup_round() -> void:
 	menu.set_script(Menu)
 	menu.name = "Menu"
 	add_child(menu)
-	menu.chosen.connect(start_mode)
+	menu.chosen.connect(_on_chosen)
 
 
 func _place_player() -> void:
-	# On the distance course, start on the tee facing down the field.
-	player.respawn(terrain.spawn_point(), 0.0 if terrain.world_kind == "distance" else NAN)
+	# On the distance course, start on the tee facing down the field; on a
+	# course from a file, behind hole 1's tee facing down the hole.
+	var yaw := 0.0 if terrain.world_kind == "distance" else NAN
+	if terrain.world_kind == "course" and not terrain.holes.is_empty():
+		yaw = terrain.holes[0].yaw
+	player.respawn(terrain.spawn_point(), yaw)
 
 
 func _update_hud() -> void:
 	var world := "distance course" if terrain.world_kind == "distance" \
 		else "seed %d" % terrain.world_seed
+	if terrain.world_kind == "course":
+		world = "%s  ·  %s" % [terrain.course.name, terrain.course_layout.name]
 	var play := "Course Play" if mode == "course" else "Free Play"
 	hud.text = "discwalk  ·  %s  ·  %s\nPress ? for controls, Esc for the menu" % [world, play]

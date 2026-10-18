@@ -3,19 +3,24 @@ extends CanvasLayer
 ## game. The world is already built behind it, and the game is paused while
 ## it's open.
 ##
+##   <  Course  >      where to play: Glacial hills, the distance course, or
+##                     a layout of a course from a file (course_file.gd)
 ##   1  Free Play      walk around and sling discs
 ##   2  Course Play    play a round of disc golf
 ##      Controls       the controls overlay (controls_panel.gd)
 ##      Quit
 ##
 ## In game there's also Resume (Esc again does the same). Picking a mode
-## starts it over; if that would throw away a round in progress, the button
-## asks once more first. Mouse, keys (arrows, Enter, 1, 2) and controller
-## (D-pad, A, B) all work.
+## starts it over, on the course picked (main.gd builds it first if it's not
+## the one standing); if that would throw away a round in progress, the
+## button asks once more first. Mouse, keys (arrows, Enter, 1, 2) and
+## controller (D-pad, A, B) all work: left / right on the course row (or
+## pressing it) steps through the courses.
 
 const ControlsPanel := preload("res://scripts/controls_panel.gd")
+const CourseFile := preload("res://scripts/course_file.gd")
 
-signal chosen(mode)                  ## "free" or "course"
+signal chosen(mode)                  ## "free" or "course"; build `picked()` first if it isn't up
 signal resumed
 
 const INK := Color(1.0, 0.9, 0.74, 0.95)
@@ -26,6 +31,11 @@ const BRASS := Color(0.66, 0.53, 0.33, 0.7)
 var in_game := false                 ## false = title screen (no Resume).
 var round_on := false                ## A round is in progress: confirm before dropping it.
 var has_holes := true                ## Course Play needs a course with holes.
+## Where you can play: [{key, label, holes (bool, or null = ask the world)}].
+## key: "glacial", "distance" or "course:<id>:<layout slug>".
+var places: Array[Dictionary] = []
+var pick := 0                        ## Index into places.
+var current := ""                    ## Key of the world standing now.
 
 var _panel: PanelContainer
 var _controls: PanelContainer
@@ -33,6 +43,8 @@ var _resume: Button
 var _free: Button
 var _course: Button
 var _course_note: Label
+var _place: Button
+var _place_note: Label
 var _confirm := ""                   ## Mode waiting for a second press.
 
 
@@ -65,6 +77,12 @@ func _ready() -> void:
 	col.add_child(_label("discwalk", 44, AMBER))
 	col.add_child(_label("walk the hills, sling some discs", 14, DIM))
 	col.add_child(_gap(10))
+	_find_places()
+	_place = _button("", "", col)
+	_place.pressed.connect(_step_place.bind(1))
+	_place_note = _label("", 12, DIM)
+	col.add_child(_place_note)
+	col.add_child(_gap(4))
 	_resume = _button("Resume", "", col)
 	_resume.pressed.connect(_on_resume)
 	_free = _button("1   Free Play", "walk around and sling discs", col)
@@ -103,15 +121,35 @@ func _centre(c: Control) -> void:
 	c.grow_vertical = Control.GROW_DIRECTION_BOTH
 
 
-func open(game: bool, round_in_progress: bool, holes: bool) -> void:
+## Glacial hills, the distance course, then every layout of every course
+## found (course_file.gd list()).
+func _find_places() -> void:
+	places = [{"key": "glacial", "label": "Glacial hills", "about": "rolling hills from a seed (N for a new one)", "holes": null},
+		{"key": "distance", "label": "Distance course", "about": "a flat field marked every 10 m", "holes": false}]
+	for c: Dictionary in CourseFile.list():
+		for l: Dictionary in c.layouts:
+			places.append({"key": "course:%s:%s" % [c.id, l.slug], "label": "%s  ·  %s" % [c.name, l.name],
+				"about": "", "holes": null, "id": c.id, "layout": l.name})
+
+
+## The place picked: {key, label, ...; for a course also id and layout}.
+func picked() -> Dictionary:
+	return places[pick]
+
+
+## `here` is the key of the world standing now (main.gd place_key()).
+func open(game: bool, round_in_progress: bool, holes: bool, here := "") -> void:
 	in_game = game
 	round_on = round_in_progress
 	has_holes = holes
+	current = here
+	pick = 0
+	for i in places.size():
+		if places[i].key == here:
+			pick = i
 	_confirm = ""
 	_resume.visible = in_game
-	_course.disabled = not has_holes
-	_course_note.text = "" if has_holes else "(this course has no holes)"
-	_course_note.visible = not has_holes
+	_show_place()
 	_relabel()
 	_show_controls(false)
 	visible = true
@@ -126,11 +164,35 @@ func close() -> void:
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 
 
+## Course row: show the pick, and whether Course Play can go there.
+func _show_place() -> void:
+	var p := picked()
+	_place.text = "<   %s   >" % p.label
+	var holes: bool = has_holes if p.key == current else (p.holes if p.holes != null else true)
+	var note: String = p.about
+	if p.key != current and in_game:
+		note = "a new course: picking a mode builds it" if note == "" else note
+	_place_note.text = note
+	_place_note.visible = note != ""
+	_course.disabled = not holes
+	_course_note.text = "" if holes else "(this course has no holes)"
+	_course_note.visible = not holes
+
+
+func _step_place(by: int) -> void:
+	pick = posmod(pick + by, places.size())
+	_confirm = ""
+	_show_place()
+	_relabel()
+
+
 func _input(event: InputEvent) -> void:
 	if not visible:
 		return
 	var back := event.is_action_pressed("menu") or event.is_action_pressed("ui_cancel")
-	if back and _controls.visible:
+	if _place.has_focus() and (event.is_action_pressed("ui_left") or event.is_action_pressed("ui_right")):
+		_step_place(-1 if event.is_action_pressed("ui_left") else 1)
+	elif back and _controls.visible:
 		_show_controls(false)
 	elif back and in_game:
 		_on_resume()
@@ -138,7 +200,7 @@ func _input(event: InputEvent) -> void:
 			and (event.keycode == KEY_1 or event.physical_keycode == KEY_1):
 		_pick("free")
 	elif event is InputEventKey and event.pressed and not event.echo \
-			and (event.keycode == KEY_2 or event.physical_keycode == KEY_2) and has_holes:
+			and (event.keycode == KEY_2 or event.physical_keycode == KEY_2) and not _course.disabled:
 		_pick("course")
 	else:
 		return

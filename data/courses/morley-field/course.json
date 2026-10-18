@@ -1,0 +1,40 @@
+{
+ "format": 1,
+ "name": "Morley Field",
+ "location": "San Diego, California",
+ "about": "A wooded canyon course in Balboa Park, dropping about 25 m from the Pershing Dr side to the archery range. Ground from USGS 3DEP lidar, trees guessed from a NAIP aerial photo (tools/courses/trees_from_aerial.py), holes traced from the course map (one basket per hole).",
+ "size": [307, 517],
+ "geo": {"upper_left": [32.740089, -117.137654], "lower_right": [32.735444, -117.13438]},
+ "terrain": {
+  "heightmap": "height.png",
+  "height_min": 75.6,
+  "height_max": 100.9
+ },
+ "trees": "trees.json",
+ "holes": [
+  {"n": 1, "tee": [163.0, 379.9], "basket": [184.7, 315.8], "aim": [167.6, 325.9]},
+  {"n": 2, "tee": [168.2, 308.0], "basket": [220.4, 300.1]},
+  {"n": 3, "tee": [233.4, 356.4], "basket": [277.8, 260.1], "aim": [246.5, 296.9]},
+  {"n": 4, "tee": [271.1, 297.8], "basket": [218.9, 237.5], "aim": [232.0, 237.5]},
+  {"n": 5, "tee": [251.4, 194.0], "basket": [171.1, 245.6], "aim": [205.9, 207.9]},
+  {"n": 6, "tee": [141.5, 230.8], "basket": [221.0, 173.1]},
+  {"n": 7, "tee": [238.4, 175.1], "basket": [198.1, 98.9], "aim": [194.9, 126.7]},
+  {"n": 8, "tee": [142.1, 60.6], "basket": [165.3, 144.7]},
+  {"n": 9, "tee": [189.9, 161.5], "basket": [124.7, 209.1]},
+  {"n": 10, "tee": [109.6, 194.9], "basket": [91.9, 248.5], "aim": [89.3, 202.7]},
+  {"n": 11, "tee": [94.8, 277.5], "basket": [197.2, 257.2], "aim": [166.8, 284.5]},
+  {"n": 12, "tee": [143.5, 297.8], "basket": [71.0, 296.9], "aim": [84.1, 305.6]},
+  {"n": 13, "tee": [128.5, 325.9], "basket": [65.2, 339.0], "aim": [87.0, 346.2]},
+  {"n": 14, "tee": [81.8, 369.4], "basket": [142.1, 331.8], "aim": [139.2, 357.8]},
+  {"n": 15, "tee": [116.0, 389.8], "basket": [62.9, 441.9]},
+  {"n": 16, "tee": [89.0, 389.8], "basket": [116.6, 455.0]},
+  {"n": 17, "tee": [133.6, 477.6], "basket": [175.4, 429.5], "aim": [174.0, 437.6]},
+  {"n": 18, "tee": [189.1, 425.1], "basket": [118.0, 407.1]},
+  {"n": 19, "tee": [88.4, 433.8], "basket": [176.0, 395.5], "aim": [168.8, 414.4]}
+ ],
+ "layouts": [
+  {"name": "Front 9", "holes": [1, 2, 3, 4, 5, 6, 7, 8, 9], "block_size": 0.5},
+  {"name": "Back 10", "holes": [10, 11, 12, 13, 14, 15, 16, 17, 18, 19], "block_size": 0.5},
+  {"name": "Full 19", "holes": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19], "block_size": 0.5}
+ ]
+}

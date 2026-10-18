@@ -8,11 +8,12 @@ A short tour of how discwalk is put together. It is written for "future us" open
 project.godot            Godot project settings (window, physics tick, MSAA)
 scenes/main.tscn         The one scene: sky/environment, sun, Terrain, Player, HUD
 scripts/main.gd          Glue: spawns the player, "? for controls" hint + overlay toggle, HUD scale (-/=, --ui-scale), N = new world, --debug-keys, Free / Course Play (--mode)
-scripts/menu.gd          The game menu (title screen + Esc): Resume, Free Play, Course Play, Controls, Quit; pauses the tree
-scripts/course.gd        Lays out a course over the baskets: hole order, a tee pad per hole, paints pads + hole numbers
+scripts/menu.gd          The game menu (title screen + Esc): where to play (< course >), Resume, Free Play, Course Play, Controls, Quit; pauses the tree
+scripts/course.gd        Lays out a course over the baskets: hole order, a tee pad per hole, paints pads + hole numbers; or takes a file's holes (from_file)
+scripts/course_file.gd   Courses from files (docs/COURSE_FORMAT.md): finds them, reads course.json + defaults + errors, decodes 16-bit heightmaps
 scripts/course_round.gd  Course Play: current hole, strokes, goto faces the basket, picks up your disc, hole out -> walk to the next tee, hole overview (M)
 scripts/shot_circle.gd   A ring of flat squares on the ground: the shot circle, the lie marker, and the overview's tee/basket/you/lie markers
-scripts/terrain.gd       Height field, kettle lakes, chunk meshes, water, collision
+scripts/terrain.gd       Height field, kettle lakes, chunk meshes, water, collision; or a course file's layout (heightmap, water, trees)
 scripts/flora.gd         Oaks (voxel trees) and wildflowers (MultiMesh)
 scripts/voxel_mesh.gd    Greedy face merging + quad/mesh helpers (shared)
 scripts/player.gd        First-person walker: input bindings, movement, crouch (toggle, headroom check), head bob, shot-circle tether, auto-walk

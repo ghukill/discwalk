@@ -42,8 +42,11 @@ func build(t: Node3D) -> void:
 			b.queue_free()
 	baskets.clear()
 	# The course (course.gd) puts them in playing order and finds each a tee;
-	# Basket<n> is hole n.
-	holes = Course.plan(terrain, pick_sites())
+	# Basket<n> is hole n. A course from a file has its own.
+	if terrain.world_kind == "course":
+		holes = Course.from_file(terrain) if count > 0 else []
+	else:
+		holes = Course.plan(terrain, pick_sites())
 	for h in holes:
 		var b := Node3D.new()
 		b.set_script(BASKET_SCRIPT)

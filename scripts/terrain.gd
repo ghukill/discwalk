@@ -20,11 +20,16 @@ const VoxelMesh := preload("res://scripts/voxel_mesh.gd")
 const DistanceCourse := preload("res://scripts/distance_course.gd")
 const BASKETS_SCRIPT := preload("res://scripts/baskets.gd")
 const Course := preload("res://scripts/course.gd")
+const CourseFile := preload("res://scripts/course_file.gd")
 
 @export var world_seed: int = 1848
-## "glacial" (generated from the seed) or "distance" (the flat distance
-## course, scripts/distance_course.gd). Override with `-- --world=distance`.
-@export_enum("glacial", "distance") var world_kind: String = "glacial"
+## "glacial" (generated from the seed), "distance" (the flat distance
+## course, scripts/distance_course.gd) or "course" (a course from a file:
+## course_id + layout_name, see course_file.gd). Override with
+## `-- --world=distance` or `-- --course=<id> [--layout=<name>]`.
+@export_enum("glacial", "distance", "course") var world_kind: String = "glacial"
+@export var course_id := ""                ## world_kind "course": its folder name (or path).
+@export var layout_name := ""              ## ...and which layout ("" = the first).
 ## Edge length of one voxel in metres. 0.25 (default) is the detailed look;
 ## 0.5 or 1.0 (the original chunky look) build much faster and use less
 ## memory. Override at launch with `-- --block-size=1`. See docs/CONFIG.md.
@@ -75,6 +80,15 @@ var baskets_on := true
 ## Optional hand-placed trees for tools (see tools/tree_gallery.gd):
 ## [{x: m, z: m, kind, form, crown?}]. Empty = normal generated placement.
 var flora_preset: Array = []
+## A course from a file (world_kind "course"): course_file.gd read(), the
+## layout being built, and where the world's corner sits in course metres
+## (world position = course position - course_origin).
+var course: Dictionary = {}
+var course_layout: Dictionary = {}
+var course_origin := Vector2.ZERO
+var _block_size_set := false               ## --block-size= given: it beats the layout's.
+var _cmdline_done := false                 ## Flags apply once: after that the menu picks.
+var _saved := {}                           ## Settings a course (or the distance field) changed, to put back.
 
 var _shore := PackedByteArray()            ## 1 = sandy shore / lake bed.
 var _paint := PackedByteArray()            ## Painted top kind per column (0 = none).
@@ -101,15 +115,29 @@ func generate() -> void:
 		remove_child(child)
 		child.queue_free()
 
-	_apply_cmdline_overrides()
+	if not _cmdline_done:
+		_apply_cmdline_overrides()
+		_cmdline_done = true
+	for k in _saved:                       # undo the last course's size and blocks
+		set(k, _saved[k])
+	_saved.clear()
+	course_origin = Vector2.ZERO
 	if world_kind == "distance":
+		_saved = {"world_x": world_x, "world_z": world_z}
 		world_x = DistanceCourse.WORLD_X
 		world_z = DistanceCourse.WORLD_Z
+	if world_kind == "course" and not _open_course():
+		world_kind = "glacial"
 	chunk_size = clampi(int(round(chunk_metres / block_size)), 8, 1024)
 	chunks_x = maxi(1, int(round(world_x / (block_size * chunk_size))))
 	chunks_z = maxi(1, int(round(world_z / (block_size * chunk_size))))
 	size_x = chunks_x * chunk_size
 	size_z = chunks_z * chunk_size
+	if world_kind == "course":
+		# Whole chunks may come out a little bigger than the bounds: grow
+		# them evenly round the middle.
+		var b: Rect2 = course_layout.bounds
+		course_origin = (b.get_center() - Vector2(size_x, size_z) * block_size / 2.0).snappedf(block_size)
 	world_x = size_x * block_size
 	world_z = size_z * block_size
 	_rng.seed = world_seed
@@ -119,6 +147,10 @@ func generate() -> void:
 	if world_kind == "distance":
 		lakes.clear()
 		hf = DistanceCourse.heights(self)
+	elif world_kind == "course":
+		hf = _course_heights()
+		_level_tees(hf)
+		_course_lakes(hf)
 	else:
 		hf = _base_heights()
 		_carve_kettles(hf)
@@ -136,8 +168,9 @@ func generate() -> void:
 	flora = Node3D.new()
 	flora.set_script(FLORA_SCRIPT)
 	flora.name = "Flora"
-	flora.preset_trees = flora_preset
+	flora.preset_trees = _course_trees() if world_kind == "course" else flora_preset
 	flora.bare = world_kind == "distance"
+	flora.fixed_trees = world_kind == "course"
 	flora.defer_flowers = true
 	add_child(flora)
 	flora.build(self)
@@ -162,8 +195,11 @@ func generate() -> void:
 	var flowers := 0
 	for n in flora.flower_counts.values():
 		flowers += n
-	print("discwalk: %s world seed %d (block %.2fm, %dx%d columns) generated in %d ms (%d lakes; flora %d ms: %d oaks, %d flowers; %d holes %d ms)" % [
-		world_kind, world_seed, block_size, size_x, size_z, Time.get_ticks_msec() - t0, lakes.size(),
+	var what := "%s world seed %d" % [world_kind, world_seed]
+	if world_kind == "course":
+		what = "course %s: %s" % [course.name, course_layout.name]
+	print("discwalk: %s (block %.2fm, %dx%d columns) generated in %d ms (%d lakes; flora %d ms: %d oaks, %d flowers; %d holes %d ms)" % [
+		what, block_size, size_x, size_z, Time.get_ticks_msec() - t0, lakes.size(),
 		flora_ms, flora.trees.size(), flowers, holes.size(), basket_ms])
 	generated.emit()
 
@@ -176,10 +212,16 @@ func _apply_cmdline_overrides() -> void:
 			baskets_on = false
 		if arg.begins_with("--world="):
 			world_kind = arg.get_slice("=", 1)
+		if arg.begins_with("--course="):
+			world_kind = "course"
+			course_id = arg.get_slice("=", 1)
+		if arg.begins_with("--layout="):
+			layout_name = arg.get_slice("=", 1)
 		if arg.begins_with("--block-size="):
 			var v := arg.get_slice("=", 1).to_float()
 			if v >= 0.125 and v <= 4.0:
 				block_size = v
+				_block_size_set = true
 
 
 ## Surface height (m) of the column containing world position (x, z) in metres.
@@ -233,10 +275,15 @@ func lake_edge_distance(x: float, z: float) -> float:
 	return best
 
 
-## Where the walker starts (m): middle of the world, a metre above ground.
+## Where the walker starts (m): middle of the world, a metre above ground
+## (on a course from a file: behind its first tee, once there are holes).
 func spawn_point() -> Vector3:
 	if world_kind == "distance":
 		return DistanceCourse.spawn(self)
+	if world_kind == "course" and not holes.is_empty():
+		var h: Dictionary = holes[0]
+		var p: Vector3 = h.tee - Vector3(-sin(h.pad_yaw), 0, -cos(h.pad_yaw)) * 3.0
+		return Vector3(p.x, height_at(p.x, p.z) + 1.0, p.z)
 	var cx := world_x / 2.0
 	var cz := world_z / 2.0
 	return Vector3(cx, height_at(cx, cz) + 1.0, cz)
@@ -331,12 +378,13 @@ func _fill_lakes() -> void:
 		var c: Vector2 = lake.center
 		var r: float = lake.radius
 		var bs := block_size
-		var rim := 1e9
-		for step in 48:
-			var a := TAU * step / 48.0
-			var p := c + Vector2(cos(a), sin(a)) * r * 0.92
-			rim = minf(rim, height_at(p.x, p.y))
-		lake.water_y = rim - 0.35 * bs
+		if not lake.get("fixed", false):
+			var rim := 1e9
+			for step in 48:
+				var a := TAU * step / 48.0
+				var p := c + Vector2(cos(a), sin(a)) * r * 0.92
+				rim = minf(rim, height_at(p.x, p.y))
+			lake.water_y = rim - 0.35 * bs
 		# Sandy beach + muddy bed for anything at or below the waterline + 1 block.
 		var pad := int(2.0 / bs) + 1
 		for z in range(maxi(0, int((c.y - r) / bs) - pad), mini(size_z, int((c.y + r) / bs) + pad)):
@@ -344,6 +392,162 @@ func _fill_lakes() -> void:
 				if Vector2((x + 0.5) * bs, (z + 0.5) * bs).distance_to(c) < r * 1.08:
 					if heights[z * size_x + x] * bs <= lake.water_y + bs:
 						_shore[z * size_x + x] = 1
+
+
+# --- courses from files (course_file.gd) -------------------------------------
+
+## The ground sits this high (m) over the world's floor at the course's
+## height_min, so a course's edge is a cliff at least this tall.
+const COURSE_FLOOR := 4.0
+const TEE_FLAT := 2.5     ## Ground is level this far round a course tee (m)...
+const TEE_EASE := 5.0     ## ...and back to the heightmap by here.
+
+
+## Reads course_id's course.json and picks the layout. False (and a warning)
+## if it won't do; then generate() falls back to a glacial world.
+func _open_course() -> bool:
+	var dir := CourseFile.find(course_id)
+	if dir == "":
+		push_warning("discwalk: no course %s (looked in %s)" % [course_id, CourseFile.search_dirs()])
+		return false
+	course = CourseFile.read(dir)
+	for w in course.warnings:
+		push_warning("course %s: %s" % [course_id, w])
+	if not course.errors.is_empty():
+		for e in course.errors:
+			push_error("course %s: %s" % [course_id, e])
+		return false
+	course_layout = CourseFile.layout(course, layout_name)
+	if course_layout.is_empty():
+		push_warning("discwalk: course %s has no layout %s; using %s" % [course_id, layout_name,
+			course.layouts[0].name])
+		course_layout = course.layouts[0]
+	_saved = {"block_size": block_size, "world_x": world_x, "world_z": world_z}
+	if course_layout.block_size > 0.0 and not _block_size_set:
+		block_size = course_layout.block_size
+	world_x = course_layout.bounds.size.x
+	world_z = course_layout.bounds.size.y
+	return true
+
+
+## Course metres -> world metres, and back.
+func to_world(p: Vector2) -> Vector2:
+	return p - course_origin
+
+
+func to_course(p: Vector2) -> Vector2:
+	return p + course_origin
+
+
+## Course height (the heightmap's metres) -> world height (m).
+func course_y(h: float) -> float:
+	return (h - course.terrain.height_min) * course.terrain.vertical_scale + COURSE_FLOOR
+
+
+## The heightmap, sampled (bilinear) at every column's centre. Outside the
+## map, its edge carries on. No heightmap: flat.
+func _course_heights() -> PackedFloat32Array:
+	var hf := PackedFloat32Array()
+	hf.resize(size_x * size_z)
+	hf.fill(COURSE_FLOOR)
+	var tr: Dictionary = course.terrain
+	if tr.heightmap == "":
+		return hf
+	var map := CourseFile.heightmap(course.dir.path_join(tr.heightmap))
+	if map.is_empty():
+		push_error("course %s: can't read %s" % [course_id, tr.heightmap])
+		return hf
+	var w: int = map.w
+	var h: int = map.h
+	var v: PackedFloat32Array = map.v
+	var span: float = (tr.height_max - tr.height_min) * tr.vertical_scale
+	# Map pixel (i, j) covers course metres [i, i+1) * size / map size.
+	var kx: float = w / course.size.x
+	var kz: float = h / course.size.y
+	for iz in size_z:
+		var fz := clampf((course_origin.y + (iz + 0.5) * block_size) * kz - 0.5, 0.0, h - 1.0)
+		var j0 := mini(int(fz), h - 2) if h > 1 else 0
+		var tz := fz - j0
+		var j1 := mini(j0 + 1, h - 1)
+		for ix in size_x:
+			var fx := clampf((course_origin.x + (ix + 0.5) * block_size) * kx - 0.5, 0.0, w - 1.0)
+			var i0 := mini(int(fx), w - 2) if w > 1 else 0
+			var tx := fx - i0
+			var i1 := mini(i0 + 1, w - 1)
+			var top := lerpf(v[j0 * w + i0], v[j0 * w + i1], tx)
+			var bottom := lerpf(v[j1 * w + i0], v[j1 * w + i1], tx)
+			hf[iz * size_x + ix] = COURSE_FLOOR + lerpf(top, bottom, tz) * span
+	return hf
+
+
+## Levels the ground round each of the layout's tees, like a built tee pad:
+## flat to TEE_FLAT m at the tee's own height, easing back into the slope
+## by TEE_EASE m.
+func _level_tees(hf: PackedFloat32Array) -> void:
+	for h: Dictionary in course.holes:
+		if not h.n in course_layout.holes:
+			continue
+		var c := to_world(h.tee)
+		var ix0 := clampi(col_x(c.x), 0, size_x - 1)
+		var iz0 := clampi(col_z(c.y), 0, size_z - 1)
+		var y := hf[iz0 * size_x + ix0]
+		for iz in range(maxi(0, col_z(c.y - TEE_EASE)), mini(size_z, col_z(c.y + TEE_EASE) + 1)):
+			for ix in range(maxi(0, col_x(c.x - TEE_EASE)), mini(size_x, col_x(c.x + TEE_EASE) + 1)):
+				var d := Vector2((ix + 0.5) * block_size, (iz + 0.5) * block_size).distance_to(c)
+				var k := smoothstep(TEE_EASE, TEE_FLAT, d)
+				var i := iz * size_x + ix
+				hf[i] = lerpf(hf[i], y, k)
+
+
+## The course's water, as lakes (in world metres). A level fixes the
+## waterline; without one it fills to just under the rim, like a kettle.
+## Ground under a fixed level is pressed a little deeper, so rounding to
+## whole blocks can't leave a pond dry (lidar gives a pond's flat top).
+func _course_lakes(hf: PackedFloat32Array) -> void:
+	lakes.clear()
+	var area := Rect2(Vector2.ZERO, Vector2(world_x, world_z))
+	for w: Dictionary in course.water:
+		var c := to_world(w.at)
+		if not area.grow(w.radius).has_point(c):
+			continue
+		var lake := {"center": c, "radius": w.radius, "water_y": 0.0}
+		if not is_nan(w.level):
+			lake.water_y = course_y(w.level)
+			lake.fixed = true
+			var bed: float = lake.water_y - 0.6 * block_size - 0.3
+			for iz in range(maxi(0, col_z(c.y - w.radius)), mini(size_z, col_z(c.y + w.radius) + 1)):
+				for ix in range(maxi(0, col_x(c.x - w.radius)), mini(size_x, col_x(c.x + w.radius) + 1)):
+					var i := iz * size_x + ix
+					if hf[i] < lake.water_y and Vector2((ix + 0.5) * block_size, (iz + 0.5) * block_size) \
+							.distance_to(c) < w.radius:
+						hf[i] = minf(hf[i], bed)
+		lakes.append(lake)
+
+
+## The course's trees in this layout (world metres), as flora presets. Not
+## in the water, and not off the edge.
+func _course_trees() -> Array:
+	var out := []
+	for t: Dictionary in course.trees:
+		var p := to_world(t.at)
+		if p.x < 1.0 or p.y < 1.0 or p.x > world_x - 1.0 or p.y > world_z - 1.0:
+			continue
+		var ix := col_x(p.x)
+		var iz := col_z(p.y)
+		if is_underwater(ix, iz) or _on_a_hole(t.at, t.crown):
+			continue
+		out.append({"x": p.x, "z": p.y, "kind": t.kind, "form": t.form, "crown": t.crown})
+	return out
+
+
+## True if a tree at course point p would hang over a tee pad of the layout
+## or stand on a basket (the aerial-photo guesses often put one there).
+func _on_a_hole(p: Vector2, crown: float) -> bool:
+	for h: Dictionary in course.holes:
+		if h.n in course_layout.holes and (p.distance_to(h.tee) < crown * 1.8 + 2.0
+				or p.distance_to(h.basket) < 2.0):
+			return true
+	return false
 
 
 # --- meshing -----------------------------------------------------------------

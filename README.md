@@ -4,7 +4,7 @@ A voxel walking sim through a generated glacial landscape (kettle lakes, rolling
 
 Built with **Godot 4.7** in plain GDScript. There are no native plugins or C#, so the same project runs on Linux, macOS and Windows.
 
-**Docs:** [Screenshots](#screenshots) · [Configuration](docs/CONFIG.md) · [Architecture](docs/ARCHITECTURE.md) · [Development](docs/DEVELOPMENT.md) · [Discs](docs/DISCS.md) · [Physics](docs/PHYSICS.md) · [Disc flight plan](docs/DISC-FLIGHT-PLAN.md)
+**Docs:** [Screenshots](#screenshots) · [Configuration](docs/CONFIG.md) · [Course format](docs/COURSE_FORMAT.md) · [Architecture](docs/ARCHITECTURE.md) · [Development](docs/DEVELOPMENT.md) · [Discs](docs/DISCS.md) · [Physics](docs/PHYSICS.md) · [Disc flight plan](docs/DISC-FLIGHT-PLAN.md)
 
 ![Oak grove with lupine and coneflowers](docs/screenshot-oak.png)
 
@@ -211,6 +211,8 @@ Done:
 
 - [x] **Game controller support** ([CONTROLS.md](docs/CONTROLS.md)): sticks walk and look, face buttons throw / jump / crouch / launch, D-pad sets up the throw, RB and LB hold pages for speed/spin and disc/collect/circle/overview
 - [x] **Courses and holes**: a world is a course, its baskets are holes with painted tee pads; a menu (Free Play / Course Play); Course Play counts strokes, goto walks you to your disc and faces the basket (or walk there yourself), a 1 m shot circle, walking to the next tee, a hole overview (M)
+
+- [x] **Courses from files** ([format](docs/COURSE_FORMAT.md)): a folder with course.json + a 16-bit heightmap + trees, played in layouts (Front 9 / Back 9 / Full 18) picked in the menu or with `--course=`; courses found in the game, `user://courses` and `--courses-dir`. Tools to fetch real ground (USGS lidar) and guess trees from an aerial photo, a checker and a preview. First course: **The Ponds at Lakeshore** (Ypsilanti, MI)
 
 Next (pick any):
 - [ ] Menu, more: New world, **Display** sub-menu (fullscreen toggle to start)
