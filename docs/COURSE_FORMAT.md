@@ -28,6 +28,35 @@ bin/run.sh --course=ponds-at-lakeshore --layout="back 9" --mode=course
 bin/run.sh --courses-dir=~/my-courses --course=backyard
 ```
 
+### How a course gets loaded
+
+All of it is in [`scripts/course_file.gd`](../scripts/course_file.gd) (finding and reading) and [`scripts/terrain.gd`](../scripts/terrain.gd) (building).
+
+1. **Finding.** `CourseFile.search_dirs()` is the folders above, in order. `CourseFile.list()` looks at every sub-folder of each that has a `course.json`, reads it, and keeps it by folder name (so a later folder wins). A course with errors is left out of the list with a warning in the console; it doesn't stop the others loading.
+2. **The menu.** The menu asks `list()` once, when the game starts, and adds one place per layout after Glacial hills and the Distance course. A course you drop into `user://courses/` while the game is running shows up next launch.
+3. **Picking one.** Choosing a place (or `--course=` / `--layout=` on the command line) sets the terrain's `world_kind = "course"`, `course_id` and `layout_name`, then rebuilds the world. `CourseFile.find(id)` turns the id into a folder: a path to a folder with a `course.json` is used as is, otherwise the last search folder holding `<id>/course.json` wins.
+4. **Reading.** `CourseFile.read(dir)` parses `course.json`, loads the tree file if `trees` names one, fills in every default (layouts, bounds, hole numbers, aim points, tree sizes) and collects `errors` and `warnings`. Errors (no `size`, a hole without a tee...) mean the course can't be built: the game says why and falls back to Glacial hills. `CourseFile.layout(course, name)` picks the layout (by [slug](#layouts)); an unknown name falls back to the first one.
+5. **Building.** The layout's `bounds` become the world's size and its `block_size` the voxel size (unless `--block-size=` was given). The heightmap is read with `CourseFile.heightmap()` (16-bit PNGs are decoded by hand: Godot's own loader keeps only 8 bits), stretched over `size` and cut to the bounds; tees are levelled, water filled, then trees, tees and baskets placed, as for a generated world.
+
+The course is read straight from its files every time it's built, through `FileAccess`, not Godot's resource importer. That's why the PNGs need care when a course ships with the game (below).
+
+### Shipping a course with the game
+
+A course in `user://courses/` or `--courses-dir` is just files; nothing else is needed. A course added to **this repo** under `data/courses/` also needs:
+
+- **`height.png.import`** saying `importer="keep"`, so the export ships the raw PNG (the game reads its bytes itself; an imported texture would be 8-bit and not where the game looks).
+- **`aerial.png.import`** (and the same for any other image that's only there for tracing) saying `importer="skip"`, so it isn't imported or shipped at all.
+
+Both are two lines:
+
+```
+[remap]
+
+importer="keep"
+```
+
+Copy them from an existing course. `.gitignore` ignores `*.import` except `data/courses/*/*.import`, so they get committed. `course.json` and the tree file ship because `export_presets.cfg` has `include_filter="*.json"`. Then run the [checker](#the-checker-and-the-preview) on the new course.
+
 ## Coordinates
 
 Everything is in **metres**, on a flat map of the course seen from above, **north up**:
@@ -87,7 +116,7 @@ Unknown fields are ignored, so you can keep notes in the file.
 "terrain": {"heightmap": "height.png", "height_min": 211.1, "height_max": 219.8, "vertical_scale": 1.0}
 ```
 
-- A **grayscale PNG**, north up. **16-bit is best** (65,536 steps; real elevation needs it). 8-bit works too (256 steps: fine for a hand-painted map with a range of a few tens of metres). A colour PNG uses its red channel.
+- A **grayscale PNG**, north up, not interlaced. **16-bit is best** (65,536 steps; real elevation needs it). 8-bit works too (256 steps: fine for a hand-painted map with a range of a few tens of metres). A colour PNG uses its red channel.
 - It's **stretched over `size`**: any resolution works, and the pixels needn't be square. 1 px per metre is plenty (the game's smallest blocks are 0.25 m and it smooths between pixels).
 - Black = `height_min`, white = `height_max` (metres). Pick them to fit your data with a little room; the heightmap uses the range in between.
 - `vertical_scale` (default 1) multiplies the relief. A flat park might look better at 1.5 or 2.
