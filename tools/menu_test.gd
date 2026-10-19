@@ -1,6 +1,8 @@
 extends SceneTree
 ## Headless check that the title menu works from a controller (menu.gd):
-## the D-pad moves the focus and A picks Free Play / Course Play.
+## the D-pad moves the focus and A picks Free Play / Course Play; up on the
+## course row, right steps the course; A opens Controls and B comes back
+## with the focus on Controls.
 ##
 ##   godot --headless --path . --script res://tools/menu_test.gd [-- --block-size=1]
 
@@ -65,6 +67,27 @@ func _process(_dt: float) -> bool:
 			_check("A picks Course Play", _main.mode == "course" and not _menu.visible)
 			_step += 1
 		3:
+			_menu.open(false, false, true)
+			_step += 1
+		4:   # up to the course row (Free Play's above it on the title screen)
+			_press(JOY_BUTTON_DPAD_UP)
+			_check("D-pad up focuses the course row", _focus() == _menu._place)
+			var was: int = _menu.pick
+			_press(JOY_BUTTON_DPAD_RIGHT)
+			_check("D-pad right steps the course", _menu.pick == posmod(was + 1, _menu.places.size()))
+			_press(JOY_BUTTON_DPAD_LEFT)
+			_check("D-pad left steps it back", _menu.pick == was)
+			_menu._ctl.grab_focus()
+			_press(JOY_BUTTON_A)
+			_check("A on Controls shows the controls", _menu._controls.visible)
+			_press(JOY_BUTTON_B)
+			_check("B closes the controls", not _menu._controls.visible and _menu.visible)
+			_check("focus back on Controls", _focus() == _menu._ctl)
+			_press(JOY_BUTTON_DPAD_UP)
+			_check("D-pad moves again after Controls", _focus() != null and _focus() != _menu._ctl)
+			_step += 1
+		5:
+			_menu.close()
 			return _report()
 	return false
 

@@ -45,6 +45,7 @@ var _course: Button
 var _course_note: Label
 var _place: Button
 var _place_note: Label
+var _ctl: Button
 var _confirm := ""                   ## Mode waiting for a second press.
 
 
@@ -91,8 +92,8 @@ func _ready() -> void:
 	_course.pressed.connect(_pick.bind("course"))
 	_course_note = _label("", 12, DIM)
 	col.add_child(_course_note)
-	var ctl := _button("Controls", "", col)
-	ctl.pressed.connect(_show_controls.bind(true))
+	_ctl = _button("Controls", "", col)
+	_ctl.pressed.connect(_show_controls.bind(true))
 	var quit := _button("Quit", "", col)
 	quit.pressed.connect(func(): get_tree().quit())
 
@@ -189,7 +190,10 @@ func _step_place(by: int) -> void:
 func _input(event: InputEvent) -> void:
 	if not visible:
 		return
-	var back := event.is_action_pressed("menu") or event.is_action_pressed("ui_cancel")
+	# B backs out too. It isn't on ui_cancel: in game B throws.
+	var pad_b: bool = event is InputEventJoypadButton and event.pressed \
+			and event.button_index == JOY_BUTTON_B
+	var back: bool = event.is_action_pressed("menu") or event.is_action_pressed("ui_cancel") or pad_b
 	if _place.has_focus() and (event.is_action_pressed("ui_left") or event.is_action_pressed("ui_right")):
 		_step_place(-1 if event.is_action_pressed("ui_left") else 1)
 	elif back and _controls.visible:
@@ -230,9 +234,14 @@ func _relabel() -> void:
 		_course.text = "Start the round over?  Press again"
 
 
+## Hiding the panel drops the focus, so coming back puts it on Controls
+## again; otherwise the D-pad has nothing to move and A nothing to press.
 func _show_controls(on: bool) -> void:
+	var was_on := _controls.visible
 	_controls.visible = on
 	_panel.visible = not on
+	if was_on and not on:
+		_ctl.grab_focus()
 
 
 func _button(text: String, sub: String, parent: Control) -> Button:
