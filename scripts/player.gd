@@ -368,6 +368,7 @@ static func _ensure_input_actions() -> void:
 		"spin_lock": [KEY_X],
 		"reset_flat": [KEY_R],
 		"hand": [KEY_H],
+		"units": [KEY_I],            # speed readout: mph <-> m/s (I for imperial)
 		"ui_bigger": [KEY_EQUAL, KEY_KP_ADD],
 		"ui_smaller": [KEY_MINUS, KEY_KP_SUBTRACT],
 	}

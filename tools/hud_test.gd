@@ -63,8 +63,9 @@ func _process(_d: float) -> bool:
 	if _f in [6, 7, 9, 10, 12, 13, 15, 16, 18, 19]:
 		return false
 	if _f == 5:
-		_check("starts: moraine, flat, 24 m/s, spin locked, backhand",
-			s.disc().id == "moraine" and s.nose == 0.0 and s.roll == 0.0 and s.speed == 24.0 and s.spin_locked and s.hand == 1.0)
+		_check("starts: moraine, flat, %.0f mph, spin locked, backhand" % s.speed_mph(),
+			s.disc().id == "moraine" and s.nose == 0.0 and s.roll == 0.0
+			and roundf(s.speed_mph()) == 54.0 and s.spin_locked and s.hand == 1.0)
 		# Arrows: polled in throw_setup._process, so hold one frame each.
 		_key(KEY_UP)
 		return false
@@ -85,8 +86,10 @@ func _process(_d: float) -> bool:
 	if _f == 17:
 		_key(KEY_RIGHT, true, false)
 		_key(KEY_SHIFT, false, false)
-		_check("Shift+↑ speed +0.5 (%.1f), spin follows while locked (%.1f); Shift+→ ignored while locked" % [s.speed, s.spin],
-			s.speed == 24.5 and is_equal_approx(s.spin, 5.2 * 24.5))
+		# One step is 1 mph now, and spin tracks the m/s underneath it.
+		_check("Shift+↑ speed +1 mph (%.0f), spin follows while locked (%.1f); Shift+→ ignored while locked" % [
+			s.speed_mph(), s.spin],
+			is_equal_approx(s.speed_mph(), 55.0) and is_equal_approx(s.spin, 5.2 * s.speed))
 		_tap(KEY_X)
 		_key(KEY_SHIFT)
 		_key(KEY_RIGHT, true)
@@ -94,7 +97,8 @@ func _process(_d: float) -> bool:
 	if _f == 20:
 		_key(KEY_RIGHT, true, false)
 		_key(KEY_SHIFT, false, false)
-		_check("X unlocks, Shift+→ spin up a step (%.1f)" % s.spin, not s.spin_locked and s.spin > 5.2 * 24.5 and s.spin <= 5.2 * 24.5 + 3.0)
+		_check("X unlocks, Shift+→ spin up a step (%.1f)" % s.spin,
+			not s.spin_locked and s.spin > 5.2 * s.speed and s.spin <= 5.2 * s.speed + 3.0)
 		# Hold ↓ for 1.5 s: repeats and ramps.
 		_key(KEY_DOWN)
 		return false
@@ -118,6 +122,21 @@ func _process(_d: float) -> bool:
 		_check("R resets to flat", s.nose == 0.0 and s.roll == 0.0 and not s.spin_locked)
 		_tap(KEY_H)
 		_check("H: forehand", s.hand == -1.0)
+		_check_nose_cue()
+		# I switches the readout only: the stored m/s must not budge, and the
+		# arrow step must follow the unit on screen.
+		var ms0: float = s.speed
+		var mph_txt: String = s.speed_str(s.speed) + " " + s.unit_name()
+		_tap(KEY_I)
+		var metric: String = s.speed_str(s.speed) + " " + s.unit_name()
+		_check("I switches mph -> m/s without changing the throw (%s -> %s)" % [
+			mph_txt, metric],
+			not s.mph and s.unit_name() == "m/s" and is_equal_approx(s.speed, ms0)
+			and is_equal_approx(s.range_of("speed")[2], s.SPEED_STEP_MS))
+		_tap(KEY_I)
+		_check("I switches back to mph (%s)" % (s.speed_str(s.speed) + " " + s.unit_name()),
+			s.mph and s.unit_name() == "mph" and is_equal_approx(s.speed, ms0)
+			and is_equal_approx(s.range_of("speed")[2], s.SPEED_STEP_MPH / s.MPH_PER_MS))
 		_key(KEY_LEFT)
 		return false
 	if _f in [131, 132]:
@@ -141,9 +160,10 @@ func _process(_d: float) -> bool:
 		_click(MOUSE_BUTTON_RIGHT)
 		var cube = th._last
 		var v: float = (cube.linear_velocity - pl.velocity).length()
-		_check("right click throws a cube at the disc speed (%.1f m/s)" % v,
+		_check("right click throws a cube at the disc speed (%.0f mph)" % (v * s.MPH_PER_MS),
 			not ("model" in cube) and absf(v - s.speed) < 0.6)
-		_check("setup carries over after throwing", s.roll == -1.0 and s.hand == -1.0 and not s.spin_locked and s.speed == 24.5)
+		_check("setup carries over after throwing", s.roll == -1.0 and s.hand == -1.0
+			and not s.spin_locked and is_equal_approx(s.speed_mph(), 55.0))
 		_tap(KEY_U)
 		var hidden: bool = not th.throw_hud.visible
 		_tap(KEY_U)
@@ -160,3 +180,35 @@ func _process(_d: float) -> bool:
 		print("HUD %s (%d/%d)" % ["PASS" if bad == 0 else "FAIL", _checks.size() - bad, _checks.size()])
 		return true
 	return false
+
+
+## Which way the nose reads on the HUD disc. Checked here rather than by eye
+## because it has been wrong twice, both times in a way that looked right on
+## review: flat has to be flat, nose up has to go up, nose down has to go down.
+func _check_nose_cue() -> void:
+	var Hud := load("res://scripts/throw_hud.gd")
+	var flat: float = Hud.lead_offset(0.0, 0.0)
+	var up: float = Hud.lead_offset(10.0, 0.0)
+	var down: float = Hud.lead_offset(-10.0, 0.0)
+	# Screen y is DOWN, so up the screen is more negative.
+	_check("nose 0 draws flat (lead %.3f, want 0)" % flat, absf(flat) < 0.01)
+	_check("nose +10 tips the leading edge UP (%.3f)" % up, up < -0.05)
+	_check("nose -10 tips it DOWN (%.3f)" % down, down > 0.05)
+	_check("nose is symmetric about flat (%.3f vs %.3f)" % [up, down],
+		absf(up + down) < 0.01)
+	# Monotonic the whole way across the range, so there is no second nose
+	# angle that looks like any other.
+	var prev := 1e9
+	var mono := true
+	for i in 21:
+		var nose := -10.0 + i
+		var y: float = Hud.lead_offset(nose, 0.0)
+		if y >= prev:
+			mono = false
+		prev = y
+	_check("nose reads one way all the way across -10..+10", mono)
+	# Nose up shows the lit top face, nose down the dark underside: the second
+	# cue a player reads, and it must agree with the first.
+	_check("nose up shows the top face, nose down the underside",
+		Hud.disc_frame(10.0, 0.0).y.dot(Hud.to_cam()) > 0.0
+		and Hud.disc_frame(-10.0, 0.0).y.dot(Hud.to_cam()) < 0.0)

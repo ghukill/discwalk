@@ -17,8 +17,8 @@ var _ran := {}                       ## Test functions that reached their end.
 ## Every test that must run to completion. A GDScript error aborts only the
 ## function it happens in, so without this a broken test would skip all its
 ## checks and the run would still report PASS.
-const MUST_RUN := ["geometry", "siting", "chains", "band", "no_count", "hit_chains", "hold", "confetti",
-	"glow", "confetti_collect"]
+const MUST_RUN := ["geometry", "siting", "chains", "band", "poses", "no_count", "hit_chains",
+	"hold", "confetti", "glow", "confetti_collect"]
 
 # The live hit tests run across frames, timed in real seconds (headless runs
 # frames as fast as it can, so frame counts aren't time).
@@ -46,6 +46,7 @@ func _process(_delta: float) -> bool:
 		_test_siting()
 		_test_chains()
 		_test_band()
+		_test_poses()
 		_start_hits()
 		_stage = 1
 		_t0 = Time.get_ticks_msec()
@@ -243,6 +244,55 @@ func _test_band() -> void:
 	_done("band")
 
 
+## Where a made disc is parked, straight from resting_pose() -- both outcomes
+## happen for real, and which one you get has to follow from the throw.
+func _test_poses() -> void:
+	var t = _main.get_node("Terrain")
+	if t.baskets.is_empty():
+		return
+	var b: Node3D = t.baskets[0]
+	var dir := Vector3(0, 0, -1)
+
+	# Drove into the chains and stopped up there: on edge, up in the chains.
+	var hang: Transform3D = b.resting_pose(
+		{"end_y": 1.0, "chain_metres": 0.2, "hit": "cage"}, dir)
+	var hy: float = hang.origin.y - b.global_position.y
+	var h_up: float = hang.basis.y.dot(Vector3.UP)
+	_check("chain strike hangs in the chains",
+		hy >= Basket.CHAIN_BOTTOM and hy <= Basket.CHAIN_TOP and absf(h_up) < 0.75,
+		"%.2f m up, normal %.2f off vertical" % [hy, h_up])
+
+	# Wrung out and dropped through: flat in the tray.
+	var tray: Transform3D = b.resting_pose(
+		{"end_y": 0.55, "chain_metres": 0.2, "hit": "cage"}, dir)
+	var ty: float = tray.origin.y - b.global_position.y
+	var t_up: float = tray.basis.y.dot(Vector3.UP)
+	var t_r: float = Vector2(tray.origin.x - b.global_position.x,
+		tray.origin.z - b.global_position.z).length()
+	_check("low strike lies flat in the tray",
+		absf(ty - (Basket.TRAY_FLOOR_Y + b.tray_lift)) < 0.01 and t_up > 0.99
+		and t_r <= b.tray_spread + 0.001,
+		"%.2f m up, normal %.2f, %.2f m off centre" % [ty, t_up, t_r])
+
+	# Lobbed straight in over the band, touching no chain: the tray, even
+	# though it stopped high enough to qualify on height alone.
+	var lob: Transform3D = b.resting_pose(
+		{"end_y": 1.1, "chain_metres": 0.0, "hit": "cage"}, dir)
+	var ly: float = lob.origin.y - b.global_position.y
+	_check("lob that touches no chain lands in the tray",
+		absf(ly - (Basket.TRAY_FLOOR_Y + b.tray_lift)) < 0.01
+		and lob.basis.y.dot(Vector3.UP) > 0.99, "%.2f m up" % ly)
+
+	# Both poses must be right-handed and unit, or the disc renders inside out.
+	for pair in [["hang", hang], ["tray", tray]]:
+		var bs: Basis = pair[1].basis
+		_check("%s pose is a sane basis" % pair[0],
+			absf(bs.determinant() - 1.0) < 0.01
+			and absf(bs.x.length() - 1.0) < 0.01 and absf(bs.y.length() - 1.0) < 0.01,
+			"det %.3f" % bs.determinant())
+	_done("poses")
+
+
 ## Live: a cube low into the pole and another up into the bottom of the tray
 ## (real colliders, must NOT count), a flying disc into the chains (the swept
 ## path, counts), and a bystander disc lying nearby that must NOT be collected.
@@ -279,8 +329,28 @@ func _start_hits() -> void:
 ## Mid-hold: the scoring disc sits frozen in the chains, the basket glows.
 func _check_hold() -> void:
 	_check("disc held in the chains", is_instance_valid(_flyer) and _flyer.holding
-		and _flyer.freeze and not _flyer.collecting
-		and _flyer.global_position.distance_to(_target.global_position) < 1.0)
+		and _flyer.freeze and not _flyer.collecting)
+	# Inside the cage, not merely near it. The old check allowed anywhere
+	# within 1 m of the basket centre, which a disc that bounced out and
+	# landed at the foot of the pole passes -- so it never caught the disc
+	# visibly bouncing back out of a make.
+	if is_instance_valid(_flyer):
+		var rel: Vector3 = _flyer.global_position - _target.global_position
+		var r: float = Vector2(rel.x, rel.z).length()
+		var hanging: bool = rel.y >= Basket.CHAIN_BOTTOM
+		_check("made disc sits inside the cage",
+			r <= Basket.CHAIN_RADIUS + 0.01
+			and rel.y >= Basket.TRAY_FLOOR_Y - 0.01
+			and rel.y <= Basket.CHAIN_TOP + 0.01,
+			"%.2f m off the pole, %.2f m up (%s)" % [
+				r, rel.y, "hanging in the chains" if hanging else "down in the tray"])
+		# The pose has to match where it stopped: on edge up in the chains
+		# (normal roughly horizontal), flat in the tray (normal up).
+		var up: float = _flyer.global_transform.basis.y.dot(Vector3.UP)
+		_check("pose matches where it stopped",
+			absf(up) < 0.75 if hanging else up > 0.9,
+			"disc normal %.2f off vertical%s" % [up, " (want on edge)" if hanging
+				else " (want flat)"])
 	_check("basket glows", _target.glow_level() > 0.5, "level %.2f" % _target.glow_level())
 	_done("hold")
 

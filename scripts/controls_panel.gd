@@ -48,6 +48,7 @@ const RIGHT := [
 	]],
 	["World and display", [
 		["controls (this)", "?", "menu → Controls"],
+		["speed in mph / m/s", "I", ""],
 		["hide / show HUD", "U", ""],
 		["HUD smaller / bigger", "- / =", ""],
 		["clouds", "K", ""],

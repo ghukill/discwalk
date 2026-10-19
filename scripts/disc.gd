@@ -189,6 +189,13 @@ func _integrate_forces(state: PhysicsDirectBodyState3D) -> void:
 				v = res.v
 				if res.hit in COUNTS_AS_HIT:
 					_strike(basket, res.hit)
+					# Park it now, in this tick, while we still have the
+					# physics state. The hold() that thrower.gd does arrives a
+					# frame later (the signals are deferred), by which time an
+					# unparked disc has had a tick of travel and a bounce off
+					# the pole or tray, and freezes wherever that threw it --
+					# which is the "it went in but bounced out" you could see.
+					v = _park_in(basket, res, v, state)
 				break
 
 	v = _rescue_if_under(state, v, p, bs)
@@ -310,6 +317,29 @@ func _strike(basket: Node, part: String) -> void:
 	struck = basket
 	basket.struck.call_deferred(self, part)
 	hit_basket.emit.call_deferred(self, basket, part)
+
+
+## Put a made disc where it belongs and stop it dead: hanging in the chains if
+## it stopped up there, lying in the tray if it dropped through. basket.gd
+## decides which and works out the transform; we just apply it.
+##
+## Teleporting the body is done through `state`, the only safe place to move a
+## RigidBody3D. freeze is deferred because it cannot be set mid-step.
+func _park_in(basket: Node, res: Dictionary, v: Vector3, state: PhysicsDirectBodyState3D) -> Vector3:
+	state.transform = basket.resting_pose(res, v)
+	state.angular_velocity = Vector3.ZERO
+	holding = true
+	_still = 0.0
+	freeze_mode = RigidBody3D.FREEZE_MODE_STATIC
+	set_deferred("freeze", true)
+	_stop_flight()
+	return Vector3.ZERO
+
+
+## Nothing to switch off for a block; flying_disc.gd overrides this to put the
+## aerodynamics away, or they would keep flying a disc that is already parked.
+func _stop_flight() -> void:
+	pass
 
 
 ## Future home of disc flight physics (lift, drag, gyroscopic fade). Today a

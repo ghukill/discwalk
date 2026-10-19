@@ -25,8 +25,21 @@ const PAD := 14.0
 const DISC_R := 46.0                 ## Instrument circle radius.
 const BAR_W := 16.0
 const BAR_H := 80.0
-const CAM_ELEV := 20.0               ## Deg: we look at the disc from a bit above.
+## Deg above the disc we view it from. ZERO, i.e. side on, and it has to be:
+## from behind, nose is a rotation about the axis pointing at you, so it can
+## only open and close the ellipse, never tilt anything up or down the screen.
+## The disc reads edge-on -- what a player calls "flat" -- when the nose
+## cancels the elevation, at nose = -CAM_ELEV / NOSE_GAIN, so 20 degrees put
+## flat at nose -11 instead of 0. Pre-tilting the disc by the elevation
+## instead is the same thing algebraically, so the elevation is what has to go.
+##
+## The cost is that a flat disc draws as a thin bar rather than an open
+## ellipse, so less of the face shows. Nose direction comes from the
+## leading-edge dot (up for nose up, down for nose down) and from which face
+## is lit: the bright top for nose up, the dark underside for nose down.
+const CAM_ELEV := 0.0
 const NOSE_GAIN := 1.8               ## Nose drawn this many times steeper.
+const LEAD_AT := 0.85                ## Leading-edge dot, in disc radii from centre.
 
 ## One colour per disc in the HUD so Tab visibly changes something.
 const DISC_COLORS := [Color(1.0, 0.45, 0.7), Color(0.55, 0.85, 0.4), Color(0.36, 0.62, 1.0), Color(1.0, 0.75, 0.3),
@@ -137,6 +150,26 @@ func _draw_disc_instrument(c: Vector2) -> void:
 	_text(c + Vector2(side * (DISC_R + 2.0), DISC_R * 0.35 + 22), "BH" if setup.hand > 0 else "FH", 10, DIM, HORIZONTAL_ALIGNMENT_CENTER)
 
 
+## Fill a polygon, unless it has collapsed to a line.
+##
+## A flat disc is edge-on in this view (see CAM_ELEV), so its two faces project
+## to zero-area slivers and Godot's triangulator rejects them -- hundreds of
+## "Invalid polygon data" errors a second, for geometry that should simply not
+## be drawn. The rim band between the faces keeps its area, so the disc still
+## reads as a thin bar, which is what a disc seen edge-on looks like.
+func _fill(poly: PackedVector2Array, col: Color) -> void:
+	if poly.size() < 3:
+		return
+	var area := 0.0
+	for i in poly.size():
+		var a: Vector2 = poly[i]
+		var b: Vector2 = poly[(i + 1) % poly.size()]
+		area += a.cross(b)
+	if absf(area) * 0.5 < 0.5:        # px^2; a sliver, not a face
+		return
+	draw_colored_polygon(poly, col)
+
+
 ## A plain little mitten, in case there's no emoji font.
 func _draw_hand(at: Vector2, side: float) -> void:
 	var col := Color(1.0, 0.8, 0.55)
@@ -146,24 +179,54 @@ func _draw_hand(at: Vector2, side: float) -> void:
 	draw_rect(Rect2(at + Vector2(-side * 10 - 2, -2), Vector2(5, 3)) if side > 0 else Rect2(at + Vector2(7, -2), Vector2(5, 3)), col)
 
 
+## The disc's own frame for a nose angle and a visual tilt, both in degrees:
+## x across the disc, y its normal, z the leading edge (away from us).
+##
+## Static, and separate from the drawing, so hud_test can check which way the
+## nose reads without rendering anything. That cue has been wrong twice -- once
+## with the dot on the near edge, once with the screen-up vector not
+## perpendicular to the view -- and both times it looked plausible on review.
+static func disc_frame(nose: float, tilt_deg: float) -> Basis:
+	var tilt := -deg_to_rad(tilt_deg)                # + tilt drops the left edge
+	var n := Vector3.UP.rotated(Vector3.RIGHT, deg_to_rad(nose * NOSE_GAIN))
+	n = n.rotated(Vector3.FORWARD, tilt)
+	var u := Vector3.RIGHT.rotated(Vector3.FORWARD, tilt)
+	return Basis(u, n, n.cross(u).normalized())
+
+
+## Screen-up, in world. Perpendicular to the way we are looking, so its z is
+## -sin(e): with the sign the other way the projection showed the disc from
+## BELOW while the shading still lit it from above.
+static func cam_up() -> Vector3:
+	var e := deg_to_rad(CAM_ELEV)
+	return Vector3(0, cos(e), -sin(e))
+
+
+## From the disc toward the camera: behind it, and CAM_ELEV above.
+static func to_cam() -> Vector3:
+	var e := deg_to_rad(CAM_ELEV)
+	return Vector3(0, sin(e), cos(e))
+
+
+## Where the leading-edge dot sits, in disc radii, negative being up the
+## screen. THE nose cue: 0 at flat, up for nose up, down for nose down.
+static func lead_offset(nose: float, tilt_deg: float) -> float:
+	return -(disc_frame(nose, tilt_deg).z * LEAD_AT).dot(cam_up())
+
+
 ## Project the disc: a circle in its own plane, seen orthographically from
 ## behind and CAM_ELEV degrees above. Screen x = right, screen y = down.
 func _draw_disc(c: Vector2, r: float) -> void:
 	var col: Color = DISC_COLORS[setup.disc_index % DISC_COLORS.size()]
 	# Disc frame: forward (away from us) = -Z, right = +X, up = +Y.
-	var n := Vector3.UP
-	n = n.rotated(Vector3.RIGHT, deg_to_rad(setup.nose * NOSE_GAIN))       # nose up: leading edge rises
-	var tilt := -deg_to_rad(setup.visual_tilt())                       # + visual tilt drops the left edge
-	n = n.rotated(Vector3.FORWARD, tilt)
-	var basis_u := Vector3.RIGHT.rotated(Vector3.FORWARD, tilt)
-	var basis_v := n.cross(basis_u).normalized()     # points backward-ish (toward us)
-	# Camera: looking forward and down by CAM_ELEV.
-	var e := deg_to_rad(CAM_ELEV)
-	var cam_up := Vector3(0, cos(e), sin(e))         # screen-up in world
-	var to_cam := Vector3(0, sin(e), cos(e))         # from disc toward the camera
+	var fr := disc_frame(setup.nose, setup.visual_tilt())
+	var basis_u := fr.x
+	var n := fr.y
+	var basis_v := fr.z
+	var up := cam_up()
 	var proj := func(p: Vector3) -> Vector2:
-		return c + Vector2(p.x, -p.dot(cam_up)) * r
-	var top_seen := n.dot(to_cam) >= 0.0
+		return c + Vector2(p.x, -p.dot(up)) * r
+	var top_seen := n.dot(to_cam()) >= 0.0
 	var thick := 0.11
 	var top := PackedVector2Array()
 	var bot := PackedVector2Array()
@@ -177,15 +240,15 @@ func _draw_disc(c: Vector2, r: float) -> void:
 	var hidden_face := bot if top_seen else top
 	var far_face := top if top_seen else bot
 	var rim := col.darkened(0.45)
-	draw_colored_polygon(hidden_face, rim)
+	_fill(hidden_face, rim)
 	for i in steps:
 		var j := (i + 1) % steps
 		var q := PackedVector2Array([top[i], top[j], bot[j], bot[i]])
 		if absf((q[1] - q[0]).cross(q[3] - q[0])) > 0.01:
-			draw_colored_polygon(q, rim)
+			_fill(q, rim)
 	# Visible face: top bright, underside darker.
 	var face := col if top_seen else col.darkened(0.3)
-	draw_colored_polygon(far_face, face)
+	_fill(far_face, face)
 	draw_polyline(far_face + PackedVector2Array([far_face[0]]), col.lightened(0.25), 1.2, true)
 	# Inner ring + a dot on the leading edge (away from us) so nose reads.
 	var inner := PackedVector2Array()
@@ -194,21 +257,23 @@ func _draw_disc(c: Vector2, r: float) -> void:
 		var a := TAU * i / steps
 		inner.append(proj.call(basis_u * cos(a) * 0.62 + basis_v * sin(a) * 0.62 + off))
 	draw_polyline(inner, Color(1, 1, 1, 0.22), 1.0, true)
-	var lead: Vector2 = proj.call(-basis_v * 0.85 + off)
+	# On basis_v, which IS the leading edge; -basis_v is the near edge, so the
+	# dot used to sit on the trailing side and rise as the nose went down.
+	var lead: Vector2 = proj.call(basis_v * LEAD_AT + off)
 	draw_circle(lead, 2.6, Color(1, 1, 1, 0.85))
 
 
 ## Velocity bar and spin bar, side by side, filling from the bottom.
 func _draw_bars(at: Vector2) -> void:
 	var specs := [
-		["speed", "SPD", "%.1f" % setup.speed, "m/s", false],
+		["speed", "SPD", setup.speed_str(setup.speed), setup.unit_name(), false],
 		["spin", "SPIN", "%d" % int(setup.spin * 60.0 / TAU), "rpm", setup.spin_locked],
 	]
 	for i in specs.size():
 		var s: Array = specs[i]
 		var x: float = at.x + i * (BAR_W + 44.0)
 		var rect := Rect2(Vector2(x, at.y), Vector2(BAR_W, BAR_H))
-		var rng: Array = setup.RANGES[s[0]]
+		var rng: Array = setup.range_of(s[0])
 		var f: float = inverse_lerp(rng[0], rng[1], setup.get(s[0]))
 		var locked: bool = s[4]
 		draw_rect(rect, Color(0.05, 0.045, 0.04, 0.85))

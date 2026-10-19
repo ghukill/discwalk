@@ -41,7 +41,7 @@ The mouse (or right stick) only ever looks. Where you look is where the throw go
 
 ## Set up the throw
 
-A tap moves one fine step (0.5° nose, 1° hyzer, 0.5 m/s speed, 2 rad/s spin). Holding repeats, faster the longer you hold.
+A tap moves one fine step (0.5° nose, 1° hyzer, 1 mph speed — or 0.5 m/s if you switch the readout with **I** — 2 rad/s spin). Holding repeats, faster the longer you hold.
 
 | Action | Keyboard | Controller |
 |---|---|---|
@@ -53,6 +53,7 @@ A tap moves one fine step (0.5° nose, 1° hyzer, 0.5 m/s speed, 2 rad/s spin). 
 | Backhand ↔ forehand | H | **LB** tap |
 | Reset to flat (nose 0, hyzer 0; speed and spin stay) | R | **LB** (hold) + D-pad ↑ |
 | Spin lock / unlock (locked = spin follows speed) | X | **LB** (hold) + D-pad ↓ |
+| Speed readout in **mph** / **m/s** | I | — |
 
 ## Throw
 
