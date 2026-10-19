@@ -1,6 +1,9 @@
 # Godot 4 caches / imports
 .godot/
 *.import
+# ...except a course's import settings: its heightmap ships as the raw PNG
+# ("keep"), its aerial photo not at all ("skip"). See docs/COURSE_FORMAT.md.
+!data/courses/*/*.import
 *.uid.tmp
 
 # Exports

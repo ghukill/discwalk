@@ -27,10 +27,13 @@ Command-line flags override the scene and the code defaults.
 
 | Flag | Default | What it does |
 |---|---|---|
-| `--block-size=<m>` | `0.25` | Edge length of one voxel. Bigger = chunkier but faster to build and lighter on memory (`0.5`, `1`). Valid range: 0.125 to 4. |
+| `--block-size=<m>` | `0.25` | Edge length of one voxel. Bigger = chunkier but faster to build and lighter on memory (`0.5`, `1`). Valid range: 0.125 to 4. Beats a course layout's own `block_size`. |
 | `--goto=warp` | (walk) | Goto puts you at your disc at once, the old way, instead of walking you over. |
 | `--mode=<mode>` | (menu) | Skip the menu: `free` (Free Play) or `course` (Course Play, a round over the course's holes). Without it the game opens on the menu. Tools that build the scene themselves start in Free Play. |
 | `--world=<kind>` | `glacial` | Which world to build: `glacial` (from the seed) or `distance` (the flat [distance course](#distance-course)). |
+| `--course=<id>` | | Build a course from a file instead: a course folder's name (or a path to one). See [COURSE_FORMAT.md](COURSE_FORMAT.md). The menu lists every course found, so this is just a shortcut. |
+| `--layout=<name>` | (first) | Which of the course's layouts, by name (any case, spaces or dashes: `back-9`). |
+| `--courses-dir=<path>` | | One more folder to look for courses in, after `res://data/courses` and `user://courses`. |
 | `--debug-keys` | off | Prints every key press/release to stdout. Useful for diagnosing remote input (VNC). |
 | `--ui-scale=<x>` | `1.0` | Extra size for the HUD and help text (0.6–3). `-` / `=` change it in game. |
 | `--no-clouds` | off | Start with clouds hidden (K shows them). |
@@ -76,7 +79,7 @@ The markings are just coloured ground blocks, so they snap to the block grid: bl
 
 | Setting | Default | Meaning |
 |---|---|---|
-| `world_kind` | glacial | `glacial` or `distance`; see `--world=`. |
+| `world_kind` | glacial | `glacial`, `distance` or `course`; see `--world=` and `--course=`. |
 | `world_seed` | 1848 | Starting seed. Press **N** in-game for a random new one. |
 | `block_size` | 0.25 | See above. |
 | `world_x`, `world_z` | 256, 256 | World length along x and z (m). Each is rounded to whole chunks (and updated to the rounded size), so worlds needn't be square. |

@@ -101,7 +101,7 @@ func start() -> void:
 	thrower.set_warp(true)
 	thrower.set_circle(true)
 	_to_tee(0)
-	_show_banner("Hole 1", 2.0)
+	_show_banner("Hole %d" % holes()[0].n, 2.0)
 
 
 ## Back to Free Play rules (the course stays, nothing is enforced).
@@ -203,7 +203,7 @@ func _arrive() -> void:
 	if thrower.warp_flash != null:
 		thrower.warp_flash.color.a = 0.4
 	_to_tee(hole + 1)
-	_show_banner("Hole %d" % (hole + 1), 2.0)
+	_show_banner("Hole %d" % holes()[hole].n, 2.0)
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -366,8 +366,10 @@ func _process(delta: float) -> void:
 	var bk: Vector3 = h.basket.global_position
 	var me := player.global_position
 	var d := Vector2(bk.x - me.x, bk.z - me.z).length()
+	# Hole numbers are the course's: a back nine runs 10 / 18 .. 18 / 18.
+	var last: int = holes().back().n
 	label.text = "Hole %d / %d  ·  %.0f m  ·  Strokes %d  ·  Total %d" % [
-		h.n, holes().size(), d, strokes, total]
+		h.n, last, d, strokes, total]
 	if state == "walking":
 		label.text = "Hole %d / %d  ·  walking to the tee  ·  Total %d" % [
-			h.n + 1, holes().size(), total]
+			holes()[hole + 1].n, last, total]
