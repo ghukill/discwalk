@@ -12,7 +12,7 @@
 - **✋ hand**: right of the circle = backhand, left = forehand.
 - **Velocity bar** (left of the pair) and **spin bar** (right). Spin is dotted/dimmed and can't be changed while it's locked (auto spin from speed). The velocity bar reads **mph, 0–80** by default, because that is the range a disc golfer thinks in; **I** switches it to m/s for anyone who prefers it. The flight model works in m/s either way, and the step follows the unit on screen (1 mph, or 0.5 m/s), so the readout always moves in round numbers.
 - **Heading dial** and **horizon dial** below. They always show; the horizon chevron = launch angle (= view pitch, no offset).
-- **Lamps**: Chase view (V), Goto (G), Paths (P).
+- **Lamps**: Chase view (V), Goto (G), Paths (P), Shot circle (O), Aim arc (T).
 - No readout under the crosshair: the horizon dial shows the launch angle (hide the HUD with U and there's nothing, on purpose).
 
 ## Keys

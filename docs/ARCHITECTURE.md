@@ -31,6 +31,8 @@ scripts/dials.gd         Heading + horizon dials (in the throw HUD)
 scripts/basket.gd        One basket: 5 cm voxel mesh, pole/tray colliders, swept chains + band, confetti on a chain hit
 scripts/baskets.gd       Sites the world's nine baskets from the seed (spread out, clear of spawn/lakes/trees)
 scripts/confetti.gd      One-shot MultiMesh shower of rainbow voxels: burst, flutter, bounce, stay on the ground (newest 100), whoosh up and soar home on collect, 80% opaque
+scripts/aim_arc.gd       Aim arc (T): where the throw you set up would land, simulated
+scripts/basket_finder.gd Finding the basket: a beam over it and an arrow at the screen edge (B)
 scripts/paths.gd         Flight paths: voxel trail per disc throw; P toggles (off = fall + poof)
 data/discs/              Disc coefficient tables (JSON); see data/discs/README.md
 shaders/voxel.gdshader   Terrain + tree shading: base colour + per-block jitter
@@ -56,6 +58,8 @@ tools/paths_shots.gd     Screenshots: three paths from behind/side/close, then P
 tools/flight_shots.gd    Screenshots: HUD, follow cam in flight + on the ground, view handed back
 tools/discs/             Python: Kamaruddin data, disc-table builder, 6-DOF Hummel reference flights
 tools/collect_test.gd    Headless collect: 8 scattered discs roll home, speed ramps up
+tools/aim_test.gd        Headless aim + aim arc: aimed AT the crosshair, arc matches the throw
+tools/finder_test.gd     Headless basket finder: selection, beam, arrow, both play modes
 tools/toggles_test.gd    Headless VIEW/WARP/launch/PATH behaviour, scene by scene
 docs/                    These docs + screenshots
 ```

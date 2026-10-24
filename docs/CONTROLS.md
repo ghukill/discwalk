@@ -54,6 +54,8 @@ A tap moves one fine step (0.5° nose, 1° hyzer, 1 mph speed — or 0.5 m/s if 
 | Reset to flat (nose 0, hyzer 0; speed and spin stay) | R | **LB** (hold) + D-pad ↑ |
 | Spin lock / unlock (locked = spin follows speed) | X | **LB** (hold) + D-pad ↓ |
 | Speed readout in **mph** / **m/s** | I | — |
+| **Aim arc**: where the throw you have set up would land | T | — |
+| **Basket beam + arrow**: next / previous basket (Free Play; in Course Play it follows the hole) | B / Shift+B | — |
 
 ## Throw
 
