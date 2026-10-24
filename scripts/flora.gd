@@ -94,7 +94,8 @@ func build(t: Node3D) -> void:
 			var crown: float = pt.get("crown",
 				{"giant": 7.0, "big": 5.0, "medium": 3.6, "sapling": 1.8}[pt.kind])
 			trees.append({"pos": Vector2i(terrain.col_x(pt.x), terrain.col_z(pt.z)),
-				"kind": pt.kind, "form": pt.form, "crown": crown})
+				"kind": pt.kind, "form": pt.form, "crown": crown,
+				"leaf": pt.get("leaf", -1)})
 	var t1 := Time.get_ticks_msec()
 	_build_tree_meshes()
 	var t2 := Time.get_ticks_msec()
@@ -266,6 +267,18 @@ const FORMS := {
 	"sapling": {"trunk_h": [1.6, 3.6], "lean": [0.0, 10.0], "limbs": [2, 4],
 		"limb_from": [0.4, 1.0], "elev": [30.0, 60.0], "limb_len": [0.55, 0.8],
 		"upcurve": 0.03, "leader": 0.6, "depth": 1, "cluster": [0.5, 0.7]},
+	# A eucalyptus: a long bare trunk, then a few limbs thrown up steeply into
+	# an open, sparse crown you can see sky through. Taller and thinner than
+	# any oak, which is what makes a Californian skyline read as Californian.
+	"eucalyptus": {"trunk_h": [9.0, 15.0], "lean": [0.0, 8.0], "limbs": [3, 5],
+		"limb_from": [0.85, 1.0], "elev": [48.0, 72.0], "limb_len": [0.4, 0.6],
+		"upcurve": 0.015, "leader": 0.75, "depth": 2, "cluster": [0.22, 0.3]},
+	# A palm: a bare trunk and a mop of fronds at the top, nothing in between.
+	# Approximated rather than modelled -- many short limbs thrown out and
+	# slightly down from one point, no secondary branching (depth 1).
+	"palm": {"trunk_h": [7.0, 13.0], "lean": [0.0, 6.0], "limbs": [7, 10],
+		"limb_from": [0.97, 1.0], "elev": [-12.0, 38.0], "limb_len": [0.75, 1.0],
+		"upcurve": -0.03, "leader": 0.0, "depth": 1, "cluster": [0.34, 0.46]},
 }
 
 ## Trunk base radius (m) by size class.
@@ -279,6 +292,16 @@ const LEAF_GREENS := [
 	Color(0.27, 0.45, 0.20),
 ]
 const COLOR_DEAD := Color(0.42, 0.38, 0.33)   ## Weathered grey bark on dead limbs.
+
+## A course can say what its trees look like (course.json "foliage"), because
+## the same oak greens and brown bark everywhere make every course Michigan.
+## Morley Field is jacarandas and eucalyptus in Balboa Park: purple bloom and
+## pale grey trunks. Left alone these are the oak defaults and nothing moves.
+var leaf_colors: Array = LEAF_GREENS      ## Palette; a tree may index into it.
+var bark_color: Color = COLOR_BARK
+## Multiplies the meadow flower density. A mown fairway is mown: wildflowers
+## scattered over a disc golf course read as a meadow somebody forgot to cut.
+var flower_density := 1.0
 
 var _t: Dictionary = {}          ## The tree currently being grown (shape context).
 
@@ -298,8 +321,14 @@ func _grow_tree(tree: Dictionary, index: int) -> void:
 	var size_k: float = {"giant": 1.15, "big": 1.0, "medium": 0.85, "sapling": 1.0}[kind]
 	var trunk_h := _rr(rng, form.trunk_h) * size_k
 	var r0 := _rr(rng, TRUNK_R[kind])
-	var green: Color = LEAF_GREENS[rng.randi() % LEAF_GREENS.size()]
-	green = green.lerp(LEAF_GREENS[rng.randi() % LEAF_GREENS.size()], rng.randf() * 0.5)
+	# Colour: the tree's own entry in the palette when it has one (so the
+	# jacarandas are all jacaranda-coloured), otherwise any of them. Either way
+	# blended a little toward another, so a stand is not all one flat colour.
+	var pal: Array = leaf_colors if not leaf_colors.is_empty() else LEAF_GREENS
+	var pick: int = int(tree.get("leaf", -1))
+	var green: Color = pal[pick % pal.size()] if pick >= 0 \
+		else pal[rng.randi() % pal.size()]
+	green = green.lerp(pal[rng.randi() % pal.size()], rng.randf() * 0.35)
 	_t = {
 		"rng": rng, "form": form, "crown": crown, "green": green,
 		"cluster_r": maxf(_rr(rng, form.cluster) * crown, 0.8),
@@ -431,7 +460,7 @@ func _limb(start: Vector3, dir: Vector3, length: float, r0: float, r1: float,
 func _bark_sphere(p: Vector3, r: float) -> void:
 	var c := p / _bs
 	var rb := r / _bs
-	var col := COLOR_DEAD if _t.dead else COLOR_BARK
+	var col := COLOR_DEAD if _t.dead else bark_color
 	if rb < 0.6:
 		_set_bark(Vector3i(floori(c.x), floori(c.y), floori(c.z)), col)
 		return
@@ -495,7 +524,9 @@ func _leaf_blob(c: Vector3, r: float, base: Color, cy: float, ry_crown: float) -
 				_shade[z * size_x + x] = 1
 
 
-func _set_bark(key: Vector3i, col: Color = COLOR_BARK) -> void:
+func _set_bark(key: Vector3i, col := Color(0, 0, 0, 0)) -> void:
+	if col.a == 0.0:
+		col = bark_color
 	_vox[key] = BARK
 	col.a = 0.25
 	_vox_color[key] = col
@@ -714,7 +745,7 @@ func _scatter_flowers() -> void:
 			else:
 				# Meadow: clumps of one species per patch.
 				# Dense clumps where the clump noise is high, plus a light sprinkle.
-				var density := clampf((c + 0.05) * 0.75, 0.0, 0.6) + 0.006
+				var density := (clampf((c + 0.05) * 0.75, 0.0, 0.6) + 0.006) * flower_density
 				if roll < density:
 					# Cellular noise gives each patch one value; hash it to a species.
 					var cell := int(absf(patches.get_noise_2d(m.x, m.y)) * 9973.0)
