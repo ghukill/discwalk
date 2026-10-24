@@ -4,7 +4,8 @@ extends SceneTree
 ##   godot --path . --resolution 1280x720 --script res://tools/course_shots.gd -- /tmp/shots [--block-size=1]
 ##
 ## Shots: hole 1 from its tee (HUD on), the tee pad from above, the shot
-## circle after a goto, the hole overview, and the menu.
+## circle after a goto, the hole overview, the course map (Shift+M), and the
+## menu.
 
 var _main: Node
 var _out := "/tmp/shots"
@@ -70,13 +71,18 @@ func _process(_delta: float) -> bool:
 		4:
 			if el > 2200:
 				_grab("course_overview")
-				r.set_overview(false)
+				r.set_view("map")
 				_next()
 		5:
-			if el > 1800:
-				_main.menu.open(true, true, true)
+			if el > 3000:
+				_grab("course_map")
+				r.set_view("")
 				_next()
 		6:
+			if el > 2400:
+				_main.menu.open(true, true, true)
+				_next()
+		7:
 			if el > 400:
 				_grab("course_menu")
 				quit(0)

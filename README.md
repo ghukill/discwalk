@@ -76,6 +76,7 @@ A tap moves one fine step (0.5° nose, 1° hyzer, 1 mph or 0.5 m/s, 2 rad/s spin
 | P | **Paths** lamp (starts on): flight paths *and* the beams over resting discs. Every disc throw leaves a trail of little cubes in its own colour (bright in the air, dimmer for skips and rolls). The cubes are see-through, start about 1 m from where you threw (fading in), and fade away when the camera gets within a few metres, so a pile of paths from the same tee never fills your view. Off: beams go out, paths drift down and go *poof* |
 | O | **Shot circle** lamp (starts off; on in Course Play): once you're at your lie, you're held within 1 m of where the disc stopped (a faint ring shows it) |
 | M | **hole overview** (Course Play): the camera flies up over the hole and back |
+| Shift + M | **course map**: the camera flies high over the whole world, every hole numbered with a line to its basket, you marked; WASD pans. Works in Free Play too |
 | C | **collect**: every disc rolls home to you, slow at first then faster. Trunks and cliffs block them unless they have the momentum. Basket confetti flies straight in too |
 | ? | show / hide the **controls** overlay, keyboard and controller (also in the menu). The top left only says "Press ? for controls" |
 | U | hide / show the throw HUD and the "? for controls" hint (screenshots, or just walking in the woods); just the crosshair stays |

@@ -282,9 +282,15 @@ func _test_play() -> void:
 	var n0: int = _th.discs.size()
 	_pad(JOY_BUTTON_B)
 	await _frames(2)
-	_check("pad LB + B: overview, no throw", _r.overview and _th.discs.size() == n0)
+	_check("pad LB + B: overview, no throw", _r.view == "hole" and _th.discs.size() == n0)
 	_pad(JOY_BUTTON_B)
-	await _frames(int(60 * (_r.OVERVIEW_TIME + 0.3)))
+	await _frames(2)
+	_check("pad LB + B again: course map", _r.view == "map" and _r._map_marks != null
+		and _r._map_marks.get_child_count() == 3 * _t.holes.size() + 1)
+	_pad(JOY_BUTTON_B)
+	await _frames(int(60 * (_r.MAP_TIME + 0.3)))
+	_check("pad LB + B a third time: back down", not _r.overview and _r._map_marks == null
+		and cam.current and not _pl.frozen and not _th.locked)
 	var c0: bool = _th.circle_on
 	_pad(JOY_BUTTON_Y)
 	await _frames(2)

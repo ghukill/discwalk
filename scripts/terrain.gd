@@ -735,25 +735,78 @@ func _is_underwater(x: int, z: int, h: int) -> bool:
 
 # --- water + collision -------------------------------------------------------
 
+## One water surface over every underwater column: a quad per run of
+## columns along x under the same lake, at that lake's waterline. Follows the
+## voxel shore exactly, stops at the world's edge, and covers each column
+## once where lakes overlap (the first lake that floods it wins).
 func _build_water() -> void:
 	var holder := Node3D.new()
 	holder.name = "Lakes"
 	add_child(holder)
+	if lakes.is_empty():
+		return
+	# Which lake floods each column (-1: none), scanning only round the lakes.
+	var bs := block_size
+	var owner := PackedInt32Array()
+	owner.resize(size_x * size_z)
+	owner.fill(-1)
+	var x0 := size_x
+	var x1 := 0
+	var z0 := size_z
+	var z1 := 0
 	for i in lakes.size():
 		var lake: Dictionary = lakes[i]
-		var disc := CylinderMesh.new()
-		disc.top_radius = lake.radius * 0.97
-		disc.bottom_radius = lake.radius * 0.97
-		disc.height = 0.02
-		disc.radial_segments = 48
-		disc.rings = 1
-		var mi := MeshInstance3D.new()
-		mi.name = "Lake_%d" % i
-		mi.mesh = disc
-		mi.material_override = _water_material
-		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		mi.position = Vector3(lake.center.x, lake.water_y, lake.center.y)
-		holder.add_child(mi)
+		var c: Vector2 = lake.center
+		var r: float = lake.radius
+		var lx0 := maxi(0, col_x(c.x - r))
+		var lx1 := mini(size_x - 1, col_x(c.x + r))
+		var lz0 := maxi(0, col_z(c.y - r))
+		var lz1 := mini(size_z - 1, col_z(c.y + r))
+		x0 = mini(x0, lx0)
+		x1 = maxi(x1, lx1)
+		z0 = mini(z0, lz0)
+		z1 = maxi(z1, lz1)
+		for z in range(lz0, lz1 + 1):
+			for x in range(lx0, lx1 + 1):
+				var k := z * size_x + x
+				if owner[k] < 0 and heights[k] * bs < lake.water_y \
+						and Vector2((x + 0.5) * bs, (z + 0.5) * bs).distance_to(c) < r:
+					owner[k] = i
+	var verts := PackedVector3Array()
+	var idx := PackedInt32Array()
+	for z in range(z0, z1 + 1):
+		var run_lake := -1
+		var run_x := 0
+		for x in range(x0, x1 + 2):
+			var l := owner[z * size_x + x] if x <= x1 else -1
+			if l == run_lake:
+				continue
+			if run_lake >= 0:
+				var y: float = lakes[run_lake].water_y
+				var n := verts.size()
+				verts.append_array([Vector3(run_x * bs, y, z * bs), Vector3(x * bs, y, z * bs),
+					Vector3(x * bs, y, (z + 1) * bs), Vector3(run_x * bs, y, (z + 1) * bs)])
+				idx.append_array([n, n + 1, n + 2, n, n + 2, n + 3])
+			run_lake = l
+			run_x = x
+	if verts.is_empty():
+		return
+	var normals := PackedVector3Array()
+	normals.resize(verts.size())
+	normals.fill(Vector3.UP)
+	var arrays := []
+	arrays.resize(Mesh.ARRAY_MAX)
+	arrays[Mesh.ARRAY_VERTEX] = verts
+	arrays[Mesh.ARRAY_NORMAL] = normals
+	arrays[Mesh.ARRAY_INDEX] = idx
+	var mesh := ArrayMesh.new()
+	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
+	var mi := MeshInstance3D.new()
+	mi.name = "Water"
+	mi.mesh = mesh
+	mi.material_override = _water_material
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	holder.add_child(mi)
 
 
 func _build_collision() -> void:

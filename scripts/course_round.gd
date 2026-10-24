@@ -18,6 +18,12 @@ extends Node
 ##     tee, basket, you (and your lie) are all in view, with big rings on each; M again
 ##     flies back down.
 ## After the last hole: "Round complete!" and you roam free.
+##
+## The course map is here too, and works in Free Play as well: Shift+M flies
+## the camera high over the whole world, every hole marked (numbered tee, a
+## line to its basket; this hole picked out) and you with them. WASD / the
+## left stick pans it (Shift: faster). On a pad, LB + B steps hole overview
+## -> course map -> back down.
 
 const ShotCircle := preload("res://scripts/shot_circle.gd")
 const Course := preload("res://scripts/course.gd")
@@ -28,6 +34,9 @@ const OUT_PAUSE := 2.4               ## Holed out: this long before the walk sta
 const AIM_HEIGHT := 1.0              ## Face this high up the basket (the chains).
 const OVERVIEW_TIME := 1.1           ## Fly up / down (s).
 const OVERVIEW_PITCH := 58.0         ## Overview looks this far down (deg).
+const MAP_PITCH := 72.0              ## The course map looks this far down, north up (deg).
+const MAP_TIME := 1.8                ## Fly up to the course map (s).
+const MAP_PAN := 0.5                 ## Map pan speed: this share of the camera's distance a second.
 
 var terrain: Node3D
 var player: CharacterBody3D
@@ -45,12 +54,15 @@ var strokes := 0                     ## This hole.
 var total := 0                       ## This round.
 var scores: Array[int] = []          ## Strokes per finished hole.
 
-var overview := false
+var overview := false                ## Hole overview or course map up.
+var view := ""                       ## "", "hole" or "map".
 var _ov_cam: Camera3D
 var _ov_rings: Array = []
 var _ov_tween: Tween
 var _ov_clouds := true
 var _ov_fog := 0.0
+var _map_marks: Node3D
+var _map_dist := 600.0               ## Map camera's distance to the world's middle (m).
 var _banner_t := 0.0
 
 
@@ -207,13 +219,20 @@ func _arrive() -> void:
 
 
 func _unhandled_input(event: InputEvent) -> void:
-	if not active:
-		return
-	if state == "walking" and _skips_walk(event):
-		_arrive()
+	if event.is_action_pressed("overview") and _pad_lb(event):
+		if event is InputEventJoypadButton:
+			# One combo for both: hole overview -> course map -> back down.
+			if view == "":
+				set_view("hole" if _hole_view_ok() else "map")
+			else:
+				set_view("map" if view == "hole" else "")
+		elif event is InputEventKey and event.shift_pressed:
+			set_view("" if view == "map" else "map")
+		elif active:
+			set_view("" if view == "hole" else "hole")
 		get_viewport().set_input_as_handled()
-	elif event.is_action_pressed("overview") and _pad_lb(event):
-		set_overview(not overview)
+	elif active and state == "walking" and _skips_walk(event):
+		_arrive()
 		get_viewport().set_input_as_handled()
 
 
@@ -235,23 +254,53 @@ func _pad_lb(event: InputEvent) -> bool:
 
 ## Fly the camera up over the hole (tee, basket and you in view), or back.
 func set_overview(on: bool) -> void:
-	if on == overview:
+	set_view("hole" if on else "")
+
+
+## "hole": the hole overview; "map": the course map; "": back down to you.
+## Either view can switch straight to the other.
+func set_view(to: String) -> void:
+	if to == view:
 		return
-	if on:
-		if not (state == "tee" or state == "playing"):
-			return
-		if thrower.follow_cam.active():
-			thrower._note("overview: wait for the throw to stop", 1.5)
-			return
+	if to == "":
+		_end_overview(false)
+		return
+	if to == "hole" and not _hole_view_ok():
+		return
+	if active and not (state == "tee" or state == "playing" or state == "done"):
+		return                          # holed out / walking to the next tee
+	if thrower.follow_cam.active():
+		thrower._note("%s: wait for the throw to stop" % ("overview" if to == "hole" else "map"), 1.5)
+		return
+	if not overview:
+		overview = true
+		player.frozen = true
+		thrower.locked = true
+		if clouds != null:
+			_ov_clouds = clouds.visible
+			clouds.visible = false
+		if environment != null:
+			_ov_fog = environment.fog_density
+		_ov_cam.global_transform = camera.global_transform
+		_ov_cam.fov = camera.fov
+		_ov_cam.current = true
+	view = to
+	_clear_marks()
+	if to == "hole":
 		_start_overview()
 	else:
-		_end_overview(false)
+		_start_map()
+
+
+func _hole_view_ok() -> bool:
+	return active and (state == "tee" or state == "playing")
 
 
 func _start_overview() -> void:
-	overview = true
-	player.frozen = true
-	thrower.locked = true
+	_ov_cam.near = 0.05
+	_ov_cam.far = 1200.0
+	if environment != null:
+		create_tween().tween_property(environment, "fog_density", _ov_fog * 0.2, OVERVIEW_TIME)
 	var h := current()
 	var tee: Vector3 = h.tee
 	var bk: Vector3 = h.basket.global_position
@@ -264,15 +313,31 @@ func _start_overview() -> void:
 	if thrower.has_lie() and Vector2(lie.x - me.x, lie.z - me.z).length() > 2.0:
 		_ov_rings[3].show_at(lie)       # still to walk to
 		pts.append(lie)
-	if clouds != null:
-		_ov_clouds = clouds.visible
-		clouds.visible = false
-	if environment != null:
-		_ov_fog = environment.fog_density
-		create_tween().tween_property(environment, "fog_density", _ov_fog * 0.2, OVERVIEW_TIME)
 	# Basket at the top of the screen: look along tee -> basket, down a lot.
 	var along := Vector3(bk.x - tee.x, 0, bk.z - tee.z)
 	along = along.normalized() if along.length() > 1.0 else Vector3.FORWARD
+	_fly(_framing(pts, along, OVERVIEW_PITCH, 15.0), 75.0, OVERVIEW_TIME)
+
+
+## The course map: the whole world, north up, tilted enough to see the hills.
+func _start_map() -> void:
+	_ov_cam.near = 1.0                  # far away: keep the depth buffer sharp
+	_ov_cam.far = 6000.0
+	if environment != null:
+		create_tween().tween_property(environment, "fog_density", 0.0, MAP_TIME)
+	var w: float = terrain.world_x
+	var d: float = terrain.world_z
+	var corners := [Vector3(0, 0, 0), Vector3(w, 0, 0), Vector3(0, 0, d), Vector3(w, 0, d)]
+	var to := _framing(corners, Vector3.FORWARD, MAP_PITCH, 0.0)
+	_fly(to, 75.0, MAP_TIME)
+	_map_dist = to.origin.distance_to(Vector3(w * 0.5, 0, d * 0.5))
+	_mark_course(_map_dist)
+	thrower._note("course map: WASD to pan, Shift+M to fly back", 3.0)
+
+
+## A camera looking `pitch` degrees down along `along`, far enough back that
+## every point (plus `pad` m round them) is in view.
+func _framing(pts: Array, along: Vector3, pitch_deg: float, pad: float) -> Transform3D:
 	var side := along.cross(Vector3.UP)
 	var mid := Vector3.ZERO
 	for p in pts:
@@ -283,31 +348,123 @@ func _start_overview() -> void:
 	for p in pts:
 		half_l = maxf(half_l, absf((p - mid).dot(along)))
 		half_w = maxf(half_w, absf((p - mid).dot(side)))
-	var fov := deg_to_rad(_ov_cam.fov)
+	var fov := deg_to_rad(75.0)
 	var aspect := 16.0 / 9.0
 	var vp := get_viewport()
 	if vp != null and vp.get_visible_rect().size.y > 0:
 		aspect = vp.get_visible_rect().size.x / vp.get_visible_rect().size.y
 	# Fit the long way into the (tilted) height, the wide way into the width.
 	# (The near end looms larger in a tilted view, hence the extra 30%.)
-	var need_l := 1.3 * (half_l + 15.0) * sin(deg_to_rad(OVERVIEW_PITCH)) / tan(fov * 0.5)
-	var need_w := 1.15 * (half_w + 15.0) / (tan(fov * 0.5) * aspect)
+	var pitch := deg_to_rad(pitch_deg)
+	var need_l := 1.3 * (half_l + pad) * sin(pitch) / tan(fov * 0.5)
+	var need_w := 1.15 * (half_w + pad) / (tan(fov * 0.5) * aspect)
 	var dist := maxf(maxf(need_l, need_w), 30.0)
-	var pitch := deg_to_rad(OVERVIEW_PITCH)
 	var look := (along * cos(pitch) + Vector3.DOWN * sin(pitch)).normalized()
-	var to := Transform3D(Basis.looking_at(look, Vector3.UP), mid - look * dist)
-	_ov_cam.global_transform = camera.global_transform
-	_ov_cam.fov = camera.fov
-	_ov_cam.current = true
-	_fly(to, 75.0)
+	return Transform3D(Basis.looking_at(look, Vector3.UP), mid - look * dist)
+
+
+## Every hole on the map: a line from tee to basket, the tee's number, a
+## dot on the basket. Drawn over everything (trees too), sized for `dist` m
+## away. This hole (Course Play) in gold, the rest white; you in blue.
+func _mark_course(dist: float) -> void:
+	_map_marks = Node3D.new()
+	_map_marks.name = "CourseMap"
+	add_child(_map_marks)
+	var k := dist / 600.0               # 1 at 600 m away: about 0.85 m a pixel
+	var now: int = current().n if _hole_view_ok() else -1
+	for h: Dictionary in holes():
+		var here: bool = h.n == now
+		var col := Color(1.0, 0.82, 0.2) if here else Color(1, 1, 1, 0.85)
+		var tee: Vector3 = h.tee + Vector3(0, 1.0, 0)
+		var bk: Vector3 = h.basket.global_position + Vector3(0, 1.0, 0)
+		_map_line(tee, bk, (4.0 if here else 2.5) * k, col)
+		_map_dot(bk, 4.0 * k, Color(1.0, 0.3, 0.25) if not here else col)
+		var l := Label3D.new()
+		l.text = str(h.n)
+		l.font_size = 64
+		l.outline_size = 18
+		l.pixel_size = 0.4 * k
+		l.modulate = col
+		l.outline_modulate = Color(0, 0, 0, 0.8)
+		l.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+		l.no_depth_test = true
+		l.render_priority = 3
+		l.outline_render_priority = 2
+		# Behind the tee (away from the basket), so the number doesn't sit on the line.
+		var back := Vector3(tee.x - bk.x, 0, tee.z - bk.z)
+		back = back.normalized() if back.length() > 1.0 else Vector3.BACK
+		l.position = tee + back * 18.0 * k
+		_map_marks.add_child(l)
+	_map_dot(player.global_position + Vector3(0, 1.0, 0), 5.5 * k, Color(0.45, 0.8, 1.0))
+
+
+func _map_line(a: Vector3, b: Vector3, width: float, color: Color) -> void:
+	var m := MeshInstance3D.new()
+	var box := BoxMesh.new()
+	box.size = Vector3(width, 0.05, a.distance_to(b))
+	box.material = _map_mat(color)
+	m.mesh = box
+	m.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	_map_marks.add_child(m)
+	if a.distance_to(b) > 0.1:
+		m.global_transform = Transform3D(Basis.looking_at(b - a, Vector3.UP), (a + b) * 0.5)
+
+
+func _map_dot(at: Vector3, r: float, color: Color) -> void:
+	var m := MeshInstance3D.new()
+	var disc := CylinderMesh.new()
+	disc.top_radius = r
+	disc.bottom_radius = r
+	disc.height = 0.05
+	disc.radial_segments = 16
+	disc.material = _map_mat(color)
+	m.mesh = disc
+	m.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	m.position = at
+	_map_marks.add_child(m)
+
+
+func _map_mat(color: Color) -> StandardMaterial3D:
+	var mat := StandardMaterial3D.new()
+	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	mat.albedo_color = color
+	if color.a < 1.0:
+		mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	mat.no_depth_test = true            # seen through the canopy and over hills
+	mat.render_priority = 1
+	return mat
+
+
+## WASD / left stick slides the map camera over the world, north still up.
+func _pan_map(delta: float) -> void:
+	var v := Input.get_vector("move_left", "move_right", "move_forward", "move_back")
+	if v == Vector2.ZERO:
+		return
+	var p := _ov_cam.global_position
+	var speed := _map_dist * MAP_PAN * (2.5 if Input.is_action_pressed("sprint") else 1.0)
+	p += Vector3(v.x, 0, v.y) * speed * delta
+	# Keep the middle of the view over the world (give or take a bit).
+	var lead := _map_dist * cos(deg_to_rad(MAP_PITCH))
+	p.x = clampf(p.x, -100.0, terrain.world_x + 100.0)
+	p.z = clampf(p.z, -100.0 + lead, terrain.world_z + 100.0 + lead)
+	_ov_cam.global_position = p
+
+
+func _clear_marks() -> void:
+	for r in _ov_rings:
+		r.visible = false
+	if _map_marks != null:
+		_map_marks.queue_free()
+		_map_marks = null
 
 
 func _end_overview(now: bool) -> void:
 	if not overview:
 		return
 	overview = false
-	for r in _ov_rings:
-		r.visible = false
+	var from := view
+	view = ""
+	_clear_marks()
 	if clouds != null:
 		clouds.visible = _ov_clouds
 	if environment != null:
@@ -318,7 +475,7 @@ func _end_overview(now: bool) -> void:
 	if now:
 		_back_down()
 		return
-	_fly(camera.global_transform, camera.fov, _back_down)
+	_fly(camera.global_transform, camera.fov, MAP_TIME if from == "map" else OVERVIEW_TIME, _back_down)
 
 
 func _back_down() -> void:
@@ -326,16 +483,16 @@ func _back_down() -> void:
 		_ov_tween.kill()
 	camera.current = true
 	player.frozen = false
-	if state == "tee" or state == "playing":
+	if not active or state == "tee" or state == "playing":
 		thrower.locked = false
 
 
-func _fly(to: Transform3D, fov: float, then := Callable()) -> void:
+func _fly(to: Transform3D, fov: float, secs: float, then := Callable()) -> void:
 	if _ov_tween != null:
 		_ov_tween.kill()
 	_ov_tween = create_tween().set_parallel(true).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
-	_ov_tween.tween_property(_ov_cam, "global_transform", to, OVERVIEW_TIME)
-	_ov_tween.tween_property(_ov_cam, "fov", fov, OVERVIEW_TIME)
+	_ov_tween.tween_property(_ov_cam, "global_transform", to, secs)
+	_ov_tween.tween_property(_ov_cam, "fov", fov, secs)
 	if then.is_valid():
 		_ov_tween.chain().tween_callback(then)
 
@@ -350,6 +507,8 @@ func _show_banner(text: String, secs: float) -> void:
 
 
 func _process(delta: float) -> void:
+	if view == "map" and _map_marks != null and not (_ov_tween != null and _ov_tween.is_running()):
+		_pan_map(delta)
 	if banner != null:
 		_banner_t -= delta
 		banner.visible = _banner_t > 0.0 and banner.text != ""
