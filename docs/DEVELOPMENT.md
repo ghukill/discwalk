@@ -46,6 +46,18 @@ $G --headless --path . --script res://tools/flight_test.gd [-- --block-size=0.5]
 DISPLAY=:0 $G --path . --resolution 1280x720 --script res://tools/flight_shots.gd -- /tmp/flight_shots   # HUD, follow cam in flight/on the ground, handed back
 ```
 
+Aiming has one too. The disc leaves your hand 0.3 m below your eye, so it is aimed at the point under the crosshair rather than parallel to your line of sight; the test looks at a mark on the ground and checks the aim line passes through it. It also checks the aim arc (T) is the real flight model run forward, by throwing the disc it predicted and comparing where it lands.
+
+```sh
+$G --headless --path . --script res://tools/aim_test.gd -- --block-size=1
+```
+
+Finding the basket has one: the beam and the screen-edge arrow follow one selection, which the hole picks in Course Play and B picks in Free Play. It checks both modes, that B cannot override a hole, and that the arrow points sideways rather than upward when the basket is behind you (unproject_position mirrors points behind the camera).
+
+```sh
+$G --headless --path . --script res://tools/finder_test.gd -- --block-size=1
+```
+
 The disc tables are generated, and the reference numbers come from our own 6-DOF Hummel integrator (~1.5 min; 256 attitude substeps per tick). If you change the tables or the maths on purpose, rebuild and paste the new numbers into `REFERENCE` in `tools/flight_test.gd`:
 
 ```sh

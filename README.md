@@ -31,6 +31,8 @@ Or from a terminal:
 
 The mouse only ever looks. Where you look is where the disc goes, left/right **and** up/down: how high you look is your launch angle (the horizon dial in the HUD shows it). The keyboard sets up the throw, and the **throw HUD** in the lower right shows it. Everything you set carries over from throw to throw, so you can repeat a shot and fine-tune it. Full spec: [docs/THROW-HUD.md](docs/THROW-HUD.md). Every binding, keyboard and controller side by side: [docs/CONTROLS.md](docs/CONTROLS.md).
 
+The disc leaves your hand below your eye, so it is aimed **at the point under the crosshair** rather than merely parallel to your line of sight — put the crosshair on a thing and the throw sets off at that thing. It is still a thrown disc, so it arcs below that line on the way: a fast drive barely drops over the first 20 m, while a slow putt falls a long way (lift goes as speed squared). **T** draws the arc so you can see it.
+
 ![Throw HUD](docs/screenshots/hud.jpg)
 
 **Walk and look**
@@ -53,6 +55,8 @@ The mouse only ever looks. Where you look is where the disc goes, left/right **a
 | Shift + ← / → | spin, when unlocked |
 | X | spin lock / unlock. Locked (dotted bar) = spin follows speed, like a real throw |
 | I | speed readout in **mph** (0–80, the default) or **m/s**. Display only — the flight is in m/s either way — but the arrows step in whichever unit you are reading |
+| T | **aim arc**: a dotted line showing where the throw you have set up would actually go, out to the spot it lands. The real flight model run forward, so it turns and fades like the throw will. Starts off |
+| B / Shift+B | which basket the **finder beam** and the screen-edge **arrow** mark. In Course Play they follow the hole you are playing; in Free Play you pick. The beam widens with distance so it reads from a tee, and fades as you walk up so it is not a stripe across what you are putting at. Both go out with the paths (P) |
 | R | reset to flat (nose 0, hyzer 0) |
 | H | backhand ↔ forehand. The ✋ sits right of the disc for backhand, left for forehand |
 | E / Q | next / previous disc |
