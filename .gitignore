@@ -22,3 +22,7 @@ __pycache__/
 
 # Editors
 .idea/
+
+# Course reference photos: the phone's originals are ~5MB each and stay out
+# of git; the 1400px working copies next to them are the ones we read.
+/reference/*/originals/
