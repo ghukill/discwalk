@@ -12,7 +12,14 @@ const ROWS := [
 	["forked", ["giant", "big", "medium"]],
 	["leaning", ["big", "medium", "medium"]],
 	["sapling", ["sapling", "sapling", "sapling"]],
+	["eucalyptus", ["giant", "big", "medium"]],
+	["palm", ["big", "big", "medium"]],
+	["pine", ["giant", "big", "medium"]],
+	["bush", ["bush", "bush", "bush"]],
 ]
+## Forms you have to stand close to; the default view is framed for a 12 m oak
+## and puts a waist-high bush in the middle distance as three green specks.
+const LOW := ["bush", "sapling"]
 ## (The rows are far apart so each view only shows its own row.)
 const ROW_GAP := 60.0
 const COL_GAP := 22.0
@@ -37,7 +44,9 @@ func _initialize() -> void:
 	t.lake_count = 0
 	t.moraine_height = 2.0
 	t.world_x = 320.0
-	t.world_z = 320.0
+	# Long enough for every row: the rows march down +z, and a row that falls
+	# off the end renders as empty sky.
+	t.world_z = ceilf((30.0 + ROWS.size() * ROW_GAP + 40.0) / 32.0) * 32.0
 	var preset := []
 	for r in ROWS.size():
 		for c in 3:
@@ -55,13 +64,18 @@ func _process(_delta: float) -> bool:
 		var ground: float = t.height_at(100, 100)
 		for r in ROWS.size():
 			var z := 30.0 + r * ROW_GAP
+			var low: bool = ROWS[r][0] in LOW
 			_views.append({"name": "%d_%s" % [r, ROWS[r][0]],
-				"pos": Vector3(70.0 + COL_GAP, ground + 2.5, z - 27.0),
-				"look": Vector3(70.0 + COL_GAP, ground + 5.5, z)})
-			# Close-up from under the biggest one, looking up into the limbs.
+				"pos": Vector3(70.0 + COL_GAP, ground + (1.6 if low else 2.5),
+					z - (11.0 if low else 27.0)),
+				"look": Vector3(70.0 + COL_GAP, ground + (1.2 if low else 5.5), z)})
+			# Close-up: under the biggest one looking up into the limbs, or,
+			# for something you stand over rather than under, side on at eye
+			# height from a few paces away.
 			_views.append({"name": "%d_%s_under" % [r, ROWS[r][0]],
-				"pos": Vector3(70.0 + 5.0, ground + 1.6, z - 6.0),
-				"look": Vector3(70.0, ground + 6.0, z)})
+				"pos": Vector3(70.0 + (3.5 if low else 5.0), ground + 1.6,
+					z - (3.5 if low else 6.0)),
+				"look": Vector3(70.0, ground + (0.9 if low else 6.0), z)})
 	if _frames < 30:
 		return false
 	var idx := (_frames - 30) / 20

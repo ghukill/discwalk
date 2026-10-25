@@ -16,12 +16,16 @@ extends RefCounted
 const SEARCH := ["res://data/courses", "user://courses"]
 const FORMAT := 1
 const BOUNDS_MARGIN := 40.0            ## Default layout bounds: holes' box plus this (m).
-const KINDS := ["giant", "big", "medium", "sapling"]
+const KINDS := ["giant", "big", "medium", "sapling", "bush"]
 const FORMS := ["spreading", "tall", "forked", "leaning", "sapling",
-	"eucalyptus", "palm"]
-const PROPS := ["bench", "clubhouse"]
+	"eucalyptus", "palm", "bush", "pine"]
+
+## Default crown radius (m) by size class. Mirrors flora.gd's CROWN; this file
+## stays free of scene dependencies so the course checker can run on its own.
+const CROWN := {"giant": 7.0, "big": 5.0, "medium": 3.6, "sapling": 1.8, "bush": 1.3}
+const PROPS := ["bench", "clubhouse", "restroom", "car", "pipe"]
 ## Made ground, as terrain.gd's paint kinds.
-const SURFACES := {"dirt": 6, "asphalt": 7, "concrete": 8}
+const SURFACES := {"dirt": 6, "asphalt": 7, "concrete": 8, "bark": 9}
 
 
 ## Folders that might hold courses, in search order.
@@ -152,7 +156,7 @@ static func read(dir: String) -> Dictionary:
 		if form not in FORMS:
 			c.warnings.append("trees[%d]: form %s isn't one of %s; using spreading" % [i, form, FORMS])
 			form = "spreading"
-		var crown: float = tr.get("crown", {"giant": 7.0, "big": 5.0, "medium": 3.6, "sapling": 1.8}[kind])
+		var crown: float = tr.get("crown", CROWN[kind])
 		# leaf: which entry of foliage.leaves this tree takes its colour from
 		# (-1 = any). Lets one course hold several species.
 		c.trees.append({"at": at, "crown": crown, "kind": kind, "form": form,
@@ -380,7 +384,8 @@ static func _color(c):
 
 
 ## Course furniture (props.gd): benches, the pro shop. Each is
-##   {"kind": "bench"|"clubhouse", "at": [x, z], "yaw": deg, "color": name}
+##   {"kind": "bench"|"clubhouse"|"restroom"|"car", "at": [x, z], "yaw": deg,
+##    "color": name}
 ## `at` is where it stands in course metres; it sits on the ground there.
 static func _props(list, c: Dictionary) -> Array:
 	var out: Array = []
@@ -408,6 +413,10 @@ static func _props(list, c: Dictionary) -> Array:
 ##
 ##   {"kind": "asphalt", "width": 16, "path": [[307, 277], [272, 330], ...]}
 ##   {"kind": "dirt", "poly": [[200, 398], [229, 342], [252, 354], [223, 410]]}
+##
+## "cut": metres is optional and lowers the ground along the strip as well as
+## painting it, easing back to the slope at the edges -- a ditch, a sunken
+## path, a bunker. Up to 6 m.
 static func _surfaces(list, c: Dictionary) -> Array:
 	var out: Array = []
 	if not list is Array:
@@ -436,5 +445,6 @@ static func _surfaces(list, c: Dictionary) -> Array:
 			c.errors.append("surfaces[%d]: needs a path of 2+ points or a poly of 3+" % i)
 			continue
 		out.append({"kind": SURFACES[kind], "width": maxf(float(s.get("width", 3.0)), 0.5),
-			"path": path, "poly": poly})
+			"path": path, "poly": poly,
+			"cut": clampf(float(s.get("cut", 0.0)), 0.0, 6.0)})
 	return out

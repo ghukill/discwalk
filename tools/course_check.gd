@@ -12,9 +12,13 @@ extends SceneTree
 ##   - a tree trunk within 2 m of a basket (the game drops those, and trees
 ##     hanging over a tee pad, so this means the dropping broke)
 ##   - leaves over the tee pad, or a wall of leaves in the first 10 m off it
+##   - a surface asking for a "cut" that did not actually dig a hollow
 ## Prints "CHECK PASS" or "CHECK FAIL".
 
 const CourseFile := preload("res://scripts/course_file.gd")
+
+## How far out from the edge of a cut strip to read its bank.
+const CUT_CLEAR := 2.0
 const TERRAIN := preload("res://scripts/terrain.gd")
 
 var _problems := 0
@@ -92,6 +96,32 @@ func _check_layout(t: Node3D, l: Dictionary) -> void:
 		_problem("layout %s: %d holes listed but %d built" % [l.name, l.holes.size(), t.holes.size()])
 	for h: Dictionary in t.holes:
 		_check_hole(t, h)
+	_check_cuts(t)
+
+
+## A surface with "cut" has to leave the middle of its strip lower than the
+## ground a few metres to either side, or the dig silently did nothing.
+func _check_cuts(t: Node3D) -> void:
+	for s: Dictionary in t.course.get("surfaces", []):
+		var cut: float = s.get("cut", 0.0)
+		if cut <= 0.0 or s.path.size() < 2:
+			continue
+		var a: Vector2 = t.to_world(s.path[0])
+		var b: Vector2 = t.to_world(s.path[s.path.size() - 1])
+		var mid := (a + b) * 0.5
+		if not t.in_grid(t.col_x(mid.x), t.col_z(mid.y)):
+			continue                      # this layout does not reach it
+		var n := (b - a).normalized()
+		var out: float = float(s.width) * 0.5 + CUT_CLEAR
+		var side := Vector2(-n.y, n.x) * out
+		var floor_y: float = t.height_at(mid.x, mid.y)
+		var bank := maxf(t.height_at(mid.x + side.x, mid.y + side.y),
+			t.height_at(mid.x - side.x, mid.y - side.y))
+		var deep := bank - floor_y
+		print("    cut %.1f m at %s: floor %.1f m, bank %.1f m (%.1f m deep)"
+			% [cut, s.path[0], floor_y, bank, deep])
+		if deep < cut * 0.5:
+			_problem("a cut of %.1f m at %s only dug %.1f m" % [cut, s.path[0], deep])
 
 
 func _check_hole(t: Node3D, h: Dictionary) -> void:

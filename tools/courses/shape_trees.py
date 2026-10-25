@@ -19,6 +19,9 @@ makes it a course:
 - --species assigns kind/form/leaf per tree, so a course can be eucalyptus
   and jacaranda rather than Michigan oak.
 
+Anything in trees.json marked {"fixed": true} is left exactly as it is --
+hand-placed trees and bushes read off photographs survive a re-run.
+
 Writes trees.json in place (keep the original under git).
 """
 import argparse
@@ -79,6 +82,12 @@ def main():
     trees = json.loads(tpath.read_text())
     rng = random.Random(a.seed)
     n0 = len(trees)
+
+    # A tree or bush marked "fixed" was put there by hand, off a photograph of
+    # the real hole. This tool guesses; a photograph does not. Set them aside
+    # before any of the guessing and put them back untouched at the end.
+    fixed = [t for t in trees if t.get("fixed")]
+    trees = [t for t in trees if not t.get("fixed")]
 
     lines = [(tuple(h["tee"]), tuple(h["basket"])) for h in course["holes"]]
 
@@ -141,12 +150,15 @@ def main():
             lo, hi = sp["crown"]
             t["crown"] = round(min(max(t.get("crown", 3.0), lo), hi), 2)
 
+    kept = fixed + kept
     tpath.write_text(json.dumps(kept, separators=(",", ":")) + "\n")
     size = course["size"]
     ha = size[0] * size[1] / 10000.0
     print("%s: %d -> %d trees (%.1f/ha)" % (a.dir.name, n0, len(kept), len(kept) / ha))
     print("  cleared %d from fairways, %d round tees, thinned %d from woods"
           % (cleared, teed, thinned))
+    if fixed:
+        print("  kept %d hand-placed, untouched" % len(fixed))
     if a.species:
         counts = {}
         for t in kept:

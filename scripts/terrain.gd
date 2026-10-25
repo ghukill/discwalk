@@ -65,6 +65,9 @@ const COLOR_TEE := Color(0.60, 0.60, 0.58)
 const COLOR_GRIT := Color(0.56, 0.43, 0.31)      ## Decomposed granite, orange-brown.
 const COLOR_ASPHALT := Color(0.26, 0.26, 0.27)
 const COLOR_CONCRETE := Color(0.68, 0.67, 0.63)
+## Chipped bark. Morley's whole tee complex is laid with it, ankle deep, and
+## it is nothing like the pale dust of a worn path: redder, coarser, darker.
+const COLOR_BARK := Color(0.48, 0.34, 0.21)
 const COLOR_WATER := Color(0.22, 0.45, 0.62, 0.78)
 
 var size_x: int = 0                        ## World size in blocks along x.
@@ -158,6 +161,7 @@ func generate() -> void:
 	elif world_kind == "course":
 		hf = _course_heights()
 		_level_tees(hf)
+		_cut_surfaces(hf)
 		_course_lakes(hf)
 	else:
 		hf = _base_heights()
@@ -499,6 +503,50 @@ func _course_heights() -> PackedFloat32Array:
 	return hf
 
 
+const CUT_EASE := 2.5     ## A cut eases back into the slope over this much more (m).
+
+
+## Digs out any surface that asked for it ("cut" metres in course.json), in
+## the float heights, before they are quantised into blocks. A painted strip
+## alone cannot read as a ditch: a ditch is a hole in the ground, and the
+## lidar a course is built from is far too coarse to hold one two metres wide.
+func _cut_surfaces(hf: PackedFloat32Array) -> void:
+	if world_kind != "course" or course == null:
+		return
+	for s: Dictionary in course.get("surfaces", []):
+		var cut: float = s.get("cut", 0.0)
+		if cut <= 0.0 or s.path.size() < 2:
+			continue
+		var half: float = s.width * 0.5
+		var reach := half + CUT_EASE
+		var pts: Array = []
+		for v: Vector2 in s.path:
+			pts.append(to_world(v))
+		for i in range(1, pts.size()):
+			var a: Vector2 = pts[i - 1]
+			var b: Vector2 = pts[i]
+			var lo := Vector2(minf(a.x, b.x), minf(a.y, b.y)) - Vector2(reach, reach)
+			var hi := Vector2(maxf(a.x, b.x), maxf(a.y, b.y)) + Vector2(reach, reach)
+			for iz in range(maxi(0, col_z(lo.y)), mini(size_z, col_z(hi.y) + 1)):
+				for ix in range(maxi(0, col_x(lo.x)), mini(size_x, col_x(hi.x) + 1)):
+					var c := Vector2((ix + 0.5) * block_size, (iz + 0.5) * block_size)
+					var d := _to_segment(c, a, b)
+					if d >= reach:
+						continue
+					var k := smoothstep(reach, half, d)
+					var j := iz * size_x + ix
+					hf[j] = minf(hf[j], hf[j] - cut * k)
+
+
+## Distance from p to the segment a-b (m).
+static func _to_segment(p: Vector2, a: Vector2, b: Vector2) -> float:
+	var ab := b - a
+	var len2 := ab.length_squared()
+	if len2 < 0.000001:
+		return p.distance_to(a)
+	return p.distance_to(a + ab * clampf((p - a).dot(ab) / len2, 0.0, 1.0))
+
+
 ## Levels the ground round each of the layout's tees, like a built tee pad:
 ## flat to TEE_FLAT m at the tee's own height, easing back into the slope
 ## by TEE_EASE m.
@@ -605,20 +653,22 @@ func _chunk_mesh(ox: int, oz: int) -> ArrayMesh:
 
 	# Tops: one horizontal "slice" per chunk; rows are z, faces run along x.
 	# The colour id packs the height in too, so only same-height faces merge.
+	# Four bits for the kind: there are ten of them, and at three bits the
+	# concrete and the bark wrapped round to grass and sand.
 	var rows := {}
 	for z in range(oz, oz + cs):
 		var row := []
 		for x in range(ox, ox + cs):
 			var h := heights[z * size_x + x]
-			row.append(VoxelMesh.face(x - ox, h * 8 + _top_kind(x, z, h)))
+			row.append(VoxelMesh.face(x - ox, h * 16 + _top_kind(x, z, h)))
 		rows[z - oz] = row
 	var rects := VoxelMesh.merge_rows(rows)
 	for r in range(0, rects.size(), 5):
-		var h := rects[r + 4] >> 3
+		var h := rects[r + 4] >> 4
 		VoxelMesh.add_quad(verts, normals, colors,
 			Vector3(ox + rects[r], h, oz + rects[r + 1]),
 			Vector3(rects[r + 2] - rects[r], 0, 0), Vector3(0, 0, rects[r + 3] - rects[r + 1]),
-			Vector3.UP, _top_color(h, rects[r + 4] & 7))
+			Vector3.UP, _top_color(h, rects[r + 4] & 15))
 
 	# Sides: for each direction, one vertical slice per column line. Each column
 	# contributes its exposed side split into soil-layer segments, which then
@@ -715,6 +765,9 @@ func _top_color(h: int, kind: int) -> Color:
 	elif kind == 7:
 		c = COLOR_ASPHALT
 		c.a = 0.04
+	elif kind == 9:
+		c = COLOR_BARK
+		c.a = 0.16
 	elif kind == 8:
 		c = COLOR_CONCRETE
 		c.a = 0.05

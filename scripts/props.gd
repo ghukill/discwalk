@@ -17,7 +17,8 @@ extends Node3D
 ## `at` is [x, z] in course metres, `yaw` degrees clockwise from facing -Z.
 ## They sit on the ground wherever that is, so they follow the terrain.
 
-const VOXEL := {"bench": 0.05, "clubhouse": 0.25}
+const VOXEL := {"bench": 0.05, "clubhouse": 0.25, "restroom": 0.25,
+	"car": 0.1, "pipe": 0.08}
 
 # Bench: a 6 ft park bench, slatted seat and back on a dark frame.
 const BENCH_LEN := 1.83
@@ -42,6 +43,44 @@ const COLOR_TRIM := Color(0.62, 0.57, 0.48)
 const COLOR_COUNTER := Color(0.45, 0.33, 0.21)   ## The wooden serving counter.
 const COLOR_SHADE := Color(0.11, 0.11, 0.12)     ## The shade sail.
 const COLOR_DARK := Color(0.08, 0.09, 0.10)      ## Inside, seen through the front.
+
+# Restrooms: a separate block up by the first tee, and from the tee pad it is
+# the biggest thing in frame after the trees. Painted block walls, two doors
+# side by side, and the same brown shingle roof as the shop.
+const WC_W := 10.0
+const WC_D := 5.0
+const WC_EAVE := 2.6
+const WC_RIDGE := 3.7
+const COLOR_BLOCK := Color(0.83, 0.80, 0.71)     ## Pale painted block.
+const COLOR_DOOR := Color(0.20, 0.21, 0.22)
+
+# Cars. The lot runs right up to the third tee -- you stand on the pad with
+# a pickup at your elbow -- so an empty lot reads as a different course. No
+# model in particular: a body, a cabin set in from both ends, and wheels.
+const CAR_L := 4.6
+const CAR_W := 1.85
+const CAR_SILL := 0.72                           ## Top of the body / bottom of the glass.
+const CAR_ROOF := 1.46
+const CAR_CLEAR := 0.26                          ## Under the sills, where the wheels are.
+const COLOR_CAR := {
+	"white": Color(0.88, 0.88, 0.87),
+	"silver": Color(0.66, 0.67, 0.69),
+	"grey": Color(0.38, 0.39, 0.41),
+	"black": Color(0.13, 0.13, 0.14),
+	"red": Color(0.55, 0.14, 0.13),
+	"blue": Color(0.18, 0.28, 0.45),
+}
+const COLOR_GLASS := Color(0.16, 0.19, 0.22)
+const COLOR_TYRE := Color(0.09, 0.09, 0.10)
+
+# A culvert: the length of concrete pipe that carries the ditch under the
+# path on the fourth. Lies on its side along the ditch, mouth open at both
+# ends, so you can see straight through it.
+const PIPE_LEN := 2.6
+const PIPE_R := 0.46                             ## Outside radius.
+const PIPE_WALL := 0.11
+const COLOR_PIPE := Color(0.56, 0.55, 0.52)      ## Weathered concrete.
+const COLOR_PIPE_IN := Color(0.11, 0.12, 0.12)   ## Down the throat of it.
 
 static var _meshes := {}                         ## "kind|variant" -> ArrayMesh
 
@@ -70,7 +109,13 @@ func build(course_props: Array) -> void:
 func make(kind: String, variant := "teal") -> Node3D:
 	var key := "%s|%s" % [kind, variant]
 	if not _meshes.has(key):
-		var cells: Dictionary = _cells_bench(variant) if kind == "bench" else _cells_clubhouse()
+		var cells: Dictionary = {}
+		match kind:
+			"bench": cells = _cells_bench(variant)
+			"restroom": cells = _cells_restroom()
+			"car": cells = _cells_car(variant)
+			"pipe": cells = _cells_pipe()
+			_: cells = _cells_clubhouse()
 		_meshes[key] = _mesh(cells, VOXEL[kind])
 	var root := Node3D.new()
 	root.name = kind.capitalize()
@@ -81,7 +126,13 @@ func make(kind: String, variant := "teal") -> Node3D:
 	mi.mesh = _meshes[key]
 	mi.position = off
 	root.add_child(mi)
-	for box in (_hit_bench() if kind == "bench" else _hit_clubhouse()):
+	var hits: Array = _hit_clubhouse()
+	match kind:
+		"bench": hits = _hit_bench()
+		"restroom": hits = _hit_restroom()
+		"car": hits = _hit_car()
+		"pipe": hits = _hit_pipe()
+	for box in hits:
 		var body := StaticBody3D.new()
 		var cs := CollisionShape3D.new()
 		var shape := BoxShape3D.new()
@@ -97,6 +148,12 @@ func make(kind: String, variant := "teal") -> Node3D:
 static func _centre(kind: String) -> Vector3:
 	if kind == "bench":
 		return Vector3(-BENCH_LEN * 0.5, 0.0, -BENCH_DEEP * 0.5)
+	if kind == "restroom":
+		return Vector3(-WC_W * 0.5, 0.0, -WC_D * 0.5)
+	if kind == "car":
+		return Vector3(-CAR_L * 0.5, 0.0, -CAR_W * 0.5)
+	if kind == "pipe":
+		return Vector3(-PIPE_LEN * 0.5, 0.0, -PIPE_R)
 	return Vector3(-SHOP_W * 0.5, 0.0, -SHOP_D * 0.5)
 
 
@@ -231,3 +288,136 @@ static func _hit_bench() -> Array:
 static func _hit_clubhouse() -> Array:
 	return [[Vector3(SHOP_W * 0.5, SHOP_RIDGE * 0.5, SHOP_D * 0.5),
 		Vector3(SHOP_W, SHOP_RIDGE, SHOP_D)]]
+
+
+static func _hit_pipe() -> Array:
+	return [[Vector3(PIPE_LEN * 0.5, PIPE_R, PIPE_R),
+		Vector3(PIPE_LEN, PIPE_R * 2.0, PIPE_R * 2.0)]]
+
+
+## A culvert pipe lying on its side: a ring of cells swept along x, open at
+## both ends. The origin is a corner of its bounding box, so it rests on the
+## ground on its belly.
+static func _cells_pipe() -> Dictionary:
+	var c := {}
+	var vx: float = VOXEL.pipe
+	var nx := int(PIPE_LEN / vx)
+	var n := int(PIPE_R / vx)
+	var inner := (PIPE_R - PIPE_WALL) / vx
+	for y in range(0, n * 2):
+		for z in range(0, n * 2):
+			# Distance of this cell from the pipe's axis, in cells.
+			var dy := float(y) + 0.5 - n
+			var dz := float(z) + 0.5 - n
+			var r := sqrt(dy * dy + dz * dz)
+			if r > n:
+				continue
+			if r < inner:
+				# The bore: only the two end faces, so it reads as a hole.
+				continue
+			for x in nx:
+				c[Vector3i(x, y, z)] = COLOR_PIPE
+	# A dark disc just inside each mouth, so the opening is not see-through
+	# to whatever is behind the pipe.
+	for y in range(0, n * 2):
+		for z in range(0, n * 2):
+			var dy := float(y) + 0.5 - n
+			var dz := float(z) + 0.5 - n
+			if sqrt(dy * dy + dz * dz) < inner:
+				c[Vector3i(1, y, z)] = COLOR_PIPE_IN
+				c[Vector3i(nx - 2, y, z)] = COLOR_PIPE_IN
+	return c
+
+
+static func _hit_car() -> Array:
+	return [[Vector3(CAR_L * 0.5, CAR_ROOF * 0.5, CAR_W * 0.5),
+		Vector3(CAR_L, CAR_ROOF, CAR_W)]]
+
+
+## A car. x runs nose to tail, z across it, y up; the origin is a wheel corner.
+static func _cells_car(variant: String) -> Dictionary:
+	var c := {}
+	var vx: float = VOXEL.car
+	var paint: Color = COLOR_CAR.get(variant, COLOR_CAR.white)
+	var nx := int(CAR_L / vx)
+	var nz := int(CAR_W / vx)
+	var sill := int(CAR_SILL / vx)
+	var roof := int(CAR_ROOF / vx)
+	var clear := int(CAR_CLEAR / vx)
+	# Body: the full footprint between the wheels and the window line, with
+	# the nose and tail tucked in a little so it is not a brick.
+	for y in range(clear, sill):
+		var taper := 1 if y < clear + 2 else 0
+		for x in range(taper, nx - taper):
+			for z in range(nz):
+				c[Vector3i(x, y, z)] = paint
+	# Cabin: set in from both ends AND from both sides. The shoulder either
+	# side of the glass is what makes the silhouette read as a car rather
+	# than as a slab with a step on it.
+	var c0 := int(nx * 0.28)
+	var c1 := int(nx * 0.76)
+	var inset := 2
+	for y in range(sill, roof):
+		# The glass leans in as it rises, so the roof is narrower than the sill.
+		var lean := inset + (1 if y > sill + (roof - sill) / 2 else 0)
+		for x in range(c0 + lean - inset, c1 - lean + inset):
+			for z in range(lean, nz - lean):
+				if y == roof - 1:
+					c[Vector3i(x, y, z)] = paint
+				elif x == c0 + lean - inset or x == c1 - lean + inset - 1 \
+						or z == lean or z == nz - lean - 1:
+					c[Vector3i(x, y, z)] = COLOR_GLASS
+				else:
+					c[Vector3i(x, y, z)] = paint
+	# Wheels: a block at each corner, proud of the body on both sides and
+	# deep enough to show under the sills.
+	for wx in [int(nx * 0.12), int(nx * 0.70)]:
+		for x in range(wx, wx + int(0.66 / vx)):
+			for y in range(0, clear + 2):
+				for z in [0, 1, nz - 2, nz - 1]:
+					c[Vector3i(x, y, z)] = COLOR_TYRE
+	return c
+
+
+static func _hit_restroom() -> Array:
+	return [[Vector3(WC_W * 0.5, WC_RIDGE * 0.5, WC_D * 0.5),
+		Vector3(WC_W, WC_RIDGE, WC_D)]]
+
+
+## The restroom block. x across the front, z back into the building. Simpler
+## than the shop: a closed box with two recessed doors and a gable over it.
+static func _cells_restroom() -> Dictionary:
+	var c := {}
+	var vx: float = VOXEL.restroom
+	var nx := int(WC_W / vx)
+	var nz := int(WC_D / vx)
+	var eave := int(WC_EAVE / vx)
+	var ridge := int(WC_RIDGE / vx)
+	var door_h := int(2.1 / vx)
+	var door_w := int(0.9 / vx)
+	# Two doors, set in from the middle so the wall reads as two rooms.
+	var doors := [int(nx * 0.32), int(nx * 0.60)]
+	for y in range(0, eave):
+		for x in range(nx):
+			for z in range(nz):
+				if not (x == 0 or x == nx - 1 or z == 0 or z == nz - 1):
+					continue
+				var col := COLOR_BLOCK
+				if z == 0 and y < door_h:
+					for d: int in doors:
+						if x >= d and x < d + door_w:
+							col = COLOR_DOOR
+							break
+				c[Vector3i(x, y, z)] = col
+	# Gable roof, ridge across the front, eaves overhanging all round.
+	var over := int(0.5 / vx)
+	for z in range(-over, nz + over):
+		for x in range(-over, nx + over):
+			var t := absf(float(z) - (nz - 1) * 0.5) / maxf((nz - 1) * 0.5, 1.0)
+			var y := int(round(lerpf(float(ridge), float(eave), minf(t, 1.0))))
+			c[Vector3i(x, y, z)] = COLOR_ROOF
+			c[Vector3i(x, y - 1, z)] = COLOR_TRIM if (z < 0 or z >= nz) else COLOR_ROOF
+			if x == 0 or x == nx - 1:
+				for yy in range(eave, y):
+					c[Vector3i(x, yy, z)] = COLOR_BLOCK
+	return c

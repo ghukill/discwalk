@@ -357,6 +357,8 @@ static func _ensure_input_actions() -> void:
 		"menu": [KEY_ESCAPE],            # the game menu (also frees the mouse)
 		"circle": [KEY_O],               # shot-circle
 		"overview": [KEY_M],             # hole overview (Course Play)
+		"hole_prev": [KEY_BRACKETLEFT],  # Course Play: straight to another tee
+		"hole_next": [KEY_BRACKETRIGHT],
 		# Throw setup (throw_setup.gd). Shift + up/down = speed, + left/right = spin.
 		"tilt_up": [KEY_UP],
 		"tilt_down": [KEY_DOWN],

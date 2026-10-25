@@ -91,8 +91,7 @@ func build(t: Node3D) -> void:
 	else:
 		trees.clear()
 		for pt: Dictionary in preset_trees:
-			var crown: float = pt.get("crown",
-				{"giant": 7.0, "big": 5.0, "medium": 3.6, "sapling": 1.8}[pt.kind])
+			var crown: float = pt.get("crown", CROWN[pt.kind])
 			trees.append({"pos": Vector2i(terrain.col_x(pt.x), terrain.col_z(pt.z)),
 				"kind": pt.kind, "form": pt.form, "crown": crown,
 				"leaf": pt.get("leaf", -1)})
@@ -151,7 +150,7 @@ func _place_trees() -> void:
 				if _rng.randf() > 0.012:
 					continue
 				kind = "giant"
-			var crown: float = {"giant": 7.0, "big": 5.0, "medium": 3.6, "sapling": 1.8}[kind]
+			var crown: float = CROWN[kind]
 			crown *= _rng.randf_range(0.8, 1.25)
 			if not _can_grow(x, z, kind, crown, spawn, placed):
 				continue
@@ -248,6 +247,8 @@ func _blocks(metres: float) -> int:
 #   forked     trunk splits into two leaders part way up
 #   leaning    trunk tilts and the crown reaches out over one side
 #   sapling    young tree: thin stem, a few twiggy branches
+#   bush       no trunk: a low mound of stems and leaves
+#   pine       long bare trunk under a flat, layered, dark crown
 
 ## Per-form shape parameters. Ranges are [min, max]. Lengths are multiples of
 ## the tree's crown radius unless marked (m).
@@ -279,11 +280,30 @@ const FORMS := {
 	"palm": {"trunk_h": [7.0, 13.0], "lean": [0.0, 6.0], "limbs": [7, 10],
 		"limb_from": [0.97, 1.0], "elev": [-12.0, 38.0], "limb_len": [0.75, 1.0],
 		"upcurve": -0.03, "leader": 0.0, "depth": 1, "cluster": [0.34, 0.46]},
+	# A bush: no trunk to speak of, many stems straight out of the ground, and
+	# leaf clusters big enough relative to the crown that they merge into one
+	# mass rather than reading as a little tree. Morley is full of them -- the
+	# hedge along the archery fence, the mounds against the restroom wall --
+	# and they matter to play, because the disc loses speed in leaves (see
+	# disc.gd) whether those leaves are 12 m up or at knee height.
+	# A pine: a long bare trunk like the eucalyptus, but the crown above it is
+	# flat and layered rather than thrown upward -- limbs nearly horizontal,
+	# no leader to speak of, and dense enough to be a dark silhouette. There
+	# is one standing over the second tee.
+	"pine": {"trunk_h": [8.0, 13.0], "lean": [0.0, 5.0], "limbs": [5, 8],
+		"limb_from": [0.72, 1.0], "elev": [5.0, 40.0], "limb_len": [0.5, 0.8],
+		"upcurve": 0.01, "leader": 0.3, "depth": 2, "cluster": [0.38, 0.52]},
+	"bush": {"trunk_h": [0.2, 0.5], "lean": [0.0, 8.0], "limbs": [7, 11],
+		"limb_from": [0.0, 0.35], "elev": [10.0, 70.0], "limb_len": [0.5, 0.75],
+		"upcurve": 0.05, "leader": 0.25, "depth": 2, "cluster": [0.38, 0.52]},
 }
 
 ## Trunk base radius (m) by size class.
 const TRUNK_R := {"giant": [0.95, 1.35], "big": [0.6, 0.9], "medium": [0.35, 0.55],
-	"sapling": [0.12, 0.2]}
+	"sapling": [0.12, 0.2], "bush": [0.05, 0.11]}
+
+## Default crown radius (m) by size class, when a course does not say.
+const CROWN := {"giant": 7.0, "big": 5.0, "medium": 3.6, "sapling": 1.8, "bush": 1.3}
 
 const LEAF_GREENS := [
 	Color(0.22, 0.42, 0.16),   # classic oak green
@@ -318,7 +338,8 @@ func _grow_tree(tree: Dictionary, index: int) -> void:
 	var base := Vector3((p.x + 0.5) * _bs, terrain.col_height(p.x, p.y) * _bs, (p.y + 0.5) * _bs)
 
 	# Size scales the form's trunk height a little, so giants stand taller.
-	var size_k: float = {"giant": 1.15, "big": 1.0, "medium": 0.85, "sapling": 1.0}[kind]
+	var size_k: float = {"giant": 1.15, "big": 1.0, "medium": 0.85, "sapling": 1.0,
+		"bush": 1.0}[kind]
 	var trunk_h := _rr(rng, form.trunk_h) * size_k
 	var r0 := _rr(rng, TRUNK_R[kind])
 	# Colour: the tree's own entry in the palette when it has one (so the
@@ -331,7 +352,7 @@ func _grow_tree(tree: Dictionary, index: int) -> void:
 	green = green.lerp(pal[rng.randi() % pal.size()], rng.randf() * 0.35)
 	_t = {
 		"rng": rng, "form": form, "crown": crown, "green": green,
-		"cluster_r": maxf(_rr(rng, form.cluster) * crown, 0.8),
+		"cluster_r": maxf(_rr(rng, form.cluster) * crown, minf(0.8, crown * 0.45)),
 		"crown_cy": base.y + trunk_h + crown * 0.35, "crown_ry": crown * 0.75,
 		"dead": false,
 	}

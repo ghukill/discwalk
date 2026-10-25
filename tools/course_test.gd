@@ -53,6 +53,15 @@ func _flat(a: Vector3, b: Vector3) -> float:
 	return Vector2(a.x - b.x, a.z - b.z).length()
 
 
+func _press(action: String) -> void:
+	for down in [true, false]:
+		var ev := InputEventAction.new()
+		ev.action = action
+		ev.pressed = down
+		Input.parse_input_event(ev)
+		await _frames(2)
+
+
 func _run() -> void:
 	await _frames(3)
 	_t = _main.get_node("Terrain")
@@ -61,6 +70,7 @@ func _run() -> void:
 	_r = _main.course_round
 	_test_course()
 	await _test_play()
+	await _test_jump()
 	await _test_free()
 	var ok := not _checks.has(false)
 	print("COURSE %s" % ("PASS" if ok else "FAIL"))
@@ -333,6 +343,39 @@ func _test_play() -> void:
 	_th._on_basket_hit(d4, _t.holes[-1].basket, "chains")
 	await _frames(int(60 * (_r.OUT_PAUSE + 0.4)))
 	_check("last hole ends the round", _r.state == "done" and not _th.locked and _r.goto_aim() == null)
+
+
+## [ and ] put you on another hole's tee without playing the ones between.
+func _test_jump() -> void:
+	_main.start_mode("course")
+	await _frames(3)
+	var n: int = _t.holes.size()
+
+	await _press("hole_next")
+	_check("] jumps to the next tee", _r.hole == 1 and _r.state == "tee"
+		and _r.strokes == 0 and not _th.locked
+		and _flat(_pl.global_position, _r.tee_spot(_t.holes[1])) < 1.0)
+
+	# Off the first hole, [ wraps round to the last.
+	await _press("hole_prev")
+	await _press("hole_prev")
+	_check("[ wraps off the first hole", _r.hole == n - 1
+		and _flat(_pl.global_position, _r.tee_spot(_t.holes[n - 1])) < 1.0,
+		"hole %d of %d" % [_r.hole + 1, n])
+
+	# ] off the last wraps the other way, and nothing has been scored: a
+	# jumped-over hole must not turn into strokes on the card.
+	await _press("hole_next")
+	_check("jumping scores nothing", _r.hole == 0 and _r.scores.is_empty()
+		and _r.total == 0)
+
+	# The disc you left on the last hole does not come with you.
+	var d = _th.throw_disc(_disc_params())
+	await _frames(2)
+	await _press("hole_next")
+	await _frames(2)
+	_check("the last hole's discs are cleared",
+		not is_instance_valid(d) and _th.discs.is_empty())
 
 
 func _test_free() -> void:

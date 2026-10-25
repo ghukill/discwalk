@@ -44,6 +44,7 @@ const RIGHT := [
 	]],
 	["Course Play", [
 		["hole overview", "M", "LB + B"],
+		["jump to the previous / next hole", "[ / ]", ""],
 		["skip a walk (to the tee, to your disc)", "move / throw", "move / throw"],
 	]],
 	["World and display", [

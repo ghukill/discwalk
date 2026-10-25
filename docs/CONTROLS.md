@@ -4,7 +4,7 @@ How every input works today, keyboard + mouse and controller side by side.
 
 > In game: press **?** (or open the menu, Esc / Menu on a controller, → Controls) for the same tables as an overlay (`scripts/controls_panel.gd`; keep it in step with this file).
 >
-> Code: bindings live in `scripts/player.gd` (`_ensure_input_actions`). Handlers: `scripts/player.gd` (walk, look, jump, crouch, run), `scripts/throw_setup.gd` (throw setup), `scripts/thrower.gd` (throws, toggles), `scripts/course_round.gd` (Course Play: overview, skipping the walk), `scripts/menu.gd` (the menu), `scripts/main.gd` (world, clouds, HUD size). The throw HUD itself is specced in [THROW-HUD.md](THROW-HUD.md).
+> Code: bindings live in `scripts/player.gd` (`_ensure_input_actions`). Handlers: `scripts/player.gd` (walk, look, jump, crouch, run), `scripts/throw_setup.gd` (throw setup), `scripts/thrower.gd` (throws, toggles), `scripts/course_round.gd` (Course Play: overview, skipping the walk, jumping between holes), `scripts/menu.gd` (the menu), `scripts/main.gd` (world, clouds, HUD size). The throw HUD itself is specced in [THROW-HUD.md](THROW-HUD.md).
 > Controller: Xbox-style (tested with an Xbox Series X|S pad). Any connected controller works. Mapping notes: `scratch/controller.md` (not committed). Tests: `tools/controls_test.gd` (controller pages, crouch), `tools/hud_test.gd` (throw setup keys).
 
 ## Controller at a glance
@@ -79,6 +79,7 @@ A tap moves one fine step (0.5° nose, 1° hyzer, 1 mph speed — or 0.5 m/s if 
 |---|---|---|
 | Hole overview (camera flies up over tee, basket and you; again to come back) | M | **LB** (hold) + B |
 | Skip the walk to the next tee, or goto's walk to your disc | any move key, Space, or a throw | left stick, A, or B |
+| Jump straight to the previous / next hole's tee (wraps; for building a course, not for playing one) | [ / ] | — |
 
 ## World and display
 
@@ -110,7 +111,7 @@ One height, toggled (Tab / X), no need to hold. Crouched: eyes drop 0.65 m, the 
 
 ## Not on the controller yet
 
-Hide HUD (U), HUD size, clouds (K), new world (N).
+Hide HUD (U), HUD size, clouds (K), new world (N), jump between holes ([ / ]).
 
 ## Notes
 
