@@ -1,0 +1,298 @@
+<!doctype html>
+<meta charset="utf-8"><title>Course photos</title>
+<style>
+ :root { --bg:#14161a; --fg:#e8e6e1; --dim:#8d9199; --pick:#6fae5e; }
+ body { margin:0; background:var(--bg); color:var(--fg); font:14px/1.4
+   ui-sans-serif,-apple-system,Segoe UI,sans-serif; }
+ header { position:sticky; top:0; z-index:5; background:#1b1e24;
+   border-bottom:1px solid #2a2e36; padding:10px 16px; display:flex;
+   gap:12px; align-items:center; flex-wrap:wrap; }
+ header h1 { font-size:15px; margin:0 8px 0 0; font-weight:600; }
+ #pad { display:flex; gap:4px; flex-wrap:wrap; }
+ #pad button { background:#272b33; color:var(--fg); border:1px solid #363b45;
+   border-radius:5px; padding:4px 9px; cursor:pointer; font:inherit; }
+ #pad button:hover { background:#333842; }
+ #pad button.on { background:var(--pick); border-color:var(--pick); color:#0d1410; }
+ #out { margin-left:auto; display:flex; gap:8px; align-items:center; }
+ #out span { color:var(--dim); }
+ .bar { background:#272b33; color:var(--fg); border:1px solid #363b45;
+   border-radius:5px; padding:5px 11px; cursor:pointer; font:inherit; }
+ main { display:grid; grid-template-columns:repeat(auto-fill,minmax(230px,1fr));
+   gap:10px; padding:16px; }
+ figure { margin:0; position:relative; cursor:pointer; border-radius:7px;
+   overflow:hidden; background:#000; outline:2px solid transparent; }
+ figure.sel { outline-color:#d8c56a; }
+ figure img { width:100%; aspect-ratio:4/3; object-fit:cover; display:block; }
+ figcaption { position:absolute; inset:auto 0 0 0; display:flex;
+   justify-content:space-between; padding:4px 7px; font-size:12px;
+   background:linear-gradient(transparent,rgba(0,0,0,.8)); }
+ figcaption b { color:var(--pick); }
+ figcaption span { color:#c9ccd1; }
+ .gap { grid-column:1/-1; border-top:1px dashed #3a4049; margin:6px 0 0;
+   text-align:center; }
+ .gap span { position:relative; top:-9px; background:var(--bg); padding:0 10px;
+   color:var(--dim); font-size:12px; }
+ dialog { background:#1b1e24; color:var(--fg); border:1px solid #363b45;
+   border-radius:8px; max-width:720px; width:90vw; }
+ dialog textarea { width:100%; height:50vh; background:#0f1115; color:var(--fg);
+   border:1px solid #363b45; border-radius:5px; font:12px ui-monospace,monospace; }
+ #big { position:fixed; inset:0; background:rgba(0,0,0,.92); display:none;
+   z-index:10; align-items:center; justify-content:center; }
+ #big img { max-width:96vw; max-height:92vh; object-fit:contain; }
+ #big.on { display:flex; }
+</style>
+<header>
+  <h1>136 photos</h1>
+  <div id="pad"><button data-h="1">1</button><button data-h="2">2</button><button data-h="3">3</button><button data-h="4">4</button><button data-h="5">5</button><button data-h="6">6</button><button data-h="7">7</button><button data-h="8">8</button><button data-h="9">9</button><button data-h="10">10</button><button data-h="11">11</button><button data-h="12">12</button><button data-h="13">13</button><button data-h="14">14</button><button data-h="15">15</button><button data-h="16">16</button><button data-h="17">17</button><button data-h="18">18</button><button data-h="19">19</button><button data-h="around">around</button></div>
+  <div id="out">
+    <span id="left"></span>
+    <button class="bar" id="copy">Copy photos.tsv</button>
+  </div>
+</header>
+<main id="sheet"><figure data-file="2026-10-24_0319.jpg" data-hole="around" data-taken="2026-10-24 13:54:01"><img loading="lazy" src="around/2026-10-24_0319.jpg" alt=""><figcaption><b></b><span>13:54</span></figcaption></figure>
+<figure data-file="2026-10-24_0320.jpg" data-hole="around" data-taken="2026-10-24 13:55:17"><img loading="lazy" src="around/2026-10-24_0320.jpg" alt=""><figcaption><b></b><span>13:55</span></figcaption></figure>
+<figure data-file="2026-10-24_0321.jpg" data-hole="1" data-taken="2026-10-24 13:55:19"><img loading="lazy" src="hole-01/2026-10-24_0321.jpg" alt=""><figcaption><b></b><span>13:55</span></figcaption></figure>
+<figure data-file="2026-10-24_0322.jpg" data-hole="1" data-taken="2026-10-24 13:55:21"><img loading="lazy" src="hole-01/2026-10-24_0322.jpg" alt=""><figcaption><b></b><span>13:55</span></figcaption></figure>
+<figure data-file="2026-10-24_0323.jpg" data-hole="1" data-taken="2026-10-24 13:55:49"><img loading="lazy" src="hole-01/2026-10-24_0323.jpg" alt=""><figcaption><b></b><span>13:55</span></figcaption></figure>
+<figure data-file="2026-10-24_0324.jpg" data-hole="1" data-taken="2026-10-24 13:55:51"><img loading="lazy" src="hole-01/2026-10-24_0324.jpg" alt=""><figcaption><b></b><span>13:55</span></figcaption></figure>
+<figure data-file="2026-10-24_0325.jpg" data-hole="1" data-taken="2026-10-24 13:56:21"><img loading="lazy" src="hole-01/2026-10-24_0325.jpg" alt=""><figcaption><b></b><span>13:56</span></figcaption></figure>
+<figure data-file="2026-10-24_0326.jpg" data-hole="1" data-taken="2026-10-24 13:56:26"><img loading="lazy" src="hole-01/2026-10-24_0326.jpg" alt=""><figcaption><b></b><span>13:56</span></figcaption></figure>
+<figure data-file="2026-10-24_0327.jpg" data-hole="1" data-taken="2026-10-24 13:57:59"><img loading="lazy" src="hole-01/2026-10-24_0327.jpg" alt=""><figcaption><b></b><span>13:57</span></figcaption></figure>
+<div class="gap"><span>2:40 walk</span></div>
+<figure data-file="2026-10-24_0328.jpg" data-hole="1" data-taken="2026-10-24 14:00:39"><img loading="lazy" src="hole-01/2026-10-24_0328.jpg" alt=""><figcaption><b></b><span>14:00</span></figcaption></figure>
+<figure data-file="2026-10-24_0329.jpg" data-hole="2" data-taken="2026-10-24 14:01:33"><img loading="lazy" src="hole-02/2026-10-24_0329.jpg" alt=""><figcaption><b></b><span>14:01</span></figcaption></figure>
+<figure data-file="2026-10-24_0330.jpg" data-hole="2" data-taken="2026-10-24 14:01:45"><img loading="lazy" src="hole-02/2026-10-24_0330.jpg" alt=""><figcaption><b></b><span>14:01</span></figcaption></figure>
+<figure data-file="2026-10-24_0331.jpg" data-hole="2" data-taken="2026-10-24 14:02:40"><img loading="lazy" src="hole-02/2026-10-24_0331.jpg" alt=""><figcaption><b></b><span>14:02</span></figcaption></figure>
+<figure data-file="2026-10-24_0332.jpg" data-hole="2" data-taken="2026-10-24 14:02:55"><img loading="lazy" src="hole-02/2026-10-24_0332.jpg" alt=""><figcaption><b></b><span>14:02</span></figcaption></figure>
+<figure data-file="2026-10-24_0333.jpg" data-hole="2" data-taken="2026-10-24 14:03:37"><img loading="lazy" src="hole-02/2026-10-24_0333.jpg" alt=""><figcaption><b></b><span>14:03</span></figcaption></figure>
+<figure data-file="2026-10-24_0334.jpg" data-hole="2" data-taken="2026-10-24 14:03:38"><img loading="lazy" src="hole-02/2026-10-24_0334.jpg" alt=""><figcaption><b></b><span>14:03</span></figcaption></figure>
+<figure data-file="2026-10-24_0335.jpg" data-hole="2" data-taken="2026-10-24 14:03:41"><img loading="lazy" src="hole-02/2026-10-24_0335.jpg" alt=""><figcaption><b></b><span>14:03</span></figcaption></figure>
+<figure data-file="2026-10-24_0336.jpg" data-hole="2" data-taken="2026-10-24 14:04:07"><img loading="lazy" src="hole-02/2026-10-24_0336.jpg" alt=""><figcaption><b></b><span>14:04</span></figcaption></figure>
+<figure data-file="2026-10-24_0337.jpg" data-hole="3" data-taken="2026-10-24 14:04:36"><img loading="lazy" src="hole-03/2026-10-24_0337.jpg" alt=""><figcaption><b></b><span>14:04</span></figcaption></figure>
+<figure data-file="2026-10-24_0338.jpg" data-hole="3" data-taken="2026-10-24 14:04:38"><img loading="lazy" src="hole-03/2026-10-24_0338.jpg" alt=""><figcaption><b></b><span>14:04</span></figcaption></figure>
+<figure data-file="2026-10-24_0339.jpg" data-hole="3" data-taken="2026-10-24 14:04:47"><img loading="lazy" src="hole-03/2026-10-24_0339.jpg" alt=""><figcaption><b></b><span>14:04</span></figcaption></figure>
+<figure data-file="2026-10-24_0340.jpg" data-hole="3" data-taken="2026-10-24 14:04:56"><img loading="lazy" src="hole-03/2026-10-24_0340.jpg" alt=""><figcaption><b></b><span>14:04</span></figcaption></figure>
+<figure data-file="2026-10-24_0341.jpg" data-hole="3" data-taken="2026-10-24 14:05:02"><img loading="lazy" src="hole-03/2026-10-24_0341.jpg" alt=""><figcaption><b></b><span>14:05</span></figcaption></figure>
+<div class="gap"><span>2:37 walk</span></div>
+<figure data-file="2026-10-24_0342.jpg" data-hole="3" data-taken="2026-10-24 14:07:39"><img loading="lazy" src="hole-03/2026-10-24_0342.jpg" alt=""><figcaption><b></b><span>14:07</span></figcaption></figure>
+<figure data-file="2026-10-24_0343.jpg" data-hole="3" data-taken="2026-10-24 14:07:41"><img loading="lazy" src="hole-03/2026-10-24_0343.jpg" alt=""><figcaption><b></b><span>14:07</span></figcaption></figure>
+<figure data-file="2026-10-24_0344.jpg" data-hole="3" data-taken="2026-10-24 14:08:01"><img loading="lazy" src="hole-03/2026-10-24_0344.jpg" alt=""><figcaption><b></b><span>14:08</span></figcaption></figure>
+<figure data-file="2026-10-24_0345.jpg" data-hole="4" data-taken="2026-10-24 14:08:45"><img loading="lazy" src="hole-04/2026-10-24_0345.jpg" alt=""><figcaption><b></b><span>14:08</span></figcaption></figure>
+<figure data-file="2026-10-24_0346.jpg" data-hole="4" data-taken="2026-10-24 14:08:52"><img loading="lazy" src="hole-04/2026-10-24_0346.jpg" alt=""><figcaption><b></b><span>14:08</span></figcaption></figure>
+<figure data-file="2026-10-24_0347.jpg" data-hole="4" data-taken="2026-10-24 14:09:00"><img loading="lazy" src="hole-04/2026-10-24_0347.jpg" alt=""><figcaption><b></b><span>14:09</span></figcaption></figure>
+<figure data-file="2026-10-24_0348.jpg" data-hole="4" data-taken="2026-10-24 14:09:02"><img loading="lazy" src="hole-04/2026-10-24_0348.jpg" alt=""><figcaption><b></b><span>14:09</span></figcaption></figure>
+<figure data-file="2026-10-24_0349.jpg" data-hole="4" data-taken="2026-10-24 14:10:34"><img loading="lazy" src="hole-04/2026-10-24_0349.jpg" alt=""><figcaption><b></b><span>14:10</span></figcaption></figure>
+<figure data-file="2026-10-24_0350.jpg" data-hole="5" data-taken="2026-10-24 14:11:44"><img loading="lazy" src="hole-05/2026-10-24_0350.jpg" alt=""><figcaption><b></b><span>14:11</span></figcaption></figure>
+<figure data-file="2026-10-24_0351.jpg" data-hole="5" data-taken="2026-10-24 14:11:46"><img loading="lazy" src="hole-05/2026-10-24_0351.jpg" alt=""><figcaption><b></b><span>14:11</span></figcaption></figure>
+<figure data-file="2026-10-24_0352.jpg" data-hole="5" data-taken="2026-10-24 14:14:08"><img loading="lazy" src="hole-05/2026-10-24_0352.jpg" alt=""><figcaption><b></b><span>14:14</span></figcaption></figure>
+<figure data-file="2026-10-24_0353.jpg" data-hole="5" data-taken="2026-10-24 14:15:02"><img loading="lazy" src="hole-05/2026-10-24_0353.jpg" alt=""><figcaption><b></b><span>14:15</span></figcaption></figure>
+<figure data-file="2026-10-24_0354.jpg" data-hole="5" data-taken="2026-10-24 14:15:17"><img loading="lazy" src="hole-05/2026-10-24_0354.jpg" alt=""><figcaption><b></b><span>14:15</span></figcaption></figure>
+<figure data-file="2026-10-24_0355.jpg" data-hole="5" data-taken="2026-10-24 14:15:21"><img loading="lazy" src="hole-05/2026-10-24_0355.jpg" alt=""><figcaption><b></b><span>14:15</span></figcaption></figure>
+<figure data-file="2026-10-24_0356.jpg" data-hole="5" data-taken="2026-10-24 14:17:48"><img loading="lazy" src="hole-05/2026-10-24_0356.jpg" alt=""><figcaption><b></b><span>14:17</span></figcaption></figure>
+<figure data-file="2026-10-24_0357.jpg" data-hole="5" data-taken="2026-10-24 14:18:16"><img loading="lazy" src="hole-05/2026-10-24_0357.jpg" alt=""><figcaption><b></b><span>14:18</span></figcaption></figure>
+<figure data-file="2026-10-24_0358.jpg" data-hole="6" data-taken="2026-10-24 14:19:39"><img loading="lazy" src="hole-06/2026-10-24_0358.jpg" alt=""><figcaption><b></b><span>14:19</span></figcaption></figure>
+<figure data-file="2026-10-24_0359.jpg" data-hole="6" data-taken="2026-10-24 14:19:58"><img loading="lazy" src="hole-06/2026-10-24_0359.jpg" alt=""><figcaption><b></b><span>14:19</span></figcaption></figure>
+<div class="gap"><span>2:34 walk</span></div>
+<figure data-file="2026-10-24_0360.jpg" data-hole="6" data-taken="2026-10-24 14:22:32"><img loading="lazy" src="hole-06/2026-10-24_0360.jpg" alt=""><figcaption><b></b><span>14:22</span></figcaption></figure>
+<figure data-file="2026-10-24_0361.jpg" data-hole="6" data-taken="2026-10-24 14:22:34"><img loading="lazy" src="hole-06/2026-10-24_0361.jpg" alt=""><figcaption><b></b><span>14:22</span></figcaption></figure>
+<figure data-file="2026-10-24_0362.jpg" data-hole="6" data-taken="2026-10-24 14:23:25"><img loading="lazy" src="hole-06/2026-10-24_0362.jpg" alt=""><figcaption><b></b><span>14:23</span></figcaption></figure>
+<figure data-file="2026-10-24_0363.jpg" data-hole="6" data-taken="2026-10-24 14:23:46"><img loading="lazy" src="hole-06/2026-10-24_0363.jpg" alt=""><figcaption><b></b><span>14:23</span></figcaption></figure>
+<figure data-file="2026-10-24_0364.jpg" data-hole="7" data-taken="2026-10-24 14:24:18"><img loading="lazy" src="hole-07/2026-10-24_0364.jpg" alt=""><figcaption><b></b><span>14:24</span></figcaption></figure>
+<figure data-file="2026-10-24_0365.jpg" data-hole="7" data-taken="2026-10-24 14:24:32"><img loading="lazy" src="hole-07/2026-10-24_0365.jpg" alt=""><figcaption><b></b><span>14:24</span></figcaption></figure>
+<figure data-file="2026-10-24_0366.jpg" data-hole="7" data-taken="2026-10-24 14:25:48"><img loading="lazy" src="hole-07/2026-10-24_0366.jpg" alt=""><figcaption><b></b><span>14:25</span></figcaption></figure>
+<figure data-file="2026-10-24_0367.jpg" data-hole="7" data-taken="2026-10-24 14:25:51"><img loading="lazy" src="hole-07/2026-10-24_0367.jpg" alt=""><figcaption><b></b><span>14:25</span></figcaption></figure>
+<figure data-file="2026-10-24_0368.jpg" data-hole="7" data-taken="2026-10-24 14:26:10"><img loading="lazy" src="hole-07/2026-10-24_0368.jpg" alt=""><figcaption><b></b><span>14:26</span></figcaption></figure>
+<figure data-file="2026-10-24_0369.jpg" data-hole="7" data-taken="2026-10-24 14:27:20"><img loading="lazy" src="hole-07/2026-10-24_0369.jpg" alt=""><figcaption><b></b><span>14:27</span></figcaption></figure>
+<figure data-file="2026-10-24_0370.jpg" data-hole="8" data-taken="2026-10-24 14:28:02"><img loading="lazy" src="hole-08/2026-10-24_0370.jpg" alt=""><figcaption><b></b><span>14:28</span></figcaption></figure>
+<figure data-file="2026-10-24_0371.jpg" data-hole="8" data-taken="2026-10-24 14:28:13"><img loading="lazy" src="hole-08/2026-10-24_0371.jpg" alt=""><figcaption><b></b><span>14:28</span></figcaption></figure>
+<figure data-file="2026-10-24_0372.jpg" data-hole="8" data-taken="2026-10-24 14:28:53"><img loading="lazy" src="hole-08/2026-10-24_0372.jpg" alt=""><figcaption><b></b><span>14:28</span></figcaption></figure>
+<figure data-file="2026-10-24_0373.jpg" data-hole="8" data-taken="2026-10-24 14:31:07"><img loading="lazy" src="hole-08/2026-10-24_0373.jpg" alt=""><figcaption><b></b><span>14:31</span></figcaption></figure>
+<figure data-file="2026-10-24_0374.jpg" data-hole="9" data-taken="2026-10-24 14:32:07"><img loading="lazy" src="hole-09/2026-10-24_0374.jpg" alt=""><figcaption><b></b><span>14:32</span></figcaption></figure>
+<figure data-file="2026-10-24_0375.jpg" data-hole="9" data-taken="2026-10-24 14:32:16"><img loading="lazy" src="hole-09/2026-10-24_0375.jpg" alt=""><figcaption><b></b><span>14:32</span></figcaption></figure>
+<div class="gap"><span>2:38 walk</span></div>
+<figure data-file="2026-10-24_0376.jpg" data-hole="9" data-taken="2026-10-24 14:34:54"><img loading="lazy" src="hole-09/2026-10-24_0376.jpg" alt=""><figcaption><b></b><span>14:34</span></figcaption></figure>
+<figure data-file="2026-10-24_0377.jpg" data-hole="9" data-taken="2026-10-24 14:34:59"><img loading="lazy" src="hole-09/2026-10-24_0377.jpg" alt=""><figcaption><b></b><span>14:34</span></figcaption></figure>
+<figure data-file="2026-10-24_0378.jpg" data-hole="9" data-taken="2026-10-24 14:35:22"><img loading="lazy" src="hole-09/2026-10-24_0378.jpg" alt=""><figcaption><b></b><span>14:35</span></figcaption></figure>
+<div class="gap"><span>4:33 walk</span></div>
+<figure data-file="2026-10-24_0379.jpg" data-hole="9" data-taken="2026-10-24 14:39:55"><img loading="lazy" src="hole-09/2026-10-24_0379.jpg" alt=""><figcaption><b></b><span>14:39</span></figcaption></figure>
+<figure data-file="2026-10-24_0380.jpg" data-hole="9" data-taken="2026-10-24 14:40:06"><img loading="lazy" src="hole-09/2026-10-24_0380.jpg" alt=""><figcaption><b></b><span>14:40</span></figcaption></figure>
+<figure data-file="2026-10-24_0381.jpg" data-hole="9" data-taken="2026-10-24 14:40:07"><img loading="lazy" src="hole-09/2026-10-24_0381.jpg" alt=""><figcaption><b></b><span>14:40</span></figcaption></figure>
+<figure data-file="2026-10-24_0382.jpg" data-hole="9" data-taken="2026-10-24 14:40:09"><img loading="lazy" src="hole-09/2026-10-24_0382.jpg" alt=""><figcaption><b></b><span>14:40</span></figcaption></figure>
+<figure data-file="2026-10-24_0383.jpg" data-hole="10" data-taken="2026-10-24 14:41:10"><img loading="lazy" src="hole-10/2026-10-24_0383.jpg" alt=""><figcaption><b></b><span>14:41</span></figcaption></figure>
+<figure data-file="2026-10-24_0384.jpg" data-hole="10" data-taken="2026-10-24 14:41:19"><img loading="lazy" src="hole-10/2026-10-24_0384.jpg" alt=""><figcaption><b></b><span>14:41</span></figcaption></figure>
+<figure data-file="2026-10-24_0385.jpg" data-hole="10" data-taken="2026-10-24 14:41:21"><img loading="lazy" src="hole-10/2026-10-24_0385.jpg" alt=""><figcaption><b></b><span>14:41</span></figcaption></figure>
+<figure data-file="2026-10-24_0386.jpg" data-hole="10" data-taken="2026-10-24 14:41:36"><img loading="lazy" src="hole-10/2026-10-24_0386.jpg" alt=""><figcaption><b></b><span>14:41</span></figcaption></figure>
+<figure data-file="2026-10-24_0387.jpg" data-hole="10" data-taken="2026-10-24 14:41:51"><img loading="lazy" src="hole-10/2026-10-24_0387.jpg" alt=""><figcaption><b></b><span>14:41</span></figcaption></figure>
+<div class="gap"><span>2:31 walk</span></div>
+<figure data-file="2026-10-24_0388.jpg" data-hole="10" data-taken="2026-10-24 14:44:22"><img loading="lazy" src="hole-10/2026-10-24_0388.jpg" alt=""><figcaption><b></b><span>14:44</span></figcaption></figure>
+<figure data-file="2026-10-24_0389.jpg" data-hole="10" data-taken="2026-10-24 14:44:25"><img loading="lazy" src="hole-10/2026-10-24_0389.jpg" alt=""><figcaption><b></b><span>14:44</span></figcaption></figure>
+<figure data-file="2026-10-24_0390.jpg" data-hole="11" data-taken="2026-10-24 14:45:00"><img loading="lazy" src="hole-11/2026-10-24_0390.jpg" alt=""><figcaption><b></b><span>14:45</span></figcaption></figure>
+<figure data-file="2026-10-24_0391.jpg" data-hole="11" data-taken="2026-10-24 14:45:25"><img loading="lazy" src="hole-11/2026-10-24_0391.jpg" alt=""><figcaption><b></b><span>14:45</span></figcaption></figure>
+<figure data-file="2026-10-24_0392.jpg" data-hole="11" data-taken="2026-10-24 14:45:27"><img loading="lazy" src="hole-11/2026-10-24_0392.jpg" alt=""><figcaption><b></b><span>14:45</span></figcaption></figure>
+<figure data-file="2026-10-24_0393.jpg" data-hole="11" data-taken="2026-10-24 14:45:58"><img loading="lazy" src="hole-11/2026-10-24_0393.jpg" alt=""><figcaption><b></b><span>14:45</span></figcaption></figure>
+<figure data-file="2026-10-24_0394.jpg" data-hole="11" data-taken="2026-10-24 14:48:03"><img loading="lazy" src="hole-11/2026-10-24_0394.jpg" alt=""><figcaption><b></b><span>14:48</span></figcaption></figure>
+<figure data-file="2026-10-24_0395.jpg" data-hole="11" data-taken="2026-10-24 14:48:09"><img loading="lazy" src="hole-11/2026-10-24_0395.jpg" alt=""><figcaption><b></b><span>14:48</span></figcaption></figure>
+<figure data-file="2026-10-24_0396.jpg" data-hole="11" data-taken="2026-10-24 14:48:15"><img loading="lazy" src="hole-11/2026-10-24_0396.jpg" alt=""><figcaption><b></b><span>14:48</span></figcaption></figure>
+<div class="gap"><span>3:10 walk</span></div>
+<figure data-file="2026-10-24_0397.jpg" data-hole="11" data-taken="2026-10-24 14:51:25"><img loading="lazy" src="hole-11/2026-10-24_0397.jpg" alt=""><figcaption><b></b><span>14:51</span></figcaption></figure>
+<figure data-file="2026-10-24_0398.jpg" data-hole="11" data-taken="2026-10-24 14:51:39"><img loading="lazy" src="hole-11/2026-10-24_0398.jpg" alt=""><figcaption><b></b><span>14:51</span></figcaption></figure>
+<figure data-file="2026-10-24_0399.jpg" data-hole="11" data-taken="2026-10-24 14:51:46"><img loading="lazy" src="hole-11/2026-10-24_0399.jpg" alt=""><figcaption><b></b><span>14:51</span></figcaption></figure>
+<figure data-file="2026-10-24_0400.jpg" data-hole="11" data-taken="2026-10-24 14:51:48"><img loading="lazy" src="hole-11/2026-10-24_0400.jpg" alt=""><figcaption><b></b><span>14:51</span></figcaption></figure>
+<figure data-file="2026-10-24_0401.jpg" data-hole="11" data-taken="2026-10-24 14:51:51"><img loading="lazy" src="hole-11/2026-10-24_0401.jpg" alt=""><figcaption><b></b><span>14:51</span></figcaption></figure>
+<figure data-file="2026-10-24_0402.jpg" data-hole="11" data-taken="2026-10-24 14:52:34"><img loading="lazy" src="hole-11/2026-10-24_0402.jpg" alt=""><figcaption><b></b><span>14:52</span></figcaption></figure>
+<figure data-file="2026-10-24_0403.jpg" data-hole="11" data-taken="2026-10-24 14:52:47"><img loading="lazy" src="hole-11/2026-10-24_0403.jpg" alt=""><figcaption><b></b><span>14:52</span></figcaption></figure>
+<figure data-file="2026-10-24_0404.jpg" data-hole="12" data-taken="2026-10-24 14:53:03"><img loading="lazy" src="hole-12/2026-10-24_0404.jpg" alt=""><figcaption><b></b><span>14:53</span></figcaption></figure>
+<figure data-file="2026-10-24_0405.jpg" data-hole="12" data-taken="2026-10-24 14:53:23"><img loading="lazy" src="hole-12/2026-10-24_0405.jpg" alt=""><figcaption><b></b><span>14:53</span></figcaption></figure>
+<figure data-file="2026-10-24_0406.jpg" data-hole="12" data-taken="2026-10-24 14:53:32"><img loading="lazy" src="hole-12/2026-10-24_0406.jpg" alt=""><figcaption><b></b><span>14:53</span></figcaption></figure>
+<div class="gap"><span>2:35 walk</span></div>
+<figure data-file="2026-10-24_0407.jpg" data-hole="12" data-taken="2026-10-24 14:56:07"><img loading="lazy" src="hole-12/2026-10-24_0407.jpg" alt=""><figcaption><b></b><span>14:56</span></figcaption></figure>
+<figure data-file="2026-10-24_0408.jpg" data-hole="12" data-taken="2026-10-24 14:56:14"><img loading="lazy" src="hole-12/2026-10-24_0408.jpg" alt=""><figcaption><b></b><span>14:56</span></figcaption></figure>
+<figure data-file="2026-10-24_0409.jpg" data-hole="12" data-taken="2026-10-24 14:56:49"><img loading="lazy" src="hole-12/2026-10-24_0409.jpg" alt=""><figcaption><b></b><span>14:56</span></figcaption></figure>
+<figure data-file="2026-10-24_0410.jpg" data-hole="12" data-taken="2026-10-24 14:57:13"><img loading="lazy" src="hole-12/2026-10-24_0410.jpg" alt=""><figcaption><b></b><span>14:57</span></figcaption></figure>
+<figure data-file="2026-10-24_0411.jpg" data-hole="12" data-taken="2026-10-24 14:57:22"><img loading="lazy" src="hole-12/2026-10-24_0411.jpg" alt=""><figcaption><b></b><span>14:57</span></figcaption></figure>
+<figure data-file="2026-10-24_0412.jpg" data-hole="12" data-taken="2026-10-24 14:57:26"><img loading="lazy" src="hole-12/2026-10-24_0412.jpg" alt=""><figcaption><b></b><span>14:57</span></figcaption></figure>
+<figure data-file="2026-10-24_0413.jpg" data-hole="12" data-taken="2026-10-24 14:58:30"><img loading="lazy" src="hole-12/2026-10-24_0413.jpg" alt=""><figcaption><b></b><span>14:58</span></figcaption></figure>
+<figure data-file="2026-10-24_0414.jpg" data-hole="13" data-taken="2026-10-24 14:58:49"><img loading="lazy" src="hole-13/2026-10-24_0414.jpg" alt=""><figcaption><b></b><span>14:58</span></figcaption></figure>
+<figure data-file="2026-10-24_0415.jpg" data-hole="13" data-taken="2026-10-24 14:58:55"><img loading="lazy" src="hole-13/2026-10-24_0415.jpg" alt=""><figcaption><b></b><span>14:58</span></figcaption></figure>
+<figure data-file="2026-10-24_0416.jpg" data-hole="13" data-taken="2026-10-24 14:59:03"><img loading="lazy" src="hole-13/2026-10-24_0416.jpg" alt=""><figcaption><b></b><span>14:59</span></figcaption></figure>
+<div class="gap"><span>3:42 walk</span></div>
+<figure data-file="2026-10-24_0417.jpg" data-hole="13" data-taken="2026-10-24 15:02:45"><img loading="lazy" src="hole-13/2026-10-24_0417.jpg" alt=""><figcaption><b></b><span>15:02</span></figcaption></figure>
+<figure data-file="2026-10-24_0418.jpg" data-hole="13" data-taken="2026-10-24 15:03:04"><img loading="lazy" src="hole-13/2026-10-24_0418.jpg" alt=""><figcaption><b></b><span>15:03</span></figcaption></figure>
+<figure data-file="2026-10-24_0419.jpg" data-hole="14" data-taken="2026-10-24 15:04:29"><img loading="lazy" src="hole-14/2026-10-24_0419.jpg" alt=""><figcaption><b></b><span>15:04</span></figcaption></figure>
+<figure data-file="2026-10-24_0420.jpg" data-hole="14" data-taken="2026-10-24 15:04:37"><img loading="lazy" src="hole-14/2026-10-24_0420.jpg" alt=""><figcaption><b></b><span>15:04</span></figcaption></figure>
+<figure data-file="2026-10-24_0421.jpg" data-hole="14" data-taken="2026-10-24 15:06:06"><img loading="lazy" src="hole-14/2026-10-24_0421.jpg" alt=""><figcaption><b></b><span>15:06</span></figcaption></figure>
+<figure data-file="2026-10-24_0422.jpg" data-hole="14" data-taken="2026-10-24 15:06:09"><img loading="lazy" src="hole-14/2026-10-24_0422.jpg" alt=""><figcaption><b></b><span>15:06</span></figcaption></figure>
+<div class="gap"><span>2:38 walk</span></div>
+<figure data-file="2026-10-24_0423.jpg" data-hole="14" data-taken="2026-10-24 15:08:47"><img loading="lazy" src="hole-14/2026-10-24_0423.jpg" alt=""><figcaption><b></b><span>15:08</span></figcaption></figure>
+<figure data-file="2026-10-24_0424.jpg" data-hole="14" data-taken="2026-10-24 15:08:52"><img loading="lazy" src="hole-14/2026-10-24_0424.jpg" alt=""><figcaption><b></b><span>15:08</span></figcaption></figure>
+<figure data-file="2026-10-24_0425.jpg" data-hole="14" data-taken="2026-10-24 15:09:12"><img loading="lazy" src="hole-14/2026-10-24_0425.jpg" alt=""><figcaption><b></b><span>15:09</span></figcaption></figure>
+<figure data-file="2026-10-24_0426.jpg" data-hole="14" data-taken="2026-10-24 15:09:47"><img loading="lazy" src="hole-14/2026-10-24_0426.jpg" alt=""><figcaption><b></b><span>15:09</span></figcaption></figure>
+<figure data-file="2026-10-24_0427.jpg" data-hole="15" data-taken="2026-10-24 15:10:49"><img loading="lazy" src="hole-15/2026-10-24_0427.jpg" alt=""><figcaption><b></b><span>15:10</span></figcaption></figure>
+<figure data-file="2026-10-24_0428.jpg" data-hole="15" data-taken="2026-10-24 15:11:51"><img loading="lazy" src="hole-15/2026-10-24_0428.jpg" alt=""><figcaption><b></b><span>15:11</span></figcaption></figure>
+<figure data-file="2026-10-24_0429.jpg" data-hole="15" data-taken="2026-10-24 15:11:56"><img loading="lazy" src="hole-15/2026-10-24_0429.jpg" alt=""><figcaption><b></b><span>15:11</span></figcaption></figure>
+<div class="gap"><span>3:47 walk</span></div>
+<figure data-file="2026-10-24_0430.jpg" data-hole="15" data-taken="2026-10-24 15:15:43"><img loading="lazy" src="hole-15/2026-10-24_0430.jpg" alt=""><figcaption><b></b><span>15:15</span></figcaption></figure>
+<figure data-file="2026-10-24_0431.jpg" data-hole="15" data-taken="2026-10-24 15:17:25"><img loading="lazy" src="hole-15/2026-10-24_0431.jpg" alt=""><figcaption><b></b><span>15:17</span></figcaption></figure>
+<figure data-file="2026-10-24_0432.jpg" data-hole="16" data-taken="2026-10-24 15:17:51"><img loading="lazy" src="hole-16/2026-10-24_0432.jpg" alt=""><figcaption><b></b><span>15:17</span></figcaption></figure>
+<figure data-file="2026-10-24_0433.jpg" data-hole="16" data-taken="2026-10-24 15:18:04"><img loading="lazy" src="hole-16/2026-10-24_0433.jpg" alt=""><figcaption><b></b><span>15:18</span></figcaption></figure>
+<figure data-file="2026-10-24_0434.jpg" data-hole="16" data-taken="2026-10-24 15:18:06"><img loading="lazy" src="hole-16/2026-10-24_0434.jpg" alt=""><figcaption><b></b><span>15:18</span></figcaption></figure>
+<div class="gap"><span>3:09 walk</span></div>
+<figure data-file="2026-10-24_0435.jpg" data-hole="16" data-taken="2026-10-24 15:21:15"><img loading="lazy" src="hole-16/2026-10-24_0435.jpg" alt=""><figcaption><b></b><span>15:21</span></figcaption></figure>
+<figure data-file="2026-10-24_0436.jpg" data-hole="16" data-taken="2026-10-24 15:21:54"><img loading="lazy" src="hole-16/2026-10-24_0436.jpg" alt=""><figcaption><b></b><span>15:21</span></figcaption></figure>
+<figure data-file="2026-10-24_0437.jpg" data-hole="16" data-taken="2026-10-24 15:22:09"><img loading="lazy" src="hole-16/2026-10-24_0437.jpg" alt=""><figcaption><b></b><span>15:22</span></figcaption></figure>
+<figure data-file="2026-10-24_0438.jpg" data-hole="17" data-taken="2026-10-24 15:22:57"><img loading="lazy" src="hole-17/2026-10-24_0438.jpg" alt=""><figcaption><b></b><span>15:22</span></figcaption></figure>
+<figure data-file="2026-10-24_0439.jpg" data-hole="17" data-taken="2026-10-24 15:23:23"><img loading="lazy" src="hole-17/2026-10-24_0439.jpg" alt=""><figcaption><b></b><span>15:23</span></figcaption></figure>
+<figure data-file="2026-10-24_0440.jpg" data-hole="17" data-taken="2026-10-24 15:25:41"><img loading="lazy" src="hole-17/2026-10-24_0440.jpg" alt=""><figcaption><b></b><span>15:25</span></figcaption></figure>
+<figure data-file="2026-10-24_0441.jpg" data-hole="17" data-taken="2026-10-24 15:25:44"><img loading="lazy" src="hole-17/2026-10-24_0441.jpg" alt=""><figcaption><b></b><span>15:25</span></figcaption></figure>
+<figure data-file="2026-10-24_0442.jpg" data-hole="17" data-taken="2026-10-24 15:26:29"><img loading="lazy" src="hole-17/2026-10-24_0442.jpg" alt=""><figcaption><b></b><span>15:26</span></figcaption></figure>
+<figure data-file="2026-10-24_0443.jpg" data-hole="18" data-taken="2026-10-24 15:27:45"><img loading="lazy" src="hole-18/2026-10-24_0443.jpg" alt=""><figcaption><b></b><span>15:27</span></figcaption></figure>
+<div class="gap"><span>2:34 walk</span></div>
+<figure data-file="2026-10-24_0444.jpg" data-hole="18" data-taken="2026-10-24 15:30:19"><img loading="lazy" src="hole-18/2026-10-24_0444.jpg" alt=""><figcaption><b></b><span>15:30</span></figcaption></figure>
+<div class="gap"><span>3:18 walk</span></div>
+<figure data-file="2026-10-24_0445.jpg" data-hole="18" data-taken="2026-10-24 15:33:37"><img loading="lazy" src="hole-18/2026-10-24_0445.jpg" alt=""><figcaption><b></b><span>15:33</span></figcaption></figure>
+<figure data-file="2026-10-24_0446.jpg" data-hole="19" data-taken="2026-10-24 15:34:48"><img loading="lazy" src="hole-19/2026-10-24_0446.jpg" alt=""><figcaption><b></b><span>15:34</span></figcaption></figure>
+<figure data-file="2026-10-24_0447.jpg" data-hole="19" data-taken="2026-10-24 15:34:51"><img loading="lazy" src="hole-19/2026-10-24_0447.jpg" alt=""><figcaption><b></b><span>15:34</span></figcaption></figure>
+<figure data-file="2026-10-24_0448.jpg" data-hole="19" data-taken="2026-10-24 15:34:58"><img loading="lazy" src="hole-19/2026-10-24_0448.jpg" alt=""><figcaption><b></b><span>15:34</span></figcaption></figure>
+<div class="gap"><span>5:46 walk</span></div>
+<figure data-file="2026-10-24_0449.jpg" data-hole="19" data-taken="2026-10-24 15:40:44"><img loading="lazy" src="hole-19/2026-10-24_0449.jpg" alt=""><figcaption><b></b><span>15:40</span></figcaption></figure>
+<figure data-file="2026-10-24_0450.jpg" data-hole="19" data-taken="2026-10-24 15:40:46"><img loading="lazy" src="hole-19/2026-10-24_0450.jpg" alt=""><figcaption><b></b><span>15:40</span></figcaption></figure>
+<figure data-file="2026-10-24_0451.jpg" data-hole="19" data-taken="2026-10-24 15:40:47"><img loading="lazy" src="hole-19/2026-10-24_0451.jpg" alt=""><figcaption><b></b><span>15:40</span></figcaption></figure>
+<figure data-file="2026-10-24_0452.jpg" data-hole="around" data-taken="2026-10-24 15:41:30"><img loading="lazy" src="around/2026-10-24_0452.jpg" alt=""><figcaption><b></b><span>15:41</span></figcaption></figure>
+<figure data-file="2026-10-24_0453.jpg" data-hole="around" data-taken="2026-10-24 15:41:42"><img loading="lazy" src="around/2026-10-24_0453.jpg" alt=""><figcaption><b></b><span>15:41</span></figcaption></figure>
+<div class="gap"><span>68:43 walk</span></div>
+<figure data-file="2026-10-24_0454.jpg" data-hole="" data-taken="2026-10-24 16:50:25"><img loading="lazy" src="unsorted/2026-10-24_0454.jpg" alt=""><figcaption><b></b><span>16:50</span></figcaption></figure></main>
+<div id="big"><img alt=""></div>
+<dialog id="dlg">
+  <p>Paste this over <code>photos.tsv</code>, then run
+     <code>python3 tools/courses/import_photos.py &lt;course&gt; --sort</code>.</p>
+  <textarea id="tsv" spellcheck="false"></textarea>
+  <p><button class="bar" onclick="dlg.close()">Close</button></p>
+</dialog>
+<script>
+const figs = [...document.querySelectorAll('figure')];
+const pad = document.getElementById('pad');
+const left = document.getElementById('left');
+let cur = null;
+
+// What you picked lives in the page until you copy it out, so a stray
+// reload cannot cost you an afternoon of labelling.
+const saved = JSON.parse(localStorage.getItem('holes') || '{}');
+figs.forEach(f => {
+  if (f.dataset.hole) saved[f.dataset.file] = f.dataset.hole;
+  else if (saved[f.dataset.file]) f.dataset.hole = saved[f.dataset.file];
+});
+localStorage.setItem('holes', JSON.stringify(saved));
+
+function paint() {
+  let blank = 0;
+  figs.forEach(f => {
+    f.querySelector('b').textContent = f.dataset.hole || '';
+    if (!f.dataset.hole) blank++;
+  });
+  left.textContent = blank ? blank + ' to go' : 'all labelled';
+  [...pad.children].forEach(b =>
+    b.classList.toggle('on', cur && b.dataset.h === cur.dataset.hole));
+}
+
+function select(f) {
+  figs.forEach(o => o.classList.toggle('sel', o === f));
+  cur = f;
+  if (f) f.scrollIntoView({block: 'nearest'});
+  paint();
+}
+
+function assign(h) {
+  if (!cur) return;
+  const from = figs.indexOf(cur);
+  cur.dataset.hole = h;
+  saved[cur.dataset.file] = h;
+  localStorage.setItem('holes', JSON.stringify(saved));
+  // Photos come in runs, so step to the next one: hold a hole number down
+  // and you walk the round.
+  select(figs[Math.min(from + 1, figs.length - 1)]);
+}
+
+figs.forEach(f => f.addEventListener('click', e => {
+  if (e.shiftKey) { const b = document.getElementById('big');
+    b.querySelector('img').src = f.querySelector('img').src; b.classList.add('on');
+    return; }
+  select(f);
+}));
+document.getElementById('big').addEventListener('click', e =>
+  e.currentTarget.classList.remove('on'));
+pad.addEventListener('click', e => { if (e.target.dataset.h) assign(e.target.dataset.h); });
+
+// Type a hole number; everything else is one key too.
+let typed = '';
+addEventListener('keydown', e => {
+  if (e.target.tagName === 'TEXTAREA') return;
+  if (e.key >= '1' && e.key <= '9') {
+    typed += e.key;
+    const n = parseInt(typed, 10);
+    // 1 could still become 19, so wait a beat before committing a bare 1.
+    if (n >= 2 && n <= 19) { assign(String(n)); typed = ''; }
+    else setTimeout(() => { if (typed === e.key) { assign(typed); typed = ''; } }, 400);
+    return;
+  }
+  typed = '';
+  if (e.key === 'a') assign('around');
+  if (e.key === 'Backspace' && cur) { delete saved[cur.dataset.file];
+    cur.dataset.hole = ''; localStorage.setItem('holes', JSON.stringify(saved)); paint(); }
+  if (e.key === 'ArrowRight') select(figs[Math.min(figs.indexOf(cur) + 1, figs.length - 1)]);
+  if (e.key === 'ArrowLeft') select(figs[Math.max(figs.indexOf(cur) - 1, 0)]);
+  if (e.key === 'Escape') document.getElementById('big').classList.remove('on');
+});
+
+document.getElementById('copy').addEventListener('click', () => {
+  const lines = ["# photo\ttaken\thole   (hole is 1-19, or 'around' for the shop,",
+                 "#\t\tcar park, roads -- anything that is not one hole)"];
+  figs.forEach(f => lines.push(
+    [f.dataset.file, f.dataset.taken, f.dataset.hole].join('\t')));
+  const text = lines.join('\n') + '\n';
+  navigator.clipboard.writeText(text).catch(() => {});
+  document.getElementById('tsv').value = text;
+  document.getElementById('dlg').showModal();
+});
+
+select(figs[0]);
+</script>
