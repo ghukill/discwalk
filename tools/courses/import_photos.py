@@ -10,7 +10,9 @@
 Photos off a phone are 5MB of HEIC apiece: too big to keep in the repo and
 unreadable by most tools. The import writes a 1400px JPEG of each one, which
 is more than enough to see a tree's shape or where the dirt stops, and parks
-the untouched original alongside (originals/ is gitignored).
+the untouched original alongside. Neither the originals nor the JPEGs are in
+git -- one round is 64MB of them -- but photos.tsv is, so a clone with the
+originals to hand rebuilds the lot, filed by hole, with a plain re-import.
 
 Which hole a photo came from is the one thing EXIF cannot tell us -- phones
 strip GPS on export -- so the import only records when each was taken and
@@ -327,22 +329,28 @@ def do_import(root, src, day):
     keep.mkdir(parents=True, exist_ok=True)
     rows = rows_of(root / "photos.tsv")
     known = {r["file"] for r in rows}
+    hole_of = {r["file"]: r["hole"] for r in rows}
     placed = {p.name: p.parent.name for p in root.glob("*/*.jpg")}
     added = 0
     for p, stamp in shot:
         name = "%s_%s.jpg" % (stamp[:10], re.sub(r"\D", "", p.stem)[-4:] or p.stem)
-        if name in known:
+        # Already listed AND still on disk: nothing to do. Listed but gone --
+        # a fresh clone, where the JPEGs are gitignored and only photos.tsv
+        # came down -- means rebuild it, into the folder the file says.
+        if name in known and name in placed:
             continue
         if not (keep / p.name).exists():
             shutil.copy2(p, keep / p.name)
-        out = root / placed.get(name, "unsorted") / name
+        want = hole_of.get(name, "")
+        out = root / (_folder(want) if want else placed.get(name, "unsorted")) / name
         out.parent.mkdir(parents=True, exist_ok=True)
         if not out.exists():
             subprocess.run(["sips", "-s", "format", "jpeg",
                             "-s", "formatOptions", str(JPEG_Q),
                             "-Z", str(JPEG_PX), str(p), "--out", str(out)],
                            check=True, capture_output=True)
-        rows.append({"file": name, "taken": stamp, "hole": ""})
+        if name not in known:
+            rows.append({"file": name, "taken": stamp, "hole": ""})
         added += 1
     rows.sort(key=lambda r: r["taken"])
     write_rows(root / "photos.tsv", rows)
