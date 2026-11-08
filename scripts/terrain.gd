@@ -515,27 +515,60 @@ func _cut_surfaces(hf: PackedFloat32Array) -> void:
 		return
 	for s: Dictionary in course.get("surfaces", []):
 		var cut: float = s.get("cut", 0.0)
-		if cut <= 0.0 or s.path.size() < 2:
+		if is_zero_approx(cut):
 			continue
-		var half: float = s.width * 0.5
-		var reach := half + CUT_EASE
-		var pts: Array = []
-		for v: Vector2 in s.path:
-			pts.append(to_world(v))
-		for i in range(1, pts.size()):
-			var a: Vector2 = pts[i - 1]
-			var b: Vector2 = pts[i]
-			var lo := Vector2(minf(a.x, b.x), minf(a.y, b.y)) - Vector2(reach, reach)
-			var hi := Vector2(maxf(a.x, b.x), maxf(a.y, b.y)) + Vector2(reach, reach)
-			for iz in range(maxi(0, col_z(lo.y)), mini(size_z, col_z(hi.y) + 1)):
-				for ix in range(maxi(0, col_x(lo.x)), mini(size_x, col_x(hi.x) + 1)):
-					var c := Vector2((ix + 0.5) * block_size, (iz + 0.5) * block_size)
-					var d := _to_segment(c, a, b)
-					if d >= reach:
-						continue
-					var k := smoothstep(reach, half, d)
-					var j := iz * size_x + ix
-					hf[j] = minf(hf[j], hf[j] - cut * k)
+		var ease: float = s.get("ease", CUT_EASE)
+		if s.path.size() >= 2:
+			_cut_path(hf, s.path, float(s.width) * 0.5, ease, cut)
+		if s.poly.size() >= 3:
+			_cut_poly(hf, s.poly, ease, cut)
+
+
+## A strip: full depth within `half` of the line, easing out over `ease`.
+func _cut_path(hf: PackedFloat32Array, path: Array, half: float,
+		ease: float, cut: float) -> void:
+	var reach := half + ease
+	var pts: Array = []
+	for v: Vector2 in path:
+		pts.append(to_world(v))
+	for i in range(1, pts.size()):
+		var a: Vector2 = pts[i - 1]
+		var b: Vector2 = pts[i]
+		var lo := Vector2(minf(a.x, b.x), minf(a.y, b.y)) - Vector2(reach, reach)
+		var hi := Vector2(maxf(a.x, b.x), maxf(a.y, b.y)) + Vector2(reach, reach)
+		for iz in range(maxi(0, col_z(lo.y)), mini(size_z, col_z(hi.y) + 1)):
+			for ix in range(maxi(0, col_x(lo.x)), mini(size_x, col_x(hi.x) + 1)):
+				var c := Vector2((ix + 0.5) * block_size, (iz + 0.5) * block_size)
+				var d := _to_segment(c, a, b)
+				if d < reach:
+					_move(hf, iz * size_x + ix, cut * smoothstep(reach, half, d))
+
+
+## A patch: full depth `ease` metres inside the outline, easing to nothing at
+## it. Negative cut makes a flat-topped mound.
+func _cut_poly(hf: PackedFloat32Array, poly: Array, ease: float, cut: float) -> void:
+	var pts: Array = []
+	var lo := Vector2(1e9, 1e9)
+	var hi := Vector2(-1e9, -1e9)
+	for v: Vector2 in poly:
+		var w: Vector2 = to_world(v)
+		pts.append(w)
+		lo = Vector2(minf(lo.x, w.x), minf(lo.y, w.y))
+		hi = Vector2(maxf(hi.x, w.x), maxf(hi.y, w.y))
+	for iz in range(maxi(0, col_z(lo.y)), mini(size_z, col_z(hi.y) + 1)):
+		for ix in range(maxi(0, col_x(lo.x)), mini(size_x, col_x(hi.x) + 1)):
+			var c := Vector2((ix + 0.5) * block_size, (iz + 0.5) * block_size)
+			if not Geometry2D.is_point_in_polygon(c, PackedVector2Array(pts)):
+				continue
+			# How far inside the outline this column sits.
+			var d := 1e9
+			for i in pts.size():
+				d = minf(d, _to_segment(c, pts[i], pts[(i + 1) % pts.size()]))
+			_move(hf, iz * size_x + ix, cut * smoothstep(0.0, ease, d))
+
+
+func _move(hf: PackedFloat32Array, i: int, by: float) -> void:
+	hf[i] = hf[i] - by
 
 
 ## Distance from p to the segment a-b (m).
@@ -697,10 +730,10 @@ func _chunk_mesh(ox: int, oz: int) -> ArrayMesh:
 			var plane := s + (1 if dx + dz > 0 else 0)
 			for r in range(0, rects.size(), 5):
 				var y0 := rects[r]
-				var length := rects[r + 4] >> 3
+				var length := rects[r + 4] >> 4
 				var t0 := rects[r + 1]
 				var span := rects[r + 3] - t0
-				var col := _side_color(rects[r + 4] & 7)
+				var col := _side_color(rects[r + 4] & 15, y0 + length)
 				if dx != 0:
 					VoxelMesh.add_quad(verts, normals, colors, Vector3(ox + plane, y0, oz + t0),
 						Vector3(0, length, 0), Vector3(0, 0, span), n, col)
@@ -711,21 +744,29 @@ func _chunk_mesh(ox: int, oz: int) -> ArrayMesh:
 	return VoxelMesh.build_mesh(verts, normals, colors)
 
 
-## Splits the exposed side of a column (blocks nh..h-1) into soil-layer runs,
-## appending face(y0, length * 8 + kind) entries for VoxelMesh.merge_rows().
+## Splits the exposed side of a column (blocks nh..h-1) into runs, appending
+## face(y0, length * 16 + kind) entries for VoxelMesh.merge_rows().
+##
+## Kinds 0-3 are soil. Made ground (a road, a path, the concrete of hole 5's
+## pyramid) rides on the top block as PAINT_SIDE + its paint kind, so the
+## riser of a step is the same material as its tread. Without it a concrete
+## pyramid has grass risers, and every road cut into a slope has grass edges.
 func _side_segments(x: int, z: int, h: int, nh: int) -> Array:
 	var row := []
 	var shore := _shore[z * size_x + x] == 1
+	var paint: int = _paint[z * size_x + x]
 	var cur := -1
 	var start := nh
 	for y in range(nh, h):
 		var k := _side_kind((h - y) * block_size, shore)
+		if y == h - 1 and paint != 0:
+			k = PAINT_SIDE + paint
 		if k != cur:
 			if cur >= 0:
-				row.append(VoxelMesh.face(start, (y - start) * 8 + cur))
+				row.append(VoxelMesh.face(start, (y - start) * 16 + cur))
 			cur = k
 			start = y
-	row.append(VoxelMesh.face(start, (h - start) * 8 + cur))
+	row.append(VoxelMesh.face(start, (h - start) * 16 + cur))
 	return row
 
 
@@ -790,7 +831,13 @@ func _side_kind(depth: float, shore: bool) -> int:
 	return 3
 
 
-func _side_color(kind: int) -> Color:
+## Made-ground side kinds start here: PAINT_SIDE + the top kind.
+const PAINT_SIDE := 4
+
+
+func _side_color(kind: int, h: int) -> Color:
+	if kind >= PAINT_SIDE:
+		return _top_color(h, kind - PAINT_SIDE)
 	var c: Color
 	match kind:
 		0:

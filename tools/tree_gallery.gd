@@ -15,6 +15,7 @@ const ROWS := [
 	["eucalyptus", ["giant", "big", "medium"]],
 	["palm", ["big", "big", "medium"]],
 	["pine", ["giant", "big", "medium"]],
+	["olive", ["big", "medium", "medium"]],
 	["bush", ["bush", "bush", "bush"]],
 ]
 ## Forms you have to stand close to; the default view is framed for a 12 m oak

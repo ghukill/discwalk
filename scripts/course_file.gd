@@ -18,14 +18,14 @@ const FORMAT := 1
 const BOUNDS_MARGIN := 40.0            ## Default layout bounds: holes' box plus this (m).
 const KINDS := ["giant", "big", "medium", "sapling", "bush"]
 const FORMS := ["spreading", "tall", "forked", "leaning", "sapling",
-	"eucalyptus", "palm", "bush", "pine"]
+	"eucalyptus", "palm", "bush", "pine", "olive"]
 
 ## Default crown radius (m) by size class. Mirrors flora.gd's CROWN; this file
 ## stays free of scene dependencies so the course checker can run on its own.
 const CROWN := {"giant": 7.0, "big": 5.0, "medium": 3.6, "sapling": 1.8, "bush": 1.3}
 const PROPS := ["bench", "clubhouse", "restroom", "car", "pipe"]
 ## Made ground, as terrain.gd's paint kinds.
-const SURFACES := {"dirt": 6, "asphalt": 7, "concrete": 8, "bark": 9}
+const SURFACES := {"grass": 0, "dirt": 6, "asphalt": 7, "concrete": 8, "bark": 9}
 
 
 ## Folders that might hold courses, in search order.
@@ -414,9 +414,12 @@ static func _props(list, c: Dictionary) -> Array:
 ##   {"kind": "asphalt", "width": 16, "path": [[307, 277], [272, 330], ...]}
 ##   {"kind": "dirt", "poly": [[200, 398], [229, 342], [252, 354], [223, 410]]}
 ##
-## "cut": metres is optional and lowers the ground along the strip as well as
-## painting it, easing back to the slope at the edges -- a ditch, a sunken
-## path, a bunker. Up to 6 m.
+## "cut": metres is optional and moves the ground as well as painting it,
+## easing back to the slope over "ease" metres (2.5 by default). Positive
+## digs -- a ditch, a sunken path, a bunker. Negative raises, so a poly with
+## a negative cut is a flat-topped mound: at half-metre blocks a 1.5 m raise
+## comes out as three steps, which is how hole 5 gets its pyramid. Up to 6 m
+## either way.
 static func _surfaces(list, c: Dictionary) -> Array:
 	var out: Array = []
 	if not list is Array:
@@ -446,5 +449,6 @@ static func _surfaces(list, c: Dictionary) -> Array:
 			continue
 		out.append({"kind": SURFACES[kind], "width": maxf(float(s.get("width", 3.0)), 0.5),
 			"path": path, "poly": poly,
-			"cut": clampf(float(s.get("cut", 0.0)), 0.0, 6.0)})
+			"cut": clampf(float(s.get("cut", 0.0)), -6.0, 6.0),
+			"ease": clampf(float(s.get("ease", 2.5)), 0.25, 10.0)})
 	return out

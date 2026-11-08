@@ -44,6 +44,15 @@ const RANGES := {
 	"roll": [-40.0, 40.0, 1.0],     # deg, + = hyzer, - = anhyzer
 	"spin": [20.0, 200.0, 2.0],     # rad/s
 }
+## What the speed you have dialled in is FOR. The edges are where a putter,
+## a midrange and a driver all carry about the same: at 12 m/s (27 mph) they
+## carry 14-16 m, at 21.5 m/s (48 mph) 55-75 m. Measured over flat ground at
+## nose +6, 8 deg hyzer -- not guessed from the numbers on the disc.
+const SPEED_BANDS := [
+	{"to": 12.0, "name": "putt", "tag": "P"},
+	{"to": 21.5, "name": "midrange", "tag": "M"},
+	{"to": INF, "name": "drive", "tag": "D"},
+]
 const REPEAT_DELAY := 0.3            ## Hold this long before repeating (s).
 const REPEAT_RATE := 10.0            ## Steps per second once repeating...
 const REPEAT_RAMP := 30.0            ## ... plus this much per second held,
@@ -156,6 +165,14 @@ func visual_tilt() -> float:
 
 ## [min, max, step] for a dial, all in the unit it is stored in. Speed is the
 ## only one that moves: its step follows the unit you are reading it in.
+## The band the dialled-in speed falls in (SPEED_BANDS).
+func speed_band() -> Dictionary:
+	for b: Dictionary in SPEED_BANDS:
+		if speed < b.to:
+			return b
+	return SPEED_BANDS[SPEED_BANDS.size() - 1]
+
+
 func range_of(name: String) -> Array:
 	var r: Array = RANGES[name]
 	if name == "speed":

@@ -17,7 +17,7 @@ extends SceneTree
 
 const CourseFile := preload("res://scripts/course_file.gd")
 
-## How far out from the edge of a cut strip to read its bank.
+## How far beyond a cut's own falloff to read the ground it was cut into.
 const CUT_CLEAR := 2.0
 const TERRAIN := preload("res://scripts/terrain.gd")
 
@@ -99,29 +99,51 @@ func _check_layout(t: Node3D, l: Dictionary) -> void:
 	_check_cuts(t)
 
 
-## A surface with "cut" has to leave the middle of its strip lower than the
-## ground a few metres to either side, or the dig silently did nothing.
+## A surface with "cut" has to actually have moved the ground: the middle of
+## a dug strip below its banks, the middle of a raised patch above what is
+## around it. A dig or a raise that silently did nothing looks, from a
+## distance, exactly like one that worked.
 func _check_cuts(t: Node3D) -> void:
 	for s: Dictionary in t.course.get("surfaces", []):
 		var cut: float = s.get("cut", 0.0)
-		if cut <= 0.0 or s.path.size() < 2:
+		if is_zero_approx(cut):
 			continue
-		var a: Vector2 = t.to_world(s.path[0])
-		var b: Vector2 = t.to_world(s.path[s.path.size() - 1])
-		var mid := (a + b) * 0.5
+		var mid := Vector2.ZERO
+		var side := Vector2.ZERO
+		var at
+		if s.path.size() >= 2:
+			var a: Vector2 = t.to_world(s.path[0])
+			var b: Vector2 = t.to_world(s.path[s.path.size() - 1])
+			mid = (a + b) * 0.5
+			var n := (b - a).normalized()
+			side = Vector2(-n.y, n.x) * (float(s.width) * 0.5
+				+ float(s.get("ease", 2.5)) + CUT_CLEAR)
+			at = s.path[0]
+		elif s.poly.size() >= 3:
+			var span := Rect2(t.to_world(s.poly[0]), Vector2.ZERO)
+			for v in s.poly:
+				span = span.expand(t.to_world(v))
+			mid = span.get_center()
+			side = Vector2(span.size.x * 0.5 + float(s.get("ease", 2.5))
+				+ CUT_CLEAR, 0.0)
+			at = s.poly[0]
+		else:
+			continue
 		if not t.in_grid(t.col_x(mid.x), t.col_z(mid.y)):
 			continue                      # this layout does not reach it
-		var n := (b - a).normalized()
-		var out: float = float(s.width) * 0.5 + CUT_CLEAR
-		var side := Vector2(-n.y, n.x) * out
-		var floor_y: float = t.height_at(mid.x, mid.y)
-		var bank := maxf(t.height_at(mid.x + side.x, mid.y + side.y),
-			t.height_at(mid.x - side.x, mid.y - side.y))
-		var deep := bank - floor_y
-		print("    cut %.1f m at %s: floor %.1f m, bank %.1f m (%.1f m deep)"
-			% [cut, s.path[0], floor_y, bank, deep])
-		if deep < cut * 0.5:
-			_problem("a cut of %.1f m at %s only dug %.1f m" % [cut, s.path[0], deep])
+		var centre: float = t.height_at(mid.x, mid.y)
+		var a_side: float = t.height_at(mid.x + side.x, mid.y + side.y)
+		var b_side: float = t.height_at(mid.x - side.x, mid.y - side.y)
+		var around := (a_side + b_side) * 0.5
+		var moved := around - centre      # +ve dug, -ve raised
+		print("    cut %+.1f m at %s: middle %.1f m, around %.1f m (moved %+.1f m)"
+			% [cut, at, centre, around, moved])
+		if signf(moved) != signf(cut) or absf(moved) < absf(cut) * 0.5:
+			var why := ""
+			if absf(cut) < t.block_size:
+				why = " (shallower than this build's %.2f m block)" % t.block_size
+			_problem("a cut of %+.1f m at %s only moved the ground %+.1f m%s"
+				% [cut, at, moved, why])
 
 
 func _check_hole(t: Node3D, h: Dictionary) -> void:

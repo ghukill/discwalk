@@ -277,12 +277,17 @@ func _draw_bars(at: Vector2) -> void:
 		var f: float = inverse_lerp(rng[0], rng[1], setup.get(s[0]))
 		var locked: bool = s[4]
 		draw_rect(rect, Color(0.05, 0.045, 0.04, 0.85))
+		if s[0] == "speed":
+			_draw_speed_bands(x, at.y, rng, false)
 		var fill := Rect2(Vector2(x, at.y + BAR_H * (1.0 - f)), Vector2(BAR_W, BAR_H * f))
 		draw_rect(fill, Color(AMBER, 0.28 if locked else 0.85))
 		# Ticks every 10% along the right edge.
 		for k in range(1, 10):
 			var ty := at.y + BAR_H * k / 10.0
 			draw_line(Vector2(x + BAR_W - (6 if k == 5 else 3), ty), Vector2(x + BAR_W, ty), Color(INK, 0.35), 1.0)
+		# Band edges go over the fill, or the fill hides the one you are in.
+		if s[0] == "speed":
+			_draw_speed_bands(x, at.y, rng, true)
 		# Needle at the current value.
 		var ny := at.y + BAR_H * (1.0 - f)
 		draw_line(Vector2(x - 3, ny), Vector2(x + BAR_W + 3, ny), Color(1, 0.9, 0.7, 0.45 if locked else 1.0), 2.0)
@@ -293,8 +298,42 @@ func _draw_bars(at: Vector2) -> void:
 		var cx := x + BAR_W * 0.5
 		_text(Vector2(cx, at.y + BAR_H + 13), s[1], 10, DIM, HORIZONTAL_ALIGNMENT_CENTER)
 		_text(Vector2(cx, at.y + BAR_H + 26), s[2], 12, DIM if locked else INK, HORIZONTAL_ALIGNMENT_CENTER)
+		if s[0] == "speed":
+			_text(Vector2(cx, at.y + BAR_H + 38), setup.speed_band().name, 9, AMBER,
+				HORIZONTAL_ALIGNMENT_CENTER)
 		if locked:
 			_text(Vector2(cx, at.y - 4), "lock X", 9, DIM, HORIZONTAL_ALIGNMENT_CENTER)
+
+
+## Putt / midrange / drive on the speed bar: a quiet tint per band, a line
+## where one gives way to the next, and a letter against each. What the
+## needle is worth in metres depends on the disc and the angle, but which
+## KIND of throw a speed is for does not, so it can live on the dial.
+func _draw_speed_bands(x: float, y: float, rng: Array, over: bool) -> void:
+	var lo: float = rng[0]
+	var hi: float = rng[1]
+	var band_lo := lo
+	var tint := 0.0
+	for b: Dictionary in setup.SPEED_BANDS:
+		var band_hi: float = minf(b.to, hi)
+		if band_hi <= band_lo:
+			continue
+		var fl := inverse_lerp(lo, hi, band_lo)
+		var fh := inverse_lerp(lo, hi, band_hi)
+		var top := y + BAR_H * (1.0 - fh)
+		var bottom := y + BAR_H * (1.0 - fl)
+		tint += 1.0
+		if not over:
+			draw_rect(Rect2(Vector2(x, top), Vector2(BAR_W, bottom - top)),
+				Color(AMBER, 0.05 + 0.035 * tint))
+		else:
+			if band_lo > lo:
+				draw_line(Vector2(x - 2.0, bottom), Vector2(x + BAR_W + 2.0, bottom),
+					Color(0.1, 0.09, 0.07, 0.9), 2.0)
+			var here: bool = setup.speed_band().tag == b.tag
+			_text(Vector2(x - 9.0, (top + bottom) * 0.5 + 3.0), b.tag, 9,
+				AMBER if here else DIM)
+		band_lo = band_hi
 
 
 func _dashed_rect(r: Rect2, col: Color) -> void:

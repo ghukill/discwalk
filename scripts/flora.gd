@@ -249,6 +249,7 @@ func _blocks(metres: float) -> int:
 #   sapling    young tree: thin stem, a few twiggy branches
 #   bush       no trunk: a low mound of stems and leaves
 #   pine       long bare trunk under a flat, layered, dark crown
+#   olive      no trunk to speak of, heavy low leaders, broad low ceiling
 
 ## Per-form shape parameters. Ranges are [min, max]. Lengths are multiples of
 ## the tree's crown radius unless marked (m).
@@ -293,6 +294,13 @@ const FORMS := {
 	"pine": {"trunk_h": [8.0, 13.0], "lean": [0.0, 5.0], "limbs": [5, 8],
 		"limb_from": [0.72, 1.0], "elev": [5.0, 40.0], "limb_len": [0.5, 0.8],
 		"upcurve": 0.01, "leader": 0.3, "depth": 2, "cluster": [0.38, 0.52]},
+	# An olive: barely a trunk before it splits into several heavy leaning
+	# leaders, which sweep outward nearly level and carry a broad dense crown.
+	# What matters for play is the ceiling: the leaves hang low enough that
+	# there is no throwing under one, only round it.
+	"olive": {"trunk_h": [0.6, 1.4], "lean": [0.0, 10.0], "limbs": [5, 8],
+		"limb_from": [0.0, 0.5], "elev": [5.0, 40.0], "limb_len": [0.75, 1.0],
+		"upcurve": 0.035, "leader": 0.25, "depth": 2, "cluster": [0.3, 0.42]},
 	"bush": {"trunk_h": [0.2, 0.5], "lean": [0.0, 8.0], "limbs": [7, 11],
 		"limb_from": [0.0, 0.35], "elev": [10.0, 70.0], "limb_len": [0.5, 0.75],
 		"upcurve": 0.05, "leader": 0.25, "depth": 2, "cluster": [0.38, 0.52]},
