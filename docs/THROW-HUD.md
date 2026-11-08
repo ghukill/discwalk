@@ -22,7 +22,7 @@
   the bands can live on the dial. They are set in `throw_setup.gd`
   (`SPEED_BANDS`), so changing them moves the dial and the wording together.
 - **Heading dial** and **horizon dial** below. They always show; the horizon chevron = launch angle (= view pitch, no offset).
-- **Lamps**: Chase view (V), Goto (G), Paths (P).
+- **Lamps**: Chase view (V), Goto (G), Paths (P), Shot circle (O), Aim arc (T).
 - No readout under the crosshair: the horizon dial shows the launch angle (hide the HUD with U and there's nothing, on purpose).
 
 ## Keys

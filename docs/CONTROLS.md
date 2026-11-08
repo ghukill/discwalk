@@ -54,6 +54,8 @@ A tap moves one fine step (0.5° nose, 1° hyzer, 1 mph speed — or 0.5 m/s if 
 | Reset to flat (nose 0, hyzer 0; speed and spin stay) | R | **LB** (hold) + D-pad ↑ |
 | Spin lock / unlock (locked = spin follows speed) | X | **LB** (hold) + D-pad ↓ |
 | Speed readout in **mph** / **m/s** | I | — |
+| **Aim arc**: where the throw you have set up would land | T | — |
+| **Basket beam + arrow**: next / previous basket (Free Play; in Course Play it follows the hole) | B / Shift+B | — |
 
 ## Throw
 
@@ -78,6 +80,7 @@ A tap moves one fine step (0.5° nose, 1° hyzer, 1 mph speed — or 0.5 m/s if 
 | Action | Keyboard | Controller |
 |---|---|---|
 | Hole overview (camera flies up over tee, basket and you; again to come back) | M | **LB** (hold) + B |
+| Course map (whole world, every hole numbered, you marked; WASD / left stick pans, Shift faster; Free Play too) | Shift + M | **LB** + B again from the hole overview |
 | Skip the walk to the next tee, or goto's walk to your disc | any move key, Space, or a throw | left stick, A, or B |
 | Jump straight to the previous / next hole's tee (wraps; for building a course, not for playing one) | [ / ] | — |
 

@@ -115,6 +115,10 @@ The markings are just coloured ground blocks, so they snap to the block grid: bl
 | `radius`, `PITCH_PX_PER_R` | `dials.gd` | 30 px (set by the HUD), 0.045 | Dial size; horizon scale (px per degree per px of radius). |
 | `W`, `H`, `DISC_R`, `BAR_H` | `throw_hud.gd` | 300, 244, 46, 80 px | HUD block size, disc instrument radius, bar height (before scaling). |
 | `CAM_ELEV`, `NOSE_GAIN` | `throw_hud.gd` | 0°, 1.8 | How far above we see the HUD disc from; how much nose is exaggerated. The elevation is 0 (side on) so that nose 0 draws flat: from behind, nose only opens and closes the ellipse, and any elevation puts the flat-looking angle at `-CAM_ELEV / NOSE_GAIN` instead of 0. |
+| `aim_reach`, `aim_min` | `thrower.gd` | 300 m, 2 m | How far down your line of sight to look for what you are aiming at, and how close is too close to aim at (at arm's length the direction swings wildly). |
+| `SPACING`, `CUBE`, `MAX_STEPS` | `aim_arc.gd` | 0.6 m, 0.07 m, 900 | Aim arc (T): a cube every this far along, this big, simulated for at most this many 60 Hz steps. |
+| `BEAM_*` | `basket_finder.gd` | 0.45 m wide, 40 m tall, fade 9–30 m | The basket's finder beam: thickness, height, and the range over which it fades in. It also scales with distance (`BEAM_APPARENT`) so it keeps the same apparent width from any range. |
+| `ARROW_MARGIN`, `ARROW_SIZE` | `basket_finder.gd` | 44 px, 21 px | The screen-edge arrow's inset and size. The inset is clamped to 22% of the shorter screen edge, or a small window inverts the rectangle and the arrow sticks on. |
 | `UI_REF_HEIGHT` | `main.gd` | 900 px | Window height where the overlay is 1×; taller windows scale it up. |
 | `--ui-scale=<x>` | command line | 1.0 | Extra HUD scale on top (0.6–3); `-` / `=` change it in game. |
 | `count`, `height_max` | `clouds.gd` | 11, 110 m | How many clouds; the highest one's altitude. |

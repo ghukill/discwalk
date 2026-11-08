@@ -55,6 +55,7 @@ const DISC_SCRIPT := preload("res://scripts/disc.gd")
 const FLYING_DISC_SCRIPT := preload("res://scripts/flying_disc.gd")
 const DiscModel := preload("res://scripts/disc_model.gd")
 const ThrowSetup := preload("res://scripts/throw_setup.gd")
+const FlightSim := preload("res://scripts/flight_sim.gd")
 const ThrowHud := preload("res://scripts/throw_hud.gd")
 const FollowCam := preload("res://scripts/follow_cam.gd")
 const Paths := preload("res://scripts/paths.gd")
@@ -99,6 +100,8 @@ var _goto := {}                          ## Where to stand for it: _goto_spot().
 var _going := false                      ## Goto is walking you there now.
 var marker: MultiMeshInstance3D          ## Course Play: ring on a lie you haven't reached yet.
 var lamps: Control                       ## Warm lamps in the HUD (lamps.gd).
+var aim_arc: Node3D                      ## Aim arc preview (T, aim_arc.gd).
+var basket_finder: Node3D                ## Beam + arrow to the basket (basket_finder.gd).
 var warp_label: Label                    ## Top centre: brief notes ("warped 42 m").
 var warp_flash: ColorRect                ## Soft white fade when you arrive.
 var _warp_target: Node = null            ## Throw we'll warp to when it stops.
@@ -110,6 +113,36 @@ var _warp_note_t := 0.0
 var dials: Control                       ## Heading + horizon, in the HUD (dials.gd).
 @export var launch_min := -45.0          ## Launch angle limits (deg).
 @export var launch_max := 85.0
+## How far down your line of sight to look for what you are aiming AT.
+@export var aim_reach := 300.0
+## Closer than this and we do not aim at the target: at arm's length the
+## direction to it swings wildly with small head movements.
+@export var aim_min := 2.0
+## PUTT ASSIST. Inside this range, the launch angle is solved so the disc
+## ARRIVES at what the crosshair is on, instead of merely setting off at it.
+##
+## A thrown disc is a projectile, so it always falls below the line you
+## sighted down, and at putting speed it falls a long way: lift goes as speed
+## squared, so a 9 m/s putter makes about a seventh of a 24 m/s drive's and is
+## closer to free fall. A real player answers that with a nose-up release they
+## have built by feel over thousands of putts. With a mouse there is no such
+## feel, so putting at a basket you are pointing straight at missed low every
+## time, which reads as the game being broken rather than as a skill.
+##
+## Deliberately limited to putting range. Solving the angle at any distance
+## would land every drive on the pin and delete distance control, which is
+## most of the game. Set the range to 0 to turn the assist off entirely.
+@export var putt_assist_range := 12.0
+## ... and it eases off to nothing by this far out, so there is no cliff
+## between an assisted putt and an unassisted approach.
+@export var putt_assist_fade := 20.0
+## How much wider than the basket's own mouth the crosshair may pass and still
+## count as aiming at it. The test is against the CATCH VOLUME -- the cylinder
+## the chains hang in -- rather than a sphere round a point, because that is
+## the shape that actually takes a disc. A point plus a radius was far too
+## fussy: aiming at the top band already reads as a quarter of a metre "off"
+## the chain centre before you have moved at all.
+@export var aim_basket_margin := 0.12
 var discs: Array = []
 var assume_captured := false             ## Tests: treat the mouse as captured (headless can't).
 var _last: Node = null
@@ -179,6 +212,10 @@ func _unhandled_input(event: InputEvent) -> void:
 		set_warp(not warp_on)
 	elif event.is_action_pressed("paths"):
 		set_paths(not paths_on)
+	elif event.is_action_pressed("aim_arc"):
+		set_aim_arc(not aim_arc_on())
+	elif event.is_action_pressed("next_basket"):
+		cycle_basket(-1 if Input.is_key_pressed(KEY_SHIFT) else 1)
 	elif event.is_action_pressed("view"):
 		set_view(not view_on)
 	elif event.is_action_pressed("hud"):
@@ -278,18 +315,168 @@ func launch_angle() -> float:
 	return clampf(view, launch_min, launch_max)
 
 
+## What you are looking at: the first thing your line of sight hits, within
+## aim_reach. {hit: bool, at: Vector3, dist: float}.
+##
+## The crosshair is a ray from your EYE, but the disc leaves from `release()`,
+## 0.3 m lower and 0.6 m further forward. Copying only the camera's pitch to
+## the throw sends the disc along a line PARALLEL to the one you sighted
+## down, so it flew that 0.3 m low forever and never converged -- which is
+## why a drive looked low off the tee even before gravity did anything.
+## Aiming from the release point AT this target removes that offset at every
+## distance. What is left is the ballistic arc, which is real disc golf.
+func aim_target() -> Dictionary:
+	var out := {"hit": false, "at": Vector3.ZERO, "dist": 0.0}
+	if camera == null:
+		return out
+	var from := camera.global_position
+	var look := -camera.global_transform.basis.z
+	var q := PhysicsRayQueryParameters3D.create(from, from + look * aim_reach)
+	# Not ourselves (the ray starts inside our own capsule), and not the discs
+	# already lying about -- snapping the aim onto a disc at your feet would
+	# be worse than not aiming at all.
+	var skip: Array = [player.get_rid()]
+	for d in discs:
+		if is_instance_valid(d):
+			skip.append(d.get_rid())
+	q.exclude = skip
+	q.collide_with_areas = false
+	var hit := camera.get_world_3d().direct_space_state.intersect_ray(q)
+	if not hit.is_empty():
+		out.hit = true
+		out.at = hit.position
+		out.dist = from.distance_to(hit.position)
+		# The pole and the tray ARE solid, and basket.gd marks them, so a ray
+		# that stops on one is still a ray aimed at that basket -- aim at its
+		# chains, not at the bit of metal we happened to touch. Without this
+		# the basket blocks itself: the pole is the nearest solid thing, so
+		# the "something in front wins" rule below threw the basket away.
+		var col = hit.get("collider")
+		if col != null and col.has_meta("basket"):
+			var b = col.get_meta("basket")
+			if is_instance_valid(b):
+				out.at = Vector3(b.global_position.x,
+					b.global_position.y + (b.CHAIN_BOTTOM + b.BAND_Y) * 0.5,
+					b.global_position.z)
+				return out
+	return _aim_at_basket(out, from, look)
+
+
+## Let the crosshair land on a basket.
+##
+## A basket catches with its chains and its cage, and NEITHER is a collision
+## body -- they are too thin, so disc.gd sweeps them instead (basket.gd).
+## That means a ray aimed dead at the chains goes straight through and hits
+## the hill behind, and "aim at the basket" silently became "aim at whatever
+## is behind the basket". So the baskets are checked by hand here, and the
+## target is the middle of the chain window: the centre of the volume that
+## can actually catch a disc.
+func _aim_at_basket(best: Dictionary, from: Vector3, look: Vector3) -> Dictionary:
+	if terrain == null or not ("baskets" in terrain):
+		return best
+	for b: Node3D in terrain.baskets:
+		if not is_instance_valid(b):
+			continue
+		# The catch volume: the cylinder the chains hang in, from the bottom
+		# of the chains up to the band.
+		var axis: Vector3 = b.global_position
+		var lo: float = axis.y + b.CHAIN_BOTTOM
+		var hi: float = axis.y + b.BAND_Y
+		var r: float = b.TARGET_RADIUS + aim_basket_margin
+		# Closest approach to the basket's axis, in plan view.
+		var d2 := Vector2(look.x, look.z)
+		if d2.length() < 1e-4:
+			continue                    # looking straight up or down
+		var dir2 := d2.normalized()
+		var to2 := Vector2(axis.x - from.x, axis.z - from.z)
+		var along2 := to2.dot(dir2)
+		if along2 <= 0.0:
+			continue                    # behind us
+		if (dir2 * along2 - to2).length() > r:
+			continue                    # the sight line passes outside it
+		# How far along the 3D ray that is, and how high the ray is there:
+		# it has to be between the chains and the band to count.
+		var along: float = along2 / d2.length()
+		if along <= aim_min or along > aim_reach:
+			continue
+		var y: float = from.y + look.y * along
+		if y < lo or y > hi:
+			continue                    # over the top, or below the tray
+		# Something solid in front of the basket wins: you cannot putt
+		# through a tree just because the basket lines up behind it.
+		if best.hit and best.dist <= along:
+			continue
+		# Aim at the middle of the window: the most room on every side for
+		# the disc to actually be caught.
+		best = {"hit": true, "dist": along,
+			"at": Vector3(axis.x, (lo + hi) * 0.5, axis.z)}
+	return best
+
+
+## Where the disc leaves your hand: about shoulder height, a little ahead.
+func release(fwd: Vector3) -> Vector3:
+	return player.global_position + Vector3(0, 1.3, 0) + fwd * 0.6
+
+
+## The throw direction: horizontal heading and launch pitch (deg), aimed from
+## the release point at whatever you are looking at. Falls back to the view
+## pitch when you are aiming at open sky, or at something almost touching you.
+##
+## Inside putt_assist_range the pitch is SOLVED so the disc arrives at the
+## target rather than setting off towards it (see putt_assist_range above),
+## blending back to the straight line by putt_assist_fade.
+func aim_from(origin: Vector3, view_fwd: Vector3) -> Array:
+	var t := aim_target()
+	if not t.hit or t.dist < aim_min:
+		return [view_fwd, launch_angle()]
+	var to: Vector3 = t.at - origin
+	var flat := Vector3(to.x, 0.0, to.z)
+	if flat.length() < 0.01:
+		return [view_fwd, launch_angle()]
+	var straight := clampf(rad_to_deg(atan2(to.y, flat.length())), launch_min, launch_max)
+	var fwd := flat.normalized()
+	var k := _assist_blend(flat.length())
+	if k <= 0.0 or setup == null or setup.disc() == null:
+		return [fwd, straight]
+	var solved: float = FlightSim.solve_pitch(setup.params(), origin, fwd, t.at,
+		terrain, straight)
+	return [fwd, clampf(lerpf(straight, solved, k), launch_min, launch_max)]
+
+
+## How much of the putt assist applies at this range: all of it inside
+## putt_assist_range, none beyond putt_assist_fade, eased across the gap.
+func _assist_blend(dist: float) -> float:
+	if putt_assist_range <= 0.0:
+		return 0.0
+	if dist <= putt_assist_range:
+		return 1.0
+	if dist >= putt_assist_fade or putt_assist_fade <= putt_assist_range:
+		return 0.0
+	var f := (dist - putt_assist_range) / (putt_assist_fade - putt_assist_range)
+	return 1.0 - smoothstep(0.0, 1.0, f)
+
+
 ## Throws a real flying disc. p: {disc, speed, nose, roll, spin, hand?}.
 ## Direction is where you're looking (left/right AND up/down); p.pitch, if
 ## given, overrides the angle (tests use it).
 func throw_disc(p: Dictionary) -> Node:
 	var look := -camera.global_transform.basis.z
-	var fwd := Vector3(look.x, 0, look.z)
-	fwd = fwd.normalized() if fwd.length() > 0.01 else Vector3.FORWARD
+	var view_fwd := Vector3(look.x, 0, look.z)
+	view_fwd = view_fwd.normalized() if view_fwd.length() > 0.01 else Vector3.FORWARD
 	var hand: float = p.get("hand", 1.0)
-	var pitch: float = p.pitch if p.has("pitch") else launch_angle()
+	# The release point uses the view heading, then the aim is worked out from
+	# there: the 0.6 m step forward barely turns it, and this keeps it simple.
+	var origin := release(view_fwd)
+	var fwd := view_fwd
+	var pitch: float = 0.0
+	if p.has("pitch"):
+		pitch = p.pitch                 # tests and probes set the angle outright
+	else:
+		var aim: Array = aim_from(origin, view_fwd)
+		fwd = aim[0]
+		pitch = aim[1]
+		origin = release(fwd)
 	var ls := DiscModel.launch_state(fwd, p.speed, pitch, p.nose, p.roll, hand)
-	# Release about shoulder height, a little ahead of you.
-	var origin := player.global_position + Vector3(0, 1.3, 0) + fwd * 0.6
 	var disc: RigidBody3D = RigidBody3D.new()
 	disc.set_script(FLYING_DISC_SCRIPT)
 	disc.name = "FlyingDisc"
@@ -421,6 +608,11 @@ func set_paths(on: bool) -> void:
 	for d in discs:
 		if is_instance_valid(d):
 			d.set_beam(on)
+	# The basket beam is a beam, and P already means "paths + beams", so it
+	# goes with them. Say the word if you would rather find the basket with
+	# the paths turned off.
+	if basket_finder != null:
+		basket_finder.set_enabled(on)
 	_update_lamps()
 	_update_label()
 
@@ -745,9 +937,37 @@ func clear() -> void:
 	_update_label()
 
 
+## B: in Free Play, move the beam and the arrow to another basket. In Course
+## Play the hole decides, so this says so rather than doing nothing silently.
+func cycle_basket(step: int) -> void:
+	if basket_finder == null:
+		return
+	if course_round != null and course_round.active:
+		_note("the beam follows the hole you are playing", 1.2)
+		return
+	basket_finder.cycle(step)
+	var n: int = basket_finder.number()
+	if n > 0:
+		_note("basket %d of %d" % [n, basket_finder.count()], 1.2)
+
+
+## The aim arc (T): is the preview showing?
+func aim_arc_on() -> bool:
+	return aim_arc != null and aim_arc.showing()
+
+
+func set_aim_arc(on: bool) -> void:
+	if aim_arc == null:
+		return
+	aim_arc.set_shown(on)
+	_update_lamps()
+	_note("aim arc %s" % ("on" if on else "off"), 1.0)
+
+
 func _update_lamps() -> void:
 	if lamps != null:
-		lamps.set_lamps(view_on, warp_on, paths_on, circle_on)
+		lamps.set_lamps(view_on, warp_on, paths_on, circle_on,
+			aim_arc != null and aim_arc.showing())
 
 
 func _process(_delta: float) -> void:

@@ -41,9 +41,12 @@ const RIGHT := [
 		["goto", "G", "left stick click"],
 		["paths + beams", "P", "Share"],
 		["shot circle", "O", "LB + Y"],
+		["aim arc (where this throw lands)", "T", ""],
+		["basket beam: next / previous", "B / Shift+B", ""],
 	]],
 	["Course Play", [
 		["hole overview", "M", "LB + B"],
+		["course map (WASD pans)", "Shift + M", "LB + B twice"],
 		["jump to the previous / next hole", "[ / ]", ""],
 		["skip a walk (to the tee, to your disc)", "move / throw", "move / throw"],
 	]],

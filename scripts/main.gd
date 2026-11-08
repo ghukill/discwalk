@@ -14,6 +14,8 @@ const CLOUDS_SCRIPT := preload("res://scripts/clouds.gd")
 const ControlsPanel := preload("res://scripts/controls_panel.gd")
 const CourseRound := preload("res://scripts/course_round.gd")
 const Menu := preload("res://scripts/menu.gd")
+const AIM_ARC_SCRIPT := preload("res://scripts/aim_arc.gd")
+const BASKET_FINDER_SCRIPT := preload("res://scripts/basket_finder.gd")
 
 @onready var terrain: Node3D = $Terrain
 @onready var player: CharacterBody3D = $Player
@@ -159,6 +161,27 @@ func _setup_throwing() -> void:
 	$HUD.add_child(warp)
 	thrower.warp_label = warp
 
+	# The aim arc (T). Starts off: it is an aid, and the game is readable
+	# without it once you know how far a disc drops.
+	var arc := Node3D.new()
+	arc.set_script(AIM_ARC_SCRIPT)
+	arc.name = "AimArc"
+	arc.terrain = terrain
+	arc.thrower = thrower
+	add_child(arc)
+	thrower.aim_arc = arc
+
+	# Beam + arrow to the basket. In Course Play it follows the hole; in Free
+	# Play B picks which basket it marks.
+	var finder := Node3D.new()
+	finder.set_script(BASKET_FINDER_SCRIPT)
+	finder.name = "BasketFinder"
+	finder.terrain = terrain
+	finder.camera = $Player/Head/Camera3D
+	finder.hud = $HUD
+	add_child(finder)
+	thrower.basket_finder = finder
+
 	thrower._update_lamps()
 
 
@@ -287,6 +310,9 @@ func _setup_round() -> void:
 	course_round.label = line
 	course_round.banner = banner
 	add_child(course_round)
+	# So the beam and the arrow know whether a hole is deciding the selection.
+	if thrower.basket_finder != null:
+		thrower.basket_finder.course_round = course_round
 
 	menu = CanvasLayer.new()
 	menu.set_script(Menu)

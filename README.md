@@ -31,6 +31,8 @@ Or from a terminal:
 
 The mouse only ever looks. Where you look is where the disc goes, left/right **and** up/down: how high you look is your launch angle (the horizon dial in the HUD shows it). The keyboard sets up the throw, and the **throw HUD** in the lower right shows it. Everything you set carries over from throw to throw, so you can repeat a shot and fine-tune it. Full spec: [docs/THROW-HUD.md](docs/THROW-HUD.md). Every binding, keyboard and controller side by side: [docs/CONTROLS.md](docs/CONTROLS.md).
 
+The disc leaves your hand below your eye, so it is aimed **at the point under the crosshair** rather than merely parallel to your line of sight — put the crosshair on a thing and the throw sets off at that thing. It is still a thrown disc, so it arcs below that line on the way: a fast drive barely drops over the first 20 m, while a slow putt falls a long way (lift goes as speed squared). **T** draws the arc so you can see it.
+
 ![Throw HUD](docs/screenshots/hud.jpg)
 
 **Walk and look**
@@ -53,6 +55,8 @@ The mouse only ever looks. Where you look is where the disc goes, left/right **a
 | Shift + ← / → | spin, when unlocked |
 | X | spin lock / unlock. Locked (dotted bar) = spin follows speed, like a real throw |
 | I | speed readout in **mph** (0–80, the default) or **m/s**. Display only — the flight is in m/s either way — but the arrows step in whichever unit you are reading |
+| T | **aim arc**: a dotted line showing where the throw you have set up would actually go, out to the spot it lands. The real flight model run forward, so it turns and fades like the throw will. Starts off |
+| B / Shift+B | which basket the **finder beam** and the screen-edge **arrow** mark. In Course Play they follow the hole you are playing; in Free Play you pick. The beam widens with distance so it reads from a tee, and fades as you walk up so it is not a stripe across what you are putting at. Both go out with the paths (P) |
 | R | reset to flat (nose 0, hyzer 0) |
 | H | backhand ↔ forehand. The ✋ sits right of the disc for backhand, left for forehand |
 | E / Q | next / previous disc |
@@ -76,6 +80,7 @@ A tap moves one fine step (0.5° nose, 1° hyzer, 1 mph or 0.5 m/s, 2 rad/s spin
 | P | **Paths** lamp (starts on): flight paths *and* the beams over resting discs. Every disc throw leaves a trail of little cubes in its own colour (bright in the air, dimmer for skips and rolls). The cubes are see-through, start about 1 m from where you threw (fading in), and fade away when the camera gets within a few metres, so a pile of paths from the same tee never fills your view. Off: beams go out, paths drift down and go *poof* |
 | O | **Shot circle** lamp (starts off; on in Course Play): once you're at your lie, you're held within 1 m of where the disc stopped (a faint ring shows it) |
 | M | **hole overview** (Course Play): the camera flies up over the hole and back |
+| Shift + M | **course map**: the camera flies high over the whole world, every hole numbered with a line to its basket, you marked; WASD pans. Works in Free Play too |
 | C | **collect**: every disc rolls home to you, slow at first then faster. Trunks and cliffs block them unless they have the momentum. Basket confetti flies straight in too |
 | ? | show / hide the **controls** overlay, keyboard and controller (also in the menu). The top left only says "Press ? for controls" |
 | U | hide / show the throw HUD and the "? for controls" hint (screenshots, or just walking in the woods); just the crosshair stays |
