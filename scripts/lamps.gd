@@ -1,7 +1,8 @@
 extends Control
 ## Warm toggle lamps, like the little indicator lights on an old aircraft
 ## panel: Chase view (V), Goto (G), Paths (P), Shot circle (O) and Aim arc
-## (T), stacked in the throw HUD.
+## (T), stacked in the throw HUD. The aim arc has three settings rather than
+## two, so its lamp sits half lit on the middle one.
 ##
 ## On, a lamp glows warm amber with a soft halo; off, it sits dark brown in
 ## its bezel. Lamps don't snap: they warm up and cool down over a fraction
@@ -34,12 +35,14 @@ func _ready() -> void:
 	custom_minimum_size = Vector2(120, PITCH * LAMPS.size())
 
 
-func set_lamps(view: bool, warp: bool, path: bool, circle := false, arc := false) -> void:
+## `arc` is three-way (the aim arc has a half setting), so it takes a float
+## 0..1; a plain bool still works, because float(true) is 1.0.
+func set_lamps(view: bool, warp: bool, path: bool, circle := false, arc = false) -> void:
 	_want.view = 1.0 if view else 0.0
 	_want.warp = 1.0 if warp else 0.0
 	_want.path = 1.0 if path else 0.0
 	_want.circle = 1.0 if circle else 0.0
-	_want.arc = 1.0 if arc else 0.0
+	_want.arc = clampf(float(arc), 0.0, 1.0)
 
 
 ## How lit a lamp is right now (0..1); handy for tests.

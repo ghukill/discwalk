@@ -41,7 +41,7 @@ const RIGHT := [
 		["goto", "G", "left stick click"],
 		["paths + beams", "P", "Share"],
 		["shot circle", "O", "LB + Y"],
-		["aim arc (where this throw lands)", "T", ""],
+		["aim arc: off / flight only / whole throw", "T", ""],
 		["basket beam: next / previous", "B / Shift+B", ""],
 	]],
 	["Course Play", [

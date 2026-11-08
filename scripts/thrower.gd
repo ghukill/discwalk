@@ -213,7 +213,7 @@ func _unhandled_input(event: InputEvent) -> void:
 	elif event.is_action_pressed("paths"):
 		set_paths(not paths_on)
 	elif event.is_action_pressed("aim_arc"):
-		set_aim_arc(not aim_arc_on())
+		cycle_aim_arc()
 	elif event.is_action_pressed("next_basket"):
 		cycle_basket(-1 if Input.is_key_pressed(KEY_SHIFT) else 1)
 	elif event.is_action_pressed("view"):
@@ -951,9 +951,20 @@ func cycle_basket(step: int) -> void:
 		_note("basket %d of %d" % [n, basket_finder.count()], 1.2)
 
 
-## The aim arc (T): is the preview showing?
+## The aim arc (T): is the preview showing at all?
 func aim_arc_on() -> bool:
 	return aim_arc != null and aim_arc.showing()
+
+
+## Off -> flight only -> on. The half-length middle setting is the one to
+## play with: it shows the shape of the throw without answering where it
+## lands, which is the part worth having to judge.
+func cycle_aim_arc() -> void:
+	if aim_arc == null:
+		return
+	aim_arc.toggle()
+	_update_lamps()
+	_note("aim arc %s" % aim_arc.mode_name(), 1.0)
 
 
 func set_aim_arc(on: bool) -> void:
@@ -961,13 +972,16 @@ func set_aim_arc(on: bool) -> void:
 		return
 	aim_arc.set_shown(on)
 	_update_lamps()
-	_note("aim arc %s" % ("on" if on else "off"), 1.0)
+	_note("aim arc %s" % aim_arc.mode_name(), 1.0)
 
 
 func _update_lamps() -> void:
 	if lamps != null:
-		lamps.set_lamps(view_on, warp_on, paths_on, circle_on,
-			aim_arc != null and aim_arc.showing())
+		# The arc lamp is three-way like the arc: dark, half lit, lit.
+		var arc_glow := 0.0
+		if aim_arc != null:
+			arc_glow = [0.0, 0.45, 1.0][aim_arc.mode()]
+		lamps.set_lamps(view_on, warp_on, paths_on, circle_on, arc_glow)
 
 
 func _process(_delta: float) -> void:

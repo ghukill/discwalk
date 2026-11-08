@@ -125,7 +125,7 @@ func _test_arc() -> void:
 	if arc == null:
 		_done("arc")
 		return
-	_check("arc starts off", not arc.showing())
+	_check("arc starts off", not arc.showing() and arc.mode() == arc.OFF)
 	_check("arc lamp off", th.lamps.glow("arc") == 0.0)
 	th.set_aim_arc(true)
 	await process_frame
@@ -137,7 +137,52 @@ func _test_arc() -> void:
 	th.set_aim_arc(false)
 	await process_frame
 	_check("T hides it again", not arc.showing())
+	await _test_arc_cycle(th, arc)
 	_done("arc")
+
+
+## T is three-way: off, the first half of the throw, then the whole thing
+## with the landing marked. The middle setting is the one the game is meant
+## to be played on, so it has to draw fewer cubes than full and no landing
+## marker -- which is the only thing distinguishing it on screen.
+func _test_arc_cycle(th, arc) -> void:
+	arc.set_mode(arc.OFF)
+	await process_frame
+	await process_frame
+
+	# Read the two drawn states back to back. The arc is re-simulated every
+	# frame from where the camera points, so anything that lets the scene
+	# settle between the two measurements compares different throws.
+	th.cycle_aim_arc()
+	await process_frame
+	await process_frame
+	var half: int = arc.cubes()
+	var half_marked: bool = arc.marked_landing()
+	var half_mode: int = arc.mode()
+	th.cycle_aim_arc()
+	await process_frame
+	await process_frame
+	var full: int = arc.cubes()
+	_check("T once: flight only", half_mode == arc.FLIGHT)
+	_check("T twice: the whole arc", arc.mode() == arc.FULL)
+	_check("flight only hides the landing marker", not half_marked)
+	_check("full marks the landing", arc.marked_landing())
+	_check("flight only draws about half as much", half > 2 and half <= full * 0.7,
+		"%d cubes of %d" % [half, full])
+
+	# The lamp is three-way too, but it warms like a filament, so give it
+	# time: two frames in, a lit one is still dimmer than a half-lit one.
+	th.cycle_aim_arc()
+	th.cycle_aim_arc()
+	for i in 40:
+		await process_frame
+	var lit: float = th.lamps.glow("arc")
+	_check("flight only leaves the lamp half lit", lit > 0.3 and lit < 0.6,
+		"%.2f" % lit)
+	th.cycle_aim_arc()
+	th.cycle_aim_arc()
+	await process_frame
+	_check("and round to off again", arc.mode() == arc.OFF and not arc.showing())
 
 
 ## The arc has to match reality: throw the disc it is predicting and compare
