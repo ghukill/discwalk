@@ -23,7 +23,7 @@ const FORMS := ["spreading", "tall", "forked", "leaning", "sapling",
 ## Default crown radius (m) by size class. Mirrors flora.gd's CROWN; this file
 ## stays free of scene dependencies so the course checker can run on its own.
 const CROWN := {"giant": 7.0, "big": 5.0, "medium": 3.6, "sapling": 1.8, "bush": 1.3}
-const PROPS := ["bench", "clubhouse", "restroom", "car", "pipe"]
+const PROPS := ["bench", "clubhouse", "restroom", "car", "pipe", "fence"]
 ## Made ground, as terrain.gd's paint kinds.
 const SURFACES := {"grass": 0, "dirt": 6, "asphalt": 7, "concrete": 8, "bark": 9}
 
@@ -160,6 +160,7 @@ static func read(dir: String) -> Dictionary:
 		# leaf: which entry of foliage.leaves this tree takes its colour from
 		# (-1 = any). Lets one course hold several species.
 		c.trees.append({"at": at, "crown": crown, "kind": kind, "form": form,
+			"dead": bool(tr.get("dead", false)),
 			"leaf": int(tr.get("leaf", -1))})
 
 	var numbers := {}
@@ -384,9 +385,14 @@ static func _color(c):
 
 
 ## Course furniture (props.gd): benches, the pro shop. Each is
-##   {"kind": "bench"|"clubhouse"|"restroom"|"car", "at": [x, z], "yaw": deg,
-##    "color": name}
+##   {"kind": "bench"|"clubhouse"|"restroom"|"car"|"pipe"|"fence",
+##    "at": [x, z], "yaw": deg, "color": name}
 ## `at` is where it stands in course metres; it sits on the ground there.
+##
+## Instead of "at" and "yaw", a prop may take a "path" of 2+ points and an
+## optional "spacing" (2.5 m by default): one is placed every spacing metres
+## along it, turned to follow the line. Sixty metres of chain link is
+## twenty-four panels, and nobody should write those out by hand.
 static func _props(list, c: Dictionary) -> Array:
 	var out: Array = []
 	if not list is Array:
@@ -394,16 +400,41 @@ static func _props(list, c: Dictionary) -> Array:
 		return out
 	for i in list.size():
 		var p = list[i]
-		var at = _vec(p.get("at")) if p is Dictionary else null
-		if at == null:
-			c.errors.append("props[%d]: needs at [x, z]" % i)
+		if not p is Dictionary:
+			c.errors.append("props[%d] must be an object" % i)
 			continue
 		var kind := str(p.get("kind", ""))
 		if kind not in PROPS:
 			c.errors.append("props[%d]: kind %s isn't one of %s" % [i, kind, PROPS])
 			continue
+		var color := str(p.get("color", "teal"))
+		# A run of one prop laid end to end along a line: a fence, a row of
+		# bollards. Sixty metres of chain link is twenty-four panels, and
+		# nobody should be writing those out by hand.
+		var path: Array = []
+		for v in p.get("path", []):
+			var q = _vec(v)
+			if q != null:
+				path.append(q)
+		if path.size() >= 2:
+			var step: float = maxf(float(p.get("spacing", 2.5)), 0.25)
+			for j in range(1, path.size()):
+				var a: Vector2 = path[j - 1]
+				var b: Vector2 = path[j]
+				var run: float = a.distance_to(b)
+				var dir: Vector2 = (b - a) / maxf(run, 0.001)
+				var yaw := rad_to_deg(atan2(-dir.y, dir.x))
+				var n := int(round(run / step))
+				for k in n:
+					out.append({"kind": kind, "at": a + dir * (step * (k + 0.5)),
+						"yaw": yaw, "color": color})
+			continue
+		var at = _vec(p.get("at"))
+		if at == null:
+			c.errors.append("props[%d]: needs at [x, z], or a path of 2+ points" % i)
+			continue
 		out.append({"kind": kind, "at": at, "yaw": float(p.get("yaw", 0.0)),
-			"color": str(p.get("color", "teal"))})
+			"color": color})
 	return out
 
 

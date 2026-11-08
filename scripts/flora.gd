@@ -94,7 +94,7 @@ func build(t: Node3D) -> void:
 			var crown: float = pt.get("crown", CROWN[pt.kind])
 			trees.append({"pos": Vector2i(terrain.col_x(pt.x), terrain.col_z(pt.z)),
 				"kind": pt.kind, "form": pt.form, "crown": crown,
-				"leaf": pt.get("leaf", -1)})
+				"leaf": pt.get("leaf", -1), "dead": pt.get("dead", false)})
 	var t1 := Time.get_ticks_msec()
 	_build_tree_meshes()
 	var t2 := Time.get_ticks_msec()
@@ -362,7 +362,11 @@ func _grow_tree(tree: Dictionary, index: int) -> void:
 		"rng": rng, "form": form, "crown": crown, "green": green,
 		"cluster_r": maxf(_rr(rng, form.cluster) * crown, minf(0.8, crown * 0.45)),
 		"crown_cy": base.y + trunk_h + crown * 0.35, "crown_ry": crown * 0.75,
-		"dead": false,
+		# A standing dead tree: every limb grey, no leaves anywhere. There are
+		# two off the seventh tee, and they are the whole shot -- bare
+		# branches over the top, clear gaps underneath.
+		"dead": bool(tree.get("dead", false)),
+		"all_dead": bool(tree.get("dead", false)),
 	}
 
 	# Trunk: from slightly below ground (so it never floats on a slope) up to
@@ -420,7 +424,7 @@ func _limbs_from(low: Vector3, high: Vector3, r: float, count: int, crown: float
 		var length := _rr(rng, form.limb_len) * crown * rng.randf_range(0.85, 1.15)
 		# Now and then a limb has died back: bare, grey, no leaves.
 		var was_dead: bool = _t.dead
-		_t.dead = rng.randf() < 0.07 and _t.crown > 2.5
+		_t.dead = _t.all_dead or (rng.randf() < 0.07 and _t.crown > 2.5)
 		_branch(at, dir, length, r * rng.randf_range(0.75, 1.0), form.depth)
 		_t.dead = was_dead
 

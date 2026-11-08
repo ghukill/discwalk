@@ -18,7 +18,7 @@ extends Node3D
 ## They sit on the ground wherever that is, so they follow the terrain.
 
 const VOXEL := {"bench": 0.05, "clubhouse": 0.25, "restroom": 0.25,
-	"car": 0.1, "pipe": 0.08}
+	"car": 0.1, "pipe": 0.08, "fence": 0.05}
 
 # Bench: a 6 ft park bench, slatted seat and back on a dark frame.
 const BENCH_LEN := 1.83
@@ -82,6 +82,15 @@ const PIPE_WALL := 0.11
 const COLOR_PIPE := Color(0.56, 0.55, 0.52)      ## Weathered concrete.
 const COLOR_PIPE_IN := Color(0.11, 0.12, 0.12)   ## Down the throat of it.
 
+# Chain link. One panel, laid end to end along a path. The mesh is drawn as
+# a lattice of single cells rather than a sheet, because the thing you see
+# through a chain-link fence is mostly what is behind it.
+const FENCE_LEN := 2.5
+const FENCE_H := 1.9
+const FENCE_GRID := 4                            ## Lattice every this many cells.
+const COLOR_WIRE := Color(0.62, 0.64, 0.64)      ## Galvanised.
+const COLOR_POST := Color(0.45, 0.47, 0.47)
+
 static var _meshes := {}                         ## "kind|variant" -> ArrayMesh
 
 var terrain: Node3D
@@ -115,6 +124,7 @@ func make(kind: String, variant := "teal") -> Node3D:
 			"restroom": cells = _cells_restroom()
 			"car": cells = _cells_car(variant)
 			"pipe": cells = _cells_pipe()
+			"fence": cells = _cells_fence()
 			_: cells = _cells_clubhouse()
 		_meshes[key] = _mesh(cells, VOXEL[kind])
 	var root := Node3D.new()
@@ -132,6 +142,7 @@ func make(kind: String, variant := "teal") -> Node3D:
 		"restroom": hits = _hit_restroom()
 		"car": hits = _hit_car()
 		"pipe": hits = _hit_pipe()
+		"fence": hits = _hit_fence()
 	for box in hits:
 		var body := StaticBody3D.new()
 		var cs := CollisionShape3D.new()
@@ -154,6 +165,8 @@ static func _centre(kind: String) -> Vector3:
 		return Vector3(-CAR_L * 0.5, 0.0, -CAR_W * 0.5)
 	if kind == "pipe":
 		return Vector3(-PIPE_LEN * 0.5, 0.0, -PIPE_R)
+	if kind == "fence":
+		return Vector3(-FENCE_LEN * 0.5, 0.0, 0.0)
 	return Vector3(-SHOP_W * 0.5, 0.0, -SHOP_D * 0.5)
 
 
@@ -288,6 +301,32 @@ static func _hit_bench() -> Array:
 static func _hit_clubhouse() -> Array:
 	return [[Vector3(SHOP_W * 0.5, SHOP_RIDGE * 0.5, SHOP_D * 0.5),
 		Vector3(SHOP_W, SHOP_RIDGE, SHOP_D)]]
+
+
+static func _hit_fence() -> Array:
+	return [[Vector3(FENCE_LEN * 0.5, FENCE_H * 0.5, 0.03),
+		Vector3(FENCE_LEN, FENCE_H, 0.12)]]
+
+
+## One panel of chain link: a post at each end, a rail along the top, and
+## the mesh between as a lattice you can see through.
+static func _cells_fence() -> Dictionary:
+	var c := {}
+	var vx: float = VOXEL.fence
+	var nx := int(FENCE_LEN / vx)
+	var ny := int(FENCE_H / vx)
+	for y in ny:
+		for x in [0, 1, nx - 2, nx - 1]:
+			c[Vector3i(x, y, 0)] = COLOR_POST
+	for x in nx:
+		c[Vector3i(x, ny - 1, 0)] = COLOR_POST
+		c[Vector3i(x, ny - 2, 0)] = COLOR_POST
+	for y in range(0, ny - 2):
+		for x in range(2, nx - 2):
+			# Two diagonals crossing: chain link, not a grid.
+			if (x + y) % FENCE_GRID == 0 or (x - y) % FENCE_GRID == 0:
+				c[Vector3i(x, y, 0)] = COLOR_WIRE
+	return c
 
 
 static func _hit_pipe() -> Array:

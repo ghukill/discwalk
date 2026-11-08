@@ -13,6 +13,7 @@ extends SceneTree
 ##     hanging over a tee pad, so this means the dropping broke)
 ##   - leaves over the tee pad, or a wall of leaves in the first 10 m off it
 ##   - a surface asking for a "cut" that did not actually dig a hollow
+##   - two hand-placed trees standing on the same spot
 ## Prints "CHECK PASS" or "CHECK FAIL".
 
 const CourseFile := preload("res://scripts/course_file.gd")
@@ -97,6 +98,24 @@ func _check_layout(t: Node3D, l: Dictionary) -> void:
 	for h: Dictionary in t.holes:
 		_check_hole(t, h)
 	_check_cuts(t)
+	_check_stacked(t)
+
+
+## Two hand-placed trees within a metre and a half of each other. Placing by
+## hand off a photograph, it is easy to move one onto another: the result is
+## one lumpy over-dense blob where two trees were meant, and from any
+## distance it reads as a single thing nobody asked for.
+func _check_stacked(t: Node3D) -> void:
+	var at: Array = []
+	for tr: Dictionary in t.course.trees:
+		if tr.get("fixed"):
+			at.append(tr.at)
+	for i in at.size():
+		for j in range(i + 1, at.size()):
+			var d: float = (at[i] as Vector2).distance_to(at[j])
+			if d < 1.5:
+				_problem("hand-placed trees at %s and %s are %.2f m apart"
+					% [at[i], at[j], d])
 
 
 ## A surface with "cut" has to actually have moved the ground: the middle of

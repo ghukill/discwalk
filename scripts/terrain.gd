@@ -637,7 +637,7 @@ func _course_trees() -> Array:
 		if is_underwater(ix, iz) or _on_a_hole(t.at, t.crown):
 			continue
 		out.append({"x": p.x, "z": p.y, "kind": t.kind, "form": t.form, "crown": t.crown,
-			"leaf": t.get("leaf", -1)})
+			"leaf": t.get("leaf", -1), "dead": t.get("dead", false)})
 	return out
 
 
