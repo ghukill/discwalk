@@ -123,6 +123,7 @@ func _process(_d: float) -> bool:
 		_tap(KEY_H)
 		_check("H: forehand", s.hand == -1.0)
 		_check_nose_cue()
+		_check_speed_bands(s)
 		# I switches the readout only: the stored m/s must not budge, and the
 		# arrow step must follow the unit on screen.
 		var ms0: float = s.speed
@@ -180,6 +181,32 @@ func _process(_d: float) -> bool:
 		print("HUD %s (%d/%d)" % ["PASS" if bad == 0 else "FAIL", _checks.size() - bad, _checks.size()])
 		return true
 	return false
+
+
+## The speed bar's putt / midrange / drive bands. They are what tells you
+## whether the speed you have dialled in is the kind of throw you meant, so
+## the edges have to stay where the carry says they are, and the bands have
+## to cover the whole dial with no gap and no overlap.
+func _check_speed_bands(s) -> void:
+	var keep: float = s.speed
+	var want := [[6.0, "putt"], [11.9, "putt"], [12.0, "midrange"],
+		[21.4, "midrange"], [21.5, "drive"], [34.0, "drive"]]
+	var ok := true
+	for w in want:
+		s.speed = w[0]
+		if s.speed_band().name != w[1]:
+			ok = false
+	s.speed = keep
+	_check("speed bands: putt < 12 m/s <= midrange < 21.5 m/s <= drive", ok)
+	var top: float = s.range_of("speed")[1]
+	var edge := 0.0
+	var covers := true
+	for b: Dictionary in s.SPEED_BANDS:
+		if b.to <= edge:
+			covers = false
+		edge = b.to
+	_check("speed bands rise in order and reach the top of the dial",
+		covers and edge >= top)
 
 
 ## Which way the nose reads on the HUD disc. Checked here rather than by eye

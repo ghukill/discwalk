@@ -11,6 +11,16 @@
 - **Disc circle**: the disc drawn from behind, side on. Left/right tilt shows hyzer/anhyzer. Nose tips the disc the way you set it — **flat at 0, up for nose up, down for nose down** (drawn 1.8× steeper) — with a dot on the leading edge and the lit top face for nose up, the dark underside for nose down. A flat disc is therefore a thin bar, which is what edge-on looks like; the face opens up as you add nose. The status line under it reads `nose +3.0°  hyzer 20°`. Each disc has its own HUD colour.
 - **✋ hand**: right of the circle = backhand, left = forehand.
 - **Velocity bar** (left of the pair) and **spin bar** (right). Spin is dotted/dimmed and can't be changed while it's locked (auto spin from speed). The velocity bar reads **mph, 0–80** by default, because that is the range a disc golfer thinks in; **I** switches it to m/s for anyone who prefers it. The flight model works in m/s either way, and the step follows the unit on screen (1 mph, or 0.5 m/s), so the readout always moves in round numbers.
+
+  The velocity bar is banded into **putt**, **midrange** and **drive**, marked
+  `P` / `M` / `D` down its left edge with the one you are in lit, and named in
+  words under the reading. The edges are 12 m/s (27 mph) and 21.5 m/s
+  (48 mph), measured rather than guessed: over flat ground at nose +6 and 8°
+  hyzer, a putter, a midrange and a driver all carry 14-16 m at the first edge
+  and 55-75 m at the second. What a speed is worth in metres depends on the
+  disc and the angle; which *kind* of throw it is for does not, which is why
+  the bands can live on the dial. They are set in `throw_setup.gd`
+  (`SPEED_BANDS`), so changing them moves the dial and the wording together.
 - **Heading dial** and **horizon dial** below. They always show; the horizon chevron = launch angle (= view pitch, no offset).
 - **Lamps**: Chase view (V), Goto (G), Paths (P), Shot circle (O), Aim arc (T).
 - No readout under the crosshair: the horizon dial shows the launch angle (hide the HUD with U and there's nothing, on purpose).

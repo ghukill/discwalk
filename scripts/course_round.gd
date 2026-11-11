@@ -218,7 +218,37 @@ func _arrive() -> void:
 	_show_banner("Hole %d" % holes()[hole].n, 2.0)
 
 
+## Straight to another hole's tee, without playing the ones in between.
+## Meant for building a course: you are editing hole 11 and you want to be
+## standing on it, not three holes back. It wraps, so ] off the last hole
+## puts you on the first.
+##
+## What it does NOT do is invent a score. Strokes on the hole you leave are
+## dropped and nothing is recorded for the holes you step over, so the card
+## ends up with fewer entries than holes -- which is the truth about a round
+## you skipped through.
+func jump_to(i: int) -> void:
+	if not active or holes().is_empty():
+		return
+	_end_overview(true)
+	if state == "walking":
+		player.stop_walk()
+	var n := holes().size()
+	_to_tee(((i % n) + n) % n)
+	_show_banner("Hole %d" % holes()[hole].n, 1.6)
+
+
 func _unhandled_input(event: InputEvent) -> void:
+	# Jumping between holes only means anything inside a round; the views
+	# below work outside one too, so they are not behind the same guard.
+	if active and event.is_action_pressed("hole_next"):
+		jump_to(hole + 1)
+		get_viewport().set_input_as_handled()
+		return
+	if active and event.is_action_pressed("hole_prev"):
+		jump_to(hole - 1)
+		get_viewport().set_input_as_handled()
+		return
 	if event.is_action_pressed("overview") and _pad_lb(event):
 		if event is InputEventJoypadButton:
 			# One combo for both: hole overview -> course map -> back down.

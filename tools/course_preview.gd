@@ -1,11 +1,12 @@
 extends SceneTree
 ## Pictures of a course from a file, to check it by eye: a map from straight
-## above (tees blue, baskets red, numbered) and the view from every tee.
+## above (tees blue, baskets red, numbered), the view from every tee, and
+## every basket from seven metres short of it.
 ## Needs a display/GPU.
 ##
 ##   godot --path . --resolution 1280x720 --script res://tools/course_preview.gd -- <out_dir> --course=<id> [--layout=<name>] [--block-size=1]
 ##
-## Writes <out_dir>/map.png and <out_dir>/tee_<n>.png. --block-size=1 builds
+## Writes <out_dir>/map.png, <out_dir>/tee_<n>.png and <out_dir>/basket_<n>.png. --block-size=1 builds
 ## quickest; leave it off to see the layout's own block size.
 
 var _main: Node
@@ -85,6 +86,16 @@ func _setup() -> void:
 		if h.basket_at.distance_to(h.tee) > 1.0 and absf(fwd.dot((look - eye).normalized())) < 0.5:
 			look = eye + fwd * 20.0          # a dogleg: look down the fairway
 		_shots.append(["tee_%d" % h.n, Transform3D(Basis.looking_at(look - eye, Vector3.UP), eye), 0.0])
+		# And the basket from a few paces short of it, on the line of play:
+		# the shot you take walking up to it, and the one a photograph of the
+		# real hole is nearly always taken from.
+		var to: Vector3 = h.basket_at - h.tee
+		to.y = 0.0
+		if to.length() > 9.0:
+			var up: Vector3 = h.basket_at - to.normalized() * 7.0 + Vector3(0, 1.7, 0)
+			var at: Vector3 = h.basket_at + Vector3(0, 0.9, 0)
+			_shots.append(["basket_%d" % h.n,
+				Transform3D(Basis.looking_at(at - up, Vector3.UP), up), 0.0])
 
 
 func _mark(at: Vector3, color: Color, text: String, span: float) -> void:

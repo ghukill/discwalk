@@ -22,3 +22,11 @@ __pycache__/
 
 # Editors
 .idea/
+
+# Course reference photos stay on disk and out of git. The phone's originals
+# are ~5MB each; the 1400px working copies come to 64MB for a single round,
+# which is not what a game repository is for. import_photos.py rebuilds them
+# from the originals, and photos.tsv -- which IS tracked -- records which
+# hole every one of them belongs to, so the filing survives.
+/reference/*/originals/
+/reference/*/*/*.jpg

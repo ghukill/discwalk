@@ -16,8 +16,16 @@ extends RefCounted
 const SEARCH := ["res://data/courses", "user://courses"]
 const FORMAT := 1
 const BOUNDS_MARGIN := 40.0            ## Default layout bounds: holes' box plus this (m).
-const KINDS := ["giant", "big", "medium", "sapling"]
-const FORMS := ["spreading", "tall", "forked", "leaning", "sapling"]
+const KINDS := ["giant", "big", "medium", "sapling", "bush"]
+const FORMS := ["spreading", "tall", "forked", "leaning", "sapling",
+	"eucalyptus", "palm", "bush", "pine", "olive"]
+
+## Default crown radius (m) by size class. Mirrors flora.gd's CROWN; this file
+## stays free of scene dependencies so the course checker can run on its own.
+const CROWN := {"giant": 7.0, "big": 5.0, "medium": 3.6, "sapling": 1.8, "bush": 1.3}
+const PROPS := ["bench", "clubhouse", "restroom", "car", "pipe", "fence"]
+## Made ground, as terrain.gd's paint kinds.
+const SURFACES := {"grass": 0, "dirt": 6, "asphalt": 7, "concrete": 8, "bark": 9}
 
 
 ## Folders that might hold courses, in search order.
@@ -69,13 +77,17 @@ static func find(id_or_dir: String) -> String:
 
 ## Reads <dir>/course.json into a Dictionary with every default filled in:
 ## name, size (Vector2), terrain {heightmap, height_min, height_max,
-## vertical_scale}, water [{at: Vector2, radius, level (or NAN)}], trees
+## vertical_scale}, foliage {leaves: [Color], bark: Color, flowers: float},
+## props [{kind, at: Vector2, yaw, color}],
+## surfaces [{kind: int, width, path: [Vector2], poly: [Vector2]}],
+## water [{at: Vector2, radius, level (or NAN)}], trees
 ## [{at: Vector2, crown, kind, form}], holes [{n, tee, basket, aim: Vector2}],
 ## layouts [{name, slug, holes: [n...], bounds: Rect2, block_size (or 0)}],
 ## plus errors / warnings (Array of String). Usable when errors is empty.
 static func read(dir: String) -> Dictionary:
 	var c := {"dir": dir, "errors": [], "warnings": [], "name": dir.get_file(),
-		"size": Vector2.ZERO, "terrain": {}, "water": [], "trees": [], "holes": [], "layouts": []}
+		"size": Vector2.ZERO, "terrain": {}, "foliage": {"leaves": [], "bark": null, "flowers": 1.0},
+		"water": [], "trees": [], "props": [], "surfaces": [], "holes": [], "layouts": []}
 	var text := FileAccess.get_file_as_string(dir.path_join("course.json"))
 	if text == "":
 		c.errors.append("no course.json in %s" % dir)
@@ -104,6 +116,9 @@ static func read(dir: String) -> Dictionary:
 	c.terrain = {"heightmap": str(t.get("heightmap", "")),
 		"height_min": float(t.get("height_min", 0.0)), "height_max": float(t.get("height_max", 0.0)),
 		"vertical_scale": float(t.get("vertical_scale", 1.0))}
+	c.foliage = _foliage(d.get("foliage", {}))
+	c.props = _props(d.get("props", []), c)
+	c.surfaces = _surfaces(d.get("surfaces", []), c)
 	if c.terrain.heightmap != "":
 		if not FileAccess.file_exists(dir.path_join(c.terrain.heightmap)):
 			c.errors.append("terrain.heightmap: no file %s" % c.terrain.heightmap)
@@ -141,8 +156,12 @@ static func read(dir: String) -> Dictionary:
 		if form not in FORMS:
 			c.warnings.append("trees[%d]: form %s isn't one of %s; using spreading" % [i, form, FORMS])
 			form = "spreading"
-		var crown: float = tr.get("crown", {"giant": 7.0, "big": 5.0, "medium": 3.6, "sapling": 1.8}[kind])
-		c.trees.append({"at": at, "crown": crown, "kind": kind, "form": form})
+		var crown: float = tr.get("crown", CROWN[kind])
+		# leaf: which entry of foliage.leaves this tree takes its colour from
+		# (-1 = any). Lets one course hold several species.
+		c.trees.append({"at": at, "crown": crown, "kind": kind, "form": form,
+			"dead": bool(tr.get("dead", false)),
+			"leaf": int(tr.get("leaf", -1))})
 
 	var numbers := {}
 	for i in _arr(d.get("holes", [])).size():
@@ -335,3 +354,132 @@ static func _vec(v):
 
 static func _arr(v) -> Array:
 	return v if v is Array else []
+
+
+## What a course's trees look like: a leaf palette its trees index into, the
+## bark colour, and how much of the usual wildflower scatter to keep.
+##
+## All optional. Without it a course gets the oak greens and brown bark, which
+## is right for Michigan and wrong for a canyon in San Diego.
+##
+##   "foliage": {"leaves": [[0.42, 0.3, 0.62], ...], "bark": [0.55, 0.5, 0.45],
+##               "flowers": 0.05}
+static func _foliage(f) -> Dictionary:
+	var out := {"leaves": [], "bark": null, "flowers": 1.0}
+	if not f is Dictionary:
+		return out
+	for c in f.get("leaves", []):
+		var col = _color(c)
+		if col != null:
+			out.leaves.append(col)
+	out.bark = _color(f.get("bark", null))
+	out.flowers = clampf(float(f.get("flowers", 1.0)), 0.0, 4.0)
+	return out
+
+
+## [r, g, b] in 0..1, or null.
+static func _color(c):
+	if not (c is Array) or c.size() < 3:
+		return null
+	return Color(float(c[0]), float(c[1]), float(c[2]))
+
+
+## Course furniture (props.gd): benches, the pro shop. Each is
+##   {"kind": "bench"|"clubhouse"|"restroom"|"car"|"pipe"|"fence",
+##    "at": [x, z], "yaw": deg, "color": name}
+## `at` is where it stands in course metres; it sits on the ground there.
+##
+## Instead of "at" and "yaw", a prop may take a "path" of 2+ points and an
+## optional "spacing" (2.5 m by default): one is placed every spacing metres
+## along it, turned to follow the line. Sixty metres of chain link is
+## twenty-four panels, and nobody should write those out by hand.
+static func _props(list, c: Dictionary) -> Array:
+	var out: Array = []
+	if not list is Array:
+		c.warnings.append("props must be a list")
+		return out
+	for i in list.size():
+		var p = list[i]
+		if not p is Dictionary:
+			c.errors.append("props[%d] must be an object" % i)
+			continue
+		var kind := str(p.get("kind", ""))
+		if kind not in PROPS:
+			c.errors.append("props[%d]: kind %s isn't one of %s" % [i, kind, PROPS])
+			continue
+		var color := str(p.get("color", "teal"))
+		# A run of one prop laid end to end along a line: a fence, a row of
+		# bollards. Sixty metres of chain link is twenty-four panels, and
+		# nobody should be writing those out by hand.
+		var path: Array = []
+		for v in p.get("path", []):
+			var q = _vec(v)
+			if q != null:
+				path.append(q)
+		if path.size() >= 2:
+			var step: float = maxf(float(p.get("spacing", 2.5)), 0.25)
+			for j in range(1, path.size()):
+				var a: Vector2 = path[j - 1]
+				var b: Vector2 = path[j]
+				var run: float = a.distance_to(b)
+				var dir: Vector2 = (b - a) / maxf(run, 0.001)
+				var yaw := rad_to_deg(atan2(-dir.y, dir.x))
+				var n := int(round(run / step))
+				for k in n:
+					out.append({"kind": kind, "at": a + dir * (step * (k + 0.5)),
+						"yaw": yaw, "color": color})
+			continue
+		var at = _vec(p.get("at"))
+		if at == null:
+			c.errors.append("props[%d]: needs at [x, z], or a path of 2+ points" % i)
+			continue
+		out.append({"kind": kind, "at": at, "yaw": float(p.get("yaw", 0.0)),
+			"color": color})
+	return out
+
+
+## Roads, paths and car parks: ground the course paints under itself, so a
+## park has a road beside it and a car park you can walk on instead of grass
+## to the horizon. Either a polyline with a width, or a polygon.
+##
+##   {"kind": "asphalt", "width": 16, "path": [[307, 277], [272, 330], ...]}
+##   {"kind": "dirt", "poly": [[200, 398], [229, 342], [252, 354], [223, 410]]}
+##
+## "cut": metres is optional and moves the ground as well as painting it,
+## easing back to the slope over "ease" metres (2.5 by default). Positive
+## digs -- a ditch, a sunken path, a bunker. Negative raises, so a poly with
+## a negative cut is a flat-topped mound: at half-metre blocks a 1.5 m raise
+## comes out as three steps, which is how hole 5 gets its pyramid. Up to 6 m
+## either way.
+static func _surfaces(list, c: Dictionary) -> Array:
+	var out: Array = []
+	if not list is Array:
+		c.warnings.append("surfaces must be a list")
+		return out
+	for i in list.size():
+		var s = list[i]
+		if not s is Dictionary:
+			c.errors.append("surfaces[%d] must be an object" % i)
+			continue
+		var kind := str(s.get("kind", ""))
+		if not SURFACES.has(kind):
+			c.errors.append("surfaces[%d]: kind %s isn't one of %s" % [i, kind, SURFACES.keys()])
+			continue
+		var path: Array = []
+		for v in s.get("path", []):
+			var p = _vec(v)
+			if p != null:
+				path.append(p)
+		var poly: Array = []
+		for v in s.get("poly", []):
+			var p = _vec(v)
+			if p != null:
+				poly.append(p)
+		if path.size() < 2 and poly.size() < 3:
+			c.errors.append("surfaces[%d]: needs a path of 2+ points or a poly of 3+" % i)
+			continue
+		out.append({"kind": SURFACES[kind], "width": maxf(float(s.get("width", 3.0)), 0.5),
+			"path": path, "poly": poly,
+			"cut": clampf(float(s.get("cut", 0.0)), -6.0, 6.0),
+			"ease": clampf(float(s.get("ease", 2.5)), 0.25, 10.0)})
+	return out

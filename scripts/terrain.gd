@@ -16,6 +16,7 @@ extends Node3D
 signal generated
 
 const FLORA_SCRIPT := preload("res://scripts/flora.gd")
+const PROPS_SCRIPT := preload("res://scripts/props.gd")
 const VoxelMesh := preload("res://scripts/voxel_mesh.gd")
 const DistanceCourse := preload("res://scripts/distance_course.gd")
 const BASKETS_SCRIPT := preload("res://scripts/baskets.gd")
@@ -58,6 +59,15 @@ const COLOR_MUD := Color(0.40, 0.36, 0.28)
 const COLOR_CHALK := Color(0.92, 0.92, 0.86)
 const COLOR_PAINT := Color(0.95, 0.80, 0.22)
 const COLOR_TEE := Color(0.60, 0.60, 0.58)
+## Made ground a course can paint under itself (course.json "surfaces"):
+## the decomposed granite you walk on at Morley, the road beside it, and the
+## concrete paths. Without these a park is grass right up to the kerb.
+const COLOR_GRIT := Color(0.56, 0.43, 0.31)      ## Decomposed granite, orange-brown.
+const COLOR_ASPHALT := Color(0.26, 0.26, 0.27)
+const COLOR_CONCRETE := Color(0.68, 0.67, 0.63)
+## Chipped bark. Morley's whole tee complex is laid with it, ankle deep, and
+## it is nothing like the pale dust of a worn path: redder, coarser, darker.
+const COLOR_BARK := Color(0.48, 0.34, 0.21)
 const COLOR_WATER := Color(0.22, 0.45, 0.62, 0.78)
 
 var size_x: int = 0                        ## World size in blocks along x.
@@ -69,6 +79,7 @@ var heights := PackedInt32Array()          ## Top surface of each column, in blo
 var lakes: Array[Dictionary] = []          ## {center: Vector2 (m), radius: m, water_y: m}
 
 var flora: Node3D                          ## Oaks + wildflowers (scripts/flora.gd).
+var props: Node3D                          ## Benches, the pro shop (scripts/props.gd).
 var baskets: Array = []                    ## The world's baskets (scripts/basket.gd), via baskets.gd.
 var basket_field: Node3D                   ## scripts/baskets.gd: sites and owns them.
 ## The course: one hole per basket, in playing order (scripts/course.gd):
@@ -150,6 +161,7 @@ func generate() -> void:
 	elif world_kind == "course":
 		hf = _course_heights()
 		_level_tees(hf)
+		_cut_surfaces(hf)
 		_course_lakes(hf)
 	else:
 		hf = _base_heights()
@@ -171,9 +183,19 @@ func generate() -> void:
 	flora.preset_trees = _course_trees() if world_kind == "course" else flora_preset
 	flora.bare = world_kind == "distance"
 	flora.fixed_trees = world_kind == "course"
+	# What this course's trees look like (course.json "foliage"); untouched
+	# defaults are the oak greens and brown bark.
+	if world_kind == "course" and course != null and "foliage" in course:
+		var fo: Dictionary = course.foliage
+		if not fo.leaves.is_empty():
+			flora.leaf_colors = fo.leaves
+		if fo.bark != null:
+			flora.bark_color = fo.bark
+		flora.flower_density = fo.flowers
 	flora.defer_flowers = true
 	add_child(flora)
 	flora.build(self)
+	_build_props()
 	var t2 := Time.get_ticks_msec()
 	basket_field = Node3D.new()
 	basket_field.set_script(BASKETS_SCRIPT)
@@ -184,6 +206,7 @@ func generate() -> void:
 	basket_field.build(self)
 	baskets = basket_field.baskets
 	holes = basket_field.holes
+	_paint_surfaces()
 	Course.paint(self, _paint, holes)
 	var basket_ms := Time.get_ticks_msec() - t2
 	_build_chunks()
@@ -480,6 +503,83 @@ func _course_heights() -> PackedFloat32Array:
 	return hf
 
 
+const CUT_EASE := 2.5     ## A cut eases back into the slope over this much more (m).
+
+
+## Digs out any surface that asked for it ("cut" metres in course.json), in
+## the float heights, before they are quantised into blocks. A painted strip
+## alone cannot read as a ditch: a ditch is a hole in the ground, and the
+## lidar a course is built from is far too coarse to hold one two metres wide.
+func _cut_surfaces(hf: PackedFloat32Array) -> void:
+	if world_kind != "course" or course == null:
+		return
+	for s: Dictionary in course.get("surfaces", []):
+		var cut: float = s.get("cut", 0.0)
+		if is_zero_approx(cut):
+			continue
+		var ease: float = s.get("ease", CUT_EASE)
+		if s.path.size() >= 2:
+			_cut_path(hf, s.path, float(s.width) * 0.5, ease, cut)
+		if s.poly.size() >= 3:
+			_cut_poly(hf, s.poly, ease, cut)
+
+
+## A strip: full depth within `half` of the line, easing out over `ease`.
+func _cut_path(hf: PackedFloat32Array, path: Array, half: float,
+		ease: float, cut: float) -> void:
+	var reach := half + ease
+	var pts: Array = []
+	for v: Vector2 in path:
+		pts.append(to_world(v))
+	for i in range(1, pts.size()):
+		var a: Vector2 = pts[i - 1]
+		var b: Vector2 = pts[i]
+		var lo := Vector2(minf(a.x, b.x), minf(a.y, b.y)) - Vector2(reach, reach)
+		var hi := Vector2(maxf(a.x, b.x), maxf(a.y, b.y)) + Vector2(reach, reach)
+		for iz in range(maxi(0, col_z(lo.y)), mini(size_z, col_z(hi.y) + 1)):
+			for ix in range(maxi(0, col_x(lo.x)), mini(size_x, col_x(hi.x) + 1)):
+				var c := Vector2((ix + 0.5) * block_size, (iz + 0.5) * block_size)
+				var d := _to_segment(c, a, b)
+				if d < reach:
+					_move(hf, iz * size_x + ix, cut * smoothstep(reach, half, d))
+
+
+## A patch: full depth `ease` metres inside the outline, easing to nothing at
+## it. Negative cut makes a flat-topped mound.
+func _cut_poly(hf: PackedFloat32Array, poly: Array, ease: float, cut: float) -> void:
+	var pts: Array = []
+	var lo := Vector2(1e9, 1e9)
+	var hi := Vector2(-1e9, -1e9)
+	for v: Vector2 in poly:
+		var w: Vector2 = to_world(v)
+		pts.append(w)
+		lo = Vector2(minf(lo.x, w.x), minf(lo.y, w.y))
+		hi = Vector2(maxf(hi.x, w.x), maxf(hi.y, w.y))
+	for iz in range(maxi(0, col_z(lo.y)), mini(size_z, col_z(hi.y) + 1)):
+		for ix in range(maxi(0, col_x(lo.x)), mini(size_x, col_x(hi.x) + 1)):
+			var c := Vector2((ix + 0.5) * block_size, (iz + 0.5) * block_size)
+			if not Geometry2D.is_point_in_polygon(c, PackedVector2Array(pts)):
+				continue
+			# How far inside the outline this column sits.
+			var d := 1e9
+			for i in pts.size():
+				d = minf(d, _to_segment(c, pts[i], pts[(i + 1) % pts.size()]))
+			_move(hf, iz * size_x + ix, cut * smoothstep(0.0, ease, d))
+
+
+func _move(hf: PackedFloat32Array, i: int, by: float) -> void:
+	hf[i] = hf[i] - by
+
+
+## Distance from p to the segment a-b (m).
+static func _to_segment(p: Vector2, a: Vector2, b: Vector2) -> float:
+	var ab := b - a
+	var len2 := ab.length_squared()
+	if len2 < 0.000001:
+		return p.distance_to(a)
+	return p.distance_to(a + ab * clampf((p - a).dot(ab) / len2, 0.0, 1.0))
+
+
 ## Levels the ground round each of the layout's tees, like a built tee pad:
 ## flat to TEE_FLAT m at the tee's own height, easing back into the slope
 ## by TEE_EASE m.
@@ -536,7 +636,8 @@ func _course_trees() -> Array:
 		var iz := col_z(p.y)
 		if is_underwater(ix, iz) or _on_a_hole(t.at, t.crown):
 			continue
-		out.append({"x": p.x, "z": p.y, "kind": t.kind, "form": t.form, "crown": t.crown})
+		out.append({"x": p.x, "z": p.y, "kind": t.kind, "form": t.form, "crown": t.crown,
+			"leaf": t.get("leaf", -1), "dead": t.get("dead", false)})
 	return out
 
 
@@ -585,20 +686,22 @@ func _chunk_mesh(ox: int, oz: int) -> ArrayMesh:
 
 	# Tops: one horizontal "slice" per chunk; rows are z, faces run along x.
 	# The colour id packs the height in too, so only same-height faces merge.
+	# Four bits for the kind: there are ten of them, and at three bits the
+	# concrete and the bark wrapped round to grass and sand.
 	var rows := {}
 	for z in range(oz, oz + cs):
 		var row := []
 		for x in range(ox, ox + cs):
 			var h := heights[z * size_x + x]
-			row.append(VoxelMesh.face(x - ox, h * 8 + _top_kind(x, z, h)))
+			row.append(VoxelMesh.face(x - ox, h * 16 + _top_kind(x, z, h)))
 		rows[z - oz] = row
 	var rects := VoxelMesh.merge_rows(rows)
 	for r in range(0, rects.size(), 5):
-		var h := rects[r + 4] >> 3
+		var h := rects[r + 4] >> 4
 		VoxelMesh.add_quad(verts, normals, colors,
 			Vector3(ox + rects[r], h, oz + rects[r + 1]),
 			Vector3(rects[r + 2] - rects[r], 0, 0), Vector3(0, 0, rects[r + 3] - rects[r + 1]),
-			Vector3.UP, _top_color(h, rects[r + 4] & 7))
+			Vector3.UP, _top_color(h, rects[r + 4] & 15))
 
 	# Sides: for each direction, one vertical slice per column line. Each column
 	# contributes its exposed side split into soil-layer segments, which then
@@ -627,10 +730,10 @@ func _chunk_mesh(ox: int, oz: int) -> ArrayMesh:
 			var plane := s + (1 if dx + dz > 0 else 0)
 			for r in range(0, rects.size(), 5):
 				var y0 := rects[r]
-				var length := rects[r + 4] >> 3
+				var length := rects[r + 4] >> 4
 				var t0 := rects[r + 1]
 				var span := rects[r + 3] - t0
-				var col := _side_color(rects[r + 4] & 7)
+				var col := _side_color(rects[r + 4] & 15, y0 + length)
 				if dx != 0:
 					VoxelMesh.add_quad(verts, normals, colors, Vector3(ox + plane, y0, oz + t0),
 						Vector3(0, length, 0), Vector3(0, 0, span), n, col)
@@ -641,26 +744,35 @@ func _chunk_mesh(ox: int, oz: int) -> ArrayMesh:
 	return VoxelMesh.build_mesh(verts, normals, colors)
 
 
-## Splits the exposed side of a column (blocks nh..h-1) into soil-layer runs,
-## appending face(y0, length * 8 + kind) entries for VoxelMesh.merge_rows().
+## Splits the exposed side of a column (blocks nh..h-1) into runs, appending
+## face(y0, length * 16 + kind) entries for VoxelMesh.merge_rows().
+##
+## Kinds 0-3 are soil. Made ground (a road, a path, the concrete of hole 5's
+## pyramid) rides on the top block as PAINT_SIDE + its paint kind, so the
+## riser of a step is the same material as its tread. Without it a concrete
+## pyramid has grass risers, and every road cut into a slope has grass edges.
 func _side_segments(x: int, z: int, h: int, nh: int) -> Array:
 	var row := []
 	var shore := _shore[z * size_x + x] == 1
+	var paint: int = _paint[z * size_x + x]
 	var cur := -1
 	var start := nh
 	for y in range(nh, h):
 		var k := _side_kind((h - y) * block_size, shore)
+		if y == h - 1 and paint != 0:
+			k = PAINT_SIDE + paint
 		if k != cur:
 			if cur >= 0:
-				row.append(VoxelMesh.face(start, (y - start) * 8 + cur))
+				row.append(VoxelMesh.face(start, (y - start) * 16 + cur))
 			cur = k
 			start = y
-	row.append(VoxelMesh.face(start, (h - start) * 8 + cur))
+	row.append(VoxelMesh.face(start, (h - start) * 16 + cur))
 	return row
 
 
 ## Top kinds: 0 grass, 1 sand, 2 mud (underwater shore); painted markings
-## 3 chalk, 4 yellow, 5 tee pad (scripts/distance_course.gd, scripts/course.gd).
+## 3 chalk, 4 yellow, 5 tee pad (scripts/distance_course.gd, scripts/course.gd);
+## made ground 6 dirt, 7 asphalt, 8 concrete (course.json "surfaces").
 func _top_kind(x: int, z: int, h: int) -> int:
 	var paint := _paint[z * size_x + x]
 	if paint:
@@ -688,6 +800,18 @@ func _top_color(h: int, kind: int) -> Color:
 	elif kind == 5:
 		c = COLOR_TEE
 		c.a = 0.10
+	elif kind == 6:
+		c = COLOR_GRIT
+		c.a = 0.10
+	elif kind == 7:
+		c = COLOR_ASPHALT
+		c.a = 0.04
+	elif kind == 9:
+		c = COLOR_BARK
+		c.a = 0.16
+	elif kind == 8:
+		c = COLOR_CONCRETE
+		c.a = 0.05
 	else:
 		var dry := clampf((h * block_size - base_height - 4.0) / 10.0, 0.0, 1.0)
 		c = COLOR_GRASS.lerp(COLOR_GRASS_DRY, dry)
@@ -707,7 +831,13 @@ func _side_kind(depth: float, shore: bool) -> int:
 	return 3
 
 
-func _side_color(kind: int) -> Color:
+## Made-ground side kinds start here: PAINT_SIDE + the top kind.
+const PAINT_SIDE := 4
+
+
+func _side_color(kind: int, h: int) -> Color:
+	if kind >= PAINT_SIDE:
+		return _top_color(h, kind - PAINT_SIDE)
 	var c: Color
 	match kind:
 		0:
@@ -851,3 +981,79 @@ func _build_collision() -> void:
 		wcs.shape = box
 		wcs.position = w[0]
 		body.add_child(wcs)
+
+
+## Benches and the pro shop (props.gd), from the course's "props" list.
+func _build_props() -> void:
+	if props != null:
+		props.queue_free()
+		props = null
+	if world_kind != "course" or course == null or course.get("props", []).is_empty():
+		return
+	props = Node3D.new()
+	props.set_script(PROPS_SCRIPT)
+	props.name = "Props"
+	props.terrain = self
+	add_child(props)
+	props.build(course.props)
+
+
+## Roads, paths and car parks, from the course's "surfaces" list. Each is
+## either a polyline with a width (a road) or a polygon (a car park).
+##
+## Painted before the tee pads so a pad laid on a dirt track still shows.
+func _paint_surfaces() -> void:
+	if world_kind != "course" or course == null:
+		return
+	for s: Dictionary in course.get("surfaces", []):
+		var kind: int = s.kind
+		# Course metres -> world metres. A layout builds only the part of the
+		# course its holes need, so these differ by course_origin; without
+		# this the roads land tens of metres off, or outside the built area
+		# altogether on a layout that does not reach them.
+		if not s.path.is_empty():
+			var half: float = s.width * 0.5
+			for i in range(1, s.path.size()):
+				_paint_segment(to_world(s.path[i - 1]), to_world(s.path[i]), half, kind)
+		if s.poly.size() >= 3:
+			var poly: Array = []
+			for v: Vector2 in s.poly:
+				poly.append(to_world(v))
+			_paint_poly(poly, kind)
+
+
+## A fat line from a to b, in course metres.
+func _paint_segment(a: Vector2, b: Vector2, half: float, kind: int) -> void:
+	var lo := Vector2(minf(a.x, b.x), minf(a.y, b.y)) - Vector2(half, half)
+	var hi := Vector2(maxf(a.x, b.x), maxf(a.y, b.y)) + Vector2(half, half)
+	var ab := b - a
+	var len2 := ab.length_squared()
+	for iz in range(maxi(0, int(lo.y / block_size)), mini(size_z, int(hi.y / block_size) + 1)):
+		for ix in range(maxi(0, int(lo.x / block_size)), mini(size_x, int(hi.x / block_size) + 1)):
+			var p := Vector2((ix + 0.5) * block_size, (iz + 0.5) * block_size)
+			var t: float = 0.0 if len2 < 1e-6 else clampf((p - a).dot(ab) / len2, 0.0, 1.0)
+			if p.distance_to(a + ab * t) <= half:
+				_paint[iz * size_x + ix] = kind
+
+
+## Even-odd fill of a polygon, in course metres.
+func _paint_poly(poly: Array, kind: int) -> void:
+	var lo := Vector2(INF, INF)
+	var hi := Vector2(-INF, -INF)
+	for v: Vector2 in poly:
+		lo = Vector2(minf(lo.x, v.x), minf(lo.y, v.y))
+		hi = Vector2(maxf(hi.x, v.x), maxf(hi.y, v.y))
+	for iz in range(maxi(0, int(lo.y / block_size)), mini(size_z, int(hi.y / block_size) + 1)):
+		for ix in range(maxi(0, int(lo.x / block_size)), mini(size_x, int(hi.x / block_size) + 1)):
+			var p := Vector2((ix + 0.5) * block_size, (iz + 0.5) * block_size)
+			var inside := false
+			var j: int = poly.size() - 1
+			for i in poly.size():
+				var a: Vector2 = poly[i]
+				var b: Vector2 = poly[j]
+				if (a.y > p.y) != (b.y > p.y) \
+						and p.x < (b.x - a.x) * (p.y - a.y) / (b.y - a.y) + a.x:
+					inside = not inside
+				j = i
+			if inside:
+				_paint[iz * size_x + ix] = kind

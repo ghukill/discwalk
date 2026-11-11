@@ -359,6 +359,8 @@ static func _ensure_input_actions() -> void:
 		"aim_arc": [KEY_T],              # aim arc: where this throw would land
 		"next_basket": [KEY_B],          # Free Play: which basket the beam marks
 		"overview": [KEY_M],             # hole overview (Course Play)
+		"hole_prev": [KEY_BRACKETLEFT],  # Course Play: straight to another tee
+		"hole_next": [KEY_BRACKETRIGHT],
 		# Throw setup (throw_setup.gd). Shift + up/down = speed, + left/right = spin.
 		"tilt_up": [KEY_UP],
 		"tilt_down": [KEY_DOWN],

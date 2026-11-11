@@ -1,6 +1,12 @@
 extends Node3D
 ## Aim arc (T): where the disc you have set up would actually go, drawn as a
-## dotted line of little cubes out to the spot it would first land.
+## dotted line of little cubes.
+##
+## T cycles three ways, because the full arc is a development tool and not a
+## game. OFF is nothing. FLIGHT draws the first half of the throw and stops:
+## enough to read the shape and the turn, with the landing spot left for you
+## to judge. FULL draws the lot and marks where it first touches down, which
+## answers the question outright.
 ##
 ## It is the REAL flight model run forward, not a parabola: the same
 ## DiscModel.step() the disc itself uses each physics tick, with the same
@@ -26,15 +32,20 @@ const COLOR_ARC := Color(0.62, 0.86, 1.0)    ## Cool, so it is not a path.
 const COLOR_END := Color(1.0, 0.95, 0.72)
 const ALPHA := 0.5
 const START_GAP := 0.9               ## No cubes right under your chin.
+const FLIGHT_SHARE := 0.5            ## FLIGHT mode draws this much of the throw.
+
+enum {OFF, FLIGHT, FULL}
+const MODE_NAMES := {OFF: "off", FLIGHT: "flight only", FULL: "on"}
 
 var terrain: Node3D
 var thrower: Node
 
 var _mmi: MultiMeshInstance3D
 var _mat: StandardMaterial3D
-var _shown := false
+var _mode := OFF
 var _points := PackedVector3Array()  ## The arc as last simulated (tests ask).
 var _landed := false                 ## ... and whether it reached the ground.
+var _marked := false                 ## Did the last draw include the landing cube?
 
 
 func _ready() -> void:
@@ -64,7 +75,15 @@ func _ready() -> void:
 
 
 func showing() -> bool:
-	return _shown
+	return _mode != OFF
+
+
+func mode() -> int:
+	return _mode
+
+
+func mode_name() -> String:
+	return MODE_NAMES[_mode]
 
 
 ## The arc as last simulated, and whether it found the ground (tests).
@@ -76,18 +95,36 @@ func landed() -> bool:
 	return _landed
 
 
-func set_shown(on: bool) -> void:
-	_shown = on
+## How many cubes are on screen, and whether one of them is the landing
+## marker. FLIGHT and FULL differ only in these two, so the test reads them.
+func cubes() -> int:
+	return _mmi.multimesh.visible_instance_count
+
+
+func marked_landing() -> bool:
+	return _marked
+
+
+func set_mode(m: int) -> void:
+	_mode = clampi(m, OFF, FULL)
+	var on := _mode != OFF
 	visible = on
 	set_process(on)
 	if not on:
 		_mmi.multimesh.visible_instance_count = 0
+		_marked = false
 	else:
 		_refresh()
 
 
+## Kept for callers that only want it on or off; FULL is "on".
+func set_shown(on: bool) -> void:
+	set_mode(FULL if on else OFF)
+
+
+## T: off -> flight only -> on -> off.
 func toggle() -> void:
-	set_shown(not _shown)
+	set_mode((_mode + 1) % 3)
 
 
 func _process(_delta: float) -> void:
@@ -95,7 +132,7 @@ func _process(_delta: float) -> void:
 
 
 func _refresh() -> void:
-	if thrower == null or terrain == null or not _shown:
+	if thrower == null or terrain == null or _mode == OFF:
 		return
 	_points = simulate()
 	_landed = _points.size() > 1 and _on_ground(_points[_points.size() - 1])
@@ -133,6 +170,13 @@ func _draw_cubes() -> void:
 	if _points.size() < 2:
 		mm.visible_instance_count = 0
 		return
+	# In FLIGHT mode the line stops part way along, so measure the whole
+	# throw first: half of a 70 m drive is a long way, half of a putt is not,
+	# and a fixed number of metres would be one or the other.
+	var total := 0.0
+	for i in range(1, _points.size()):
+		total += _points[i].distance_to(_points[i - 1])
+	var limit := total if _mode == FULL else total * FLIGHT_SHARE
 	var n := 0
 	var run := 0.0
 	var since := 0.0
@@ -140,6 +184,8 @@ func _draw_cubes() -> void:
 		var seg: float = _points[i].distance_to(_points[i - 1])
 		run += seg
 		since += seg
+		if run > limit:
+			break
 		if run < START_GAP or since < SPACING:
 			continue
 		since = 0.0
@@ -147,8 +193,10 @@ func _draw_cubes() -> void:
 			break
 		_put(mm, n, _points[i], CUBE, COLOR_ARC)
 		n += 1
-	# The landing spot, brighter and bigger: the number you actually want.
-	if _landed and n < MAX_CUBES:
+	# The landing spot, brighter and bigger: the number you actually want,
+	# and the one FLIGHT mode deliberately withholds.
+	_marked = _mode == FULL and _landed and n < MAX_CUBES
+	if _marked:
 		_put(mm, n, _points[_points.size() - 1], END_CUBE, COLOR_END)
 		n += 1
 	mm.visible_instance_count = n

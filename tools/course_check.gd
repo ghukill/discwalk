@@ -12,9 +12,14 @@ extends SceneTree
 ##   - a tree trunk within 2 m of a basket (the game drops those, and trees
 ##     hanging over a tee pad, so this means the dropping broke)
 ##   - leaves over the tee pad, or a wall of leaves in the first 10 m off it
+##   - a surface asking for a "cut" that did not actually dig a hollow
+##   - two hand-placed trees standing on the same spot
 ## Prints "CHECK PASS" or "CHECK FAIL".
 
 const CourseFile := preload("res://scripts/course_file.gd")
+
+## How far beyond a cut's own falloff to read the ground it was cut into.
+const CUT_CLEAR := 2.0
 const TERRAIN := preload("res://scripts/terrain.gd")
 
 var _problems := 0
@@ -92,6 +97,72 @@ func _check_layout(t: Node3D, l: Dictionary) -> void:
 		_problem("layout %s: %d holes listed but %d built" % [l.name, l.holes.size(), t.holes.size()])
 	for h: Dictionary in t.holes:
 		_check_hole(t, h)
+	_check_cuts(t)
+	_check_stacked(t)
+
+
+## Two hand-placed trees within a metre and a half of each other. Placing by
+## hand off a photograph, it is easy to move one onto another: the result is
+## one lumpy over-dense blob where two trees were meant, and from any
+## distance it reads as a single thing nobody asked for.
+func _check_stacked(t: Node3D) -> void:
+	var at: Array = []
+	for tr: Dictionary in t.course.trees:
+		if tr.get("fixed"):
+			at.append(tr.at)
+	for i in at.size():
+		for j in range(i + 1, at.size()):
+			var d: float = (at[i] as Vector2).distance_to(at[j])
+			if d < 1.5:
+				_problem("hand-placed trees at %s and %s are %.2f m apart"
+					% [at[i], at[j], d])
+
+
+## A surface with "cut" has to actually have moved the ground: the middle of
+## a dug strip below its banks, the middle of a raised patch above what is
+## around it. A dig or a raise that silently did nothing looks, from a
+## distance, exactly like one that worked.
+func _check_cuts(t: Node3D) -> void:
+	for s: Dictionary in t.course.get("surfaces", []):
+		var cut: float = s.get("cut", 0.0)
+		if is_zero_approx(cut):
+			continue
+		var mid := Vector2.ZERO
+		var side := Vector2.ZERO
+		var at
+		if s.path.size() >= 2:
+			var a: Vector2 = t.to_world(s.path[0])
+			var b: Vector2 = t.to_world(s.path[s.path.size() - 1])
+			mid = (a + b) * 0.5
+			var n := (b - a).normalized()
+			side = Vector2(-n.y, n.x) * (float(s.width) * 0.5
+				+ float(s.get("ease", 2.5)) + CUT_CLEAR)
+			at = s.path[0]
+		elif s.poly.size() >= 3:
+			var span := Rect2(t.to_world(s.poly[0]), Vector2.ZERO)
+			for v in s.poly:
+				span = span.expand(t.to_world(v))
+			mid = span.get_center()
+			side = Vector2(span.size.x * 0.5 + float(s.get("ease", 2.5))
+				+ CUT_CLEAR, 0.0)
+			at = s.poly[0]
+		else:
+			continue
+		if not t.in_grid(t.col_x(mid.x), t.col_z(mid.y)):
+			continue                      # this layout does not reach it
+		var centre: float = t.height_at(mid.x, mid.y)
+		var a_side: float = t.height_at(mid.x + side.x, mid.y + side.y)
+		var b_side: float = t.height_at(mid.x - side.x, mid.y - side.y)
+		var around := (a_side + b_side) * 0.5
+		var moved := around - centre      # +ve dug, -ve raised
+		print("    cut %+.1f m at %s: middle %.1f m, around %.1f m (moved %+.1f m)"
+			% [cut, at, centre, around, moved])
+		if signf(moved) != signf(cut) or absf(moved) < absf(cut) * 0.5:
+			var why := ""
+			if absf(cut) < t.block_size:
+				why = " (shallower than this build's %.2f m block)" % t.block_size
+			_problem("a cut of %+.1f m at %s only moved the ground %+.1f m%s"
+				% [cut, at, moved, why])
 
 
 func _check_hole(t: Node3D, h: Dictionary) -> void:
