@@ -116,8 +116,8 @@ func _flowery_spot(t) -> Array:
 func _form_portraits(t) -> Array:
 	var bs: float = t.block_size
 	var out := []
-	var rank := {"giant": 3, "big": 2, "medium": 1, "sapling": 0}
-	for form in ["spreading", "tall", "forked", "leaning", "sapling"]:
+	var rank := {"giant": 3, "big": 2, "medium": 1, "sapling": 0, "bush": 0}
+	for form in ["spreading", "tall", "forked", "leaning", "sapling", "pine", "bush"]:
 		var best = null
 		var best_score := -1e9
 		for tr in t.flora.trees:

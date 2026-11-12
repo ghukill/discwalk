@@ -1,5 +1,6 @@
 extends Node3D
-## Oaks and wildflowers, grown from the terrain's seed.
+## Oaks and wildflowers, grown from the terrain's seed (plus bushes, white
+## pines and dead snags among the oaks; see _place_understory).
 ##
 ## Oaks: each tree is "grown" voxel by voxel: a stout trunk, 2-4 crooked limbs
 ## reaching outward, and a broad crown of squashed, noise-eaten leaf blobs.
@@ -157,7 +158,60 @@ func _place_trees() -> void:
 			var tree := {"pos": Vector2i(x, z), "kind": kind, "crown": crown,
 				"form": _pick_form(kind, g)}
 			placed.append(tree)
+	_place_understory(groves, spawn, placed)
 	trees = placed
+
+
+## Bushes, white pines and dead snags among the oaks. A pass of its own, on
+## its own random stream, so adding it left every oak where it was.
+##
+## Michigan, not Balboa Park: no palms, eucalyptus or olives here.
+##   bushes   thickets along the grove edges, where the light gets in (dogwood,
+##            hazel), and the odd clump out in the open meadow
+##   pines    white pine stands, in patches of their own noise, poking up
+##            dark over the oaks
+##   snags    the occasional dead oak standing in a grove, grey and bare
+func _place_understory(groves: FastNoiseLite, spawn: Vector3, placed: Array[Dictionary]) -> void:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = terrain.world_seed * 6271 + 29
+	var stands := FastNoiseLite.new()
+	stands.seed = terrain.world_seed + 313
+	stands.noise_type = FastNoiseLite.TYPE_SIMPLEX_SMOOTH
+	stands.frequency = 0.018
+	var step := grove_spacing * 0.75
+	var cells_x := int(terrain.world_x / step)
+	var cells_z := int(terrain.world_z / step)
+	for gz in cells_z:
+		for gx in cells_x:
+			var mx := float(int((gx + rng.randf_range(0.1, 0.9)) * step))
+			var mz := float(int((gz + rng.randf_range(0.1, 0.9)) * step))
+			var g := groves.get_noise_2d(mx, mz)
+			var roll := rng.randf()
+			var tree := {}
+			if stands.get_noise_2d(mx, mz) > 0.32 and g > -0.1:
+				if roll < 0.4:
+					tree = {"kind": "big" if rng.randf() < 0.6 else "medium", "form": "pine",
+						"crown": CROWN.medium * rng.randf_range(0.8, 1.1), "tint": PINE_GREEN}
+			elif g > 0.12:
+				if roll < 0.012:
+					tree = {"kind": "big" if rng.randf() < 0.5 else "medium",
+						"form": "spreading" if rng.randf() < 0.5 else "forked",
+						"crown": CROWN.medium * rng.randf_range(0.9, 1.3), "dead": true}
+				elif roll < 0.06:
+					tree = {"kind": "bush", "form": "bush", "crown": CROWN.bush * rng.randf_range(0.8, 1.3)}
+			elif g > -0.08:
+				if roll < 0.3:
+					tree = {"kind": "bush", "form": "bush", "crown": CROWN.bush * rng.randf_range(0.8, 1.6)}
+			elif roll < 0.025:
+				tree = {"kind": "bush", "form": "bush", "crown": CROWN.bush * rng.randf_range(1.0, 1.8)}
+			if tree.is_empty():
+				continue
+			var x: int = terrain.col_x(mx)
+			var z: int = terrain.col_z(mz)
+			if not _can_grow(x, z, tree.kind, tree.crown, spawn, placed):
+				continue
+			tree.pos = Vector2i(x, z)
+			placed.append(tree)
 
 
 ## x, z are grid columns; crown and all distances are metres.
@@ -320,6 +374,7 @@ const LEAF_GREENS := [
 	Color(0.27, 0.45, 0.20),
 ]
 const COLOR_DEAD := Color(0.42, 0.38, 0.33)   ## Weathered grey bark on dead limbs.
+const PINE_GREEN := Color(0.12, 0.27, 0.17)   ## White pine: darker and bluer than any oak.
 
 ## A course can say what its trees look like (course.json "foliage"), because
 ## the same oak greens and brown bark everywhere make every course Michigan.
@@ -358,6 +413,10 @@ func _grow_tree(tree: Dictionary, index: int) -> void:
 	var green: Color = pal[pick % pal.size()] if pick >= 0 \
 		else pal[rng.randi() % pal.size()]
 	green = green.lerp(pal[rng.randi() % pal.size()], rng.randf() * 0.35)
+	# A tree can bring its own colour instead (the glacial white pines), and
+	# only drifts a little from it, or the pines go oak-green.
+	if tree.has("tint"):
+		green = (tree.tint as Color).lerp(green, 0.12)
 	_t = {
 		"rng": rng, "form": form, "crown": crown, "green": green,
 		"cluster_r": maxf(_rr(rng, form.cluster) * crown, minf(0.8, crown * 0.45)),

@@ -4,11 +4,13 @@ extends Control
 ##
 ##   ┌──────────────────────────────┐
 ##   │  ( disc )✋   ▮ ▯            │  disc tilt (nose + hyzer), hand,
-##   │  distance driver · stable    │  velocity bar, spin bar (dotted = locked),
-##   │  Moraine · nose +0 · hyzer 10│  disc kind + stability (small, dim)
-##   │  (hdg) (hzn)   o Chase view  │
-##   │                o Goto        │
-##   │                o Paths       │
+##   │  Moraine · nose +0 · hyzer 10│  velocity bar, spin bar (dotted = locked),
+##   │  distance driver · stable    │  disc kind + stability (small, dim)
+##   │                o Chase view  │
+##   │                o Goto        │  heading + horizon dials beside the
+##   │  (hdg) (hzn)   o Paths       │  toggle lamps, in their own band
+##   │                o Shot circle │
+##   │                o Aim arc     │
 ##   └──────────────────────────────┘
 ##
 ## Everything here only shows state; the keys live in throw_setup.gd and
@@ -20,9 +22,15 @@ const Dials := preload("res://scripts/dials.gd")
 const Lamps := preload("res://scripts/lamps.gd")
 
 const W := 300.0
-const H := 266.0
 const PAD := 14.0
 const DISC_R := 46.0                 ## Instrument circle radius.
+## Rows, top down. The readout line (disc name, nose, tilt) sits under the
+## disc instrument; the dials and lamps get their own band below it, with a
+## gap rather than a rule, so the lamps can grow without crowding the text.
+const BARS_TOP := PAD + 10.0         ## Room above the bars for "lock X".
+const NAME_Y := PAD + DISC_R * 2 + 50.0  ## Baseline of the readout line, clear of the band name.
+const LOWER_TOP := NAME_Y + 28.0     ## Top of the dials + lamps band (below the kind line).
+const H := LOWER_TOP + 22.0 * 5 + PAD  ## Five lamps at Lamps.PITCH.
 const BAR_W := 16.0
 const BAR_H := 80.0
 ## Deg above the disc we view it from. ZERO, i.e. side on, and it has to be:
@@ -76,14 +84,15 @@ func _ready() -> void:
 	dials.camera = camera
 	dials.radius = 30.0
 	dials.font = font
-	dials.position = Vector2(PAD, H - PAD - 30.0 * 2 - 4)
+	# Centred on the lamp stack beside it.
+	dials.position = Vector2(PAD, LOWER_TOP + (Lamps.PITCH * Lamps.LAMPS.size() - 30.0 * 2) * 0.5)
 	add_child(dials)
 
 	lamps = Control.new()
 	lamps.set_script(Lamps)
 	lamps.name = "Lamps"
 	lamps.font = font
-	lamps.position = Vector2(W - PAD - 118.0, H - PAD - Lamps.PITCH * Lamps.LAMPS.size() - 2)
+	lamps.position = Vector2(W - PAD - 118.0, LOWER_TOP)
 	add_child(lamps)
 
 
@@ -104,21 +113,21 @@ func _draw() -> void:
 		return
 	var c := Vector2(PAD + DISC_R + 10.0, PAD + DISC_R)
 	_draw_disc_instrument(c)
-	_draw_bars(Vector2(c.x + DISC_R + 40.0, PAD + 2.0))
+	_draw_bars(Vector2(c.x + DISC_R + 40.0, BARS_TOP))
 	# One line under the instrument: disc, nose, hyzer.
 	var d = setup.disc()
 	var name: String = d.label if d != null else "-"
 	var r: float = setup.roll
 	var tilt := "flat" if absf(r) < 0.5 else ("hyzer %d°" % int(round(absf(r))) if r > 0 else "anhyzer %d°" % int(round(absf(r))))
-	var y := PAD + DISC_R * 2 + 38.0
-	# Small and dim above the name: what kind of disc it is, for the curious.
-	if d != null and d.kind != "":
-		var kind: String = d.kind if d.stability == "" else "%s · %s" % [d.kind, d.stability]
-		_text(Vector2(PAD, y - 15), kind, 9, DIM)
+	var y := NAME_Y
 	_text(Vector2(PAD, y), name, 13, AMBER)
 	var nw := font.get_string_size(name, HORIZONTAL_ALIGNMENT_LEFT, -1, 13).x
 	_text(Vector2(PAD + nw + 8, y), "nose %+.1f°   %s" % [setup.nose, tilt], 12, INK)
-	draw_line(Vector2(PAD, y + 9), Vector2(W - PAD, y + 9), Color(BRASS, 0.35), 1.0)
+	# Small and dim under the name: what kind of disc it is, for the curious.
+	# Below rather than above, where a long one ran into the speed band label.
+	if d != null and d.kind != "":
+		var kind: String = d.kind if d.stability == "" else "%s · %s" % [d.kind, d.stability]
+		_text(Vector2(PAD, y + 13), kind, 9, DIM)
 
 
 func _text(at: Vector2, s: String, fs: int, col: Color, align := HORIZONTAL_ALIGNMENT_LEFT) -> void:
