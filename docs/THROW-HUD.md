@@ -16,14 +16,16 @@
   `P` / `M` / `D` down its left edge with the one you are in lit, and named in
   words under the reading. The edges are 12 m/s (27 mph) and 21.5 m/s
   (48 mph), measured rather than guessed: over flat ground at nose +6 and 8°
-  hyzer, a putter, a midrange and a driver all carry 14-16 m at the first edge
-  and 55-75 m at the second. What a speed is worth in metres depends on the
+  hyzer, a putter, a midrange and a driver all carry 18 m at the first edge
+  and 51-55 m at the second. What a speed is worth in metres depends on the
   disc and the angle; which *kind* of throw it is for does not, which is why
   the bands can live on the dial. They are set in `throw_setup.gd`
   (`SPEED_BANDS`), so changing them moves the dial and the wording together.
 - **Heading dial** and **horizon dial** below. They always show; the horizon chevron = launch angle (= view pitch, no offset).
+- **Wind**, when there is any (F / Shift+F for strength, Z / Shift+Z to turn it): a pale blue arrow across the heading dial pointing the way the air is going, so it reads against your own heading (pointing down the dial = in your face). Its head and feathers stand outside the bezel, with only a faint shaft across the card, so the letters stay readable; it brightens with the gusts. Under the two dials, the wind you feel at head height, in the speed bar's unit, and how it sits against your throw: `wind 11 mph  head L→R`. Calm reads `wind calm`, dim.
 - **Lamps**: Chase view (V), Goto (G), Paths (P), Shot circle (O), Aim arc (T).
 - No readout under the crosshair: the horizon dial shows the launch angle (hide the HUD with U and there's nothing, on purpose).
+- The **crosshair turns amber** when what it is on is inside putting range (20 m, circle 2): a throw now is lofted so the disc arrives at that point rather than setting off at it, and the softer you throw the more loft you get. If the speed you have dialled in cannot get there at any angle, the disc goes on the straight line and a note says "too soft to get there".
 
 ## Keys
 
@@ -54,6 +56,8 @@
 | ? | controls overlay (everything, keyboard + controller: [CONTROLS.md](CONTROLS.md)) |
 | N | new world |
 | K | clouds |
+| F / Shift + F | wind stronger / lighter (calm, light, breezy, windy, strong, gale) |
+| Z / Shift + Z | turn the wind 45° |
 | Esc | free the mouse |
 
 Removed: T (panel), J (horizon dial toggle), Z (now G), 1–0 cube power (cubes use the speed bar), launch offset, arrows-walk.

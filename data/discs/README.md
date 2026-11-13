@@ -16,12 +16,15 @@ sorts them by `order` and lists them in the throw HUD (Tab).
  "J_z": 0.00747,                          // inertia about the spin axis, per kg (m^2)
  "alpha": [-90, ..., 90],                 // angle of attack (deg), ascending
  "Cl": [...], "Cd": [...], "Cm": [...],   // lift, drag, pitching moment
- "CMq": -0.0144, "CRp": -0.0125, "CNr": -3.41e-5  // optional: Hummel damping (per rad/s)
+ "Clp": -0.2865, "Cmq": -0.2865,          // optional: roll and pitch damping, per (rate x d / 2V)
+ "Cnr": -0.00342                          // optional: spin down, per (spin x d / 2V)
 }
 ```
 
-Beyond ±90° the model mirrors the table (an upside-down disc). Without the
-three damping terms a disc uses Hummel's (2003) values (`HUMMEL_*` in
+Beyond ±90° the model mirrors the table (an upside-down disc). The three
+damping terms are non-dimensional rate derivatives (docs/PHYSICS.md,
+"Damping"). Without them a disc gets roll and pitch damping from its own lift
+slope (−C_Lα / 8) and the standard spin down (`SPIN_DOWN` in
 `scripts/disc_model.gd`).
 
 ## discwalk/ (ours)

@@ -7,10 +7,10 @@ extends Control
 ##   │  Moraine · nose +0 · hyzer 10│  velocity bar, spin bar (dotted = locked),
 ##   │  distance driver · stable    │  disc kind + stability (small, dim)
 ##   │                o Chase view  │
-##   │                o Goto        │  heading + horizon dials beside the
-##   │  (hdg) (hzn)   o Paths       │  toggle lamps, in their own band
-##   │                o Shot circle │
-##   │                o Aim arc     │
+##   │  (hdg) (hzn)   o Goto        │  heading + horizon dials beside the
+##   │                o Paths       │  toggle lamps, in their own band; the
+##   │  wind 11 mph   o Shot circle │  wind's arrow lies on the heading card,
+##   │                o Aim arc     │  its reading under the pair
 ##   └──────────────────────────────┘
 ##
 ## Everything here only shows state; the keys live in throw_setup.gd and
@@ -60,6 +60,7 @@ const DIM := Color(1.0, 0.88, 0.7, 0.45)
 const AMBER := Color(1.0, 0.66, 0.26)
 
 var setup: Node                      ## throw_setup.gd
+var wind: RefCounted                 ## wind.gd: the heading dial carries its arrow.
 var camera: Camera3D
 var dials: Control
 var lamps: Control
@@ -82,10 +83,13 @@ func _ready() -> void:
 	dials.set_script(Dials)
 	dials.name = "Dials"
 	dials.camera = camera
+	dials.wind = wind
+	dials.setup = setup
 	dials.radius = 30.0
 	dials.font = font
-	# Centred on the lamp stack beside it.
-	dials.position = Vector2(PAD, LOWER_TOP + (Lamps.PITCH * Lamps.LAMPS.size() - 30.0 * 2) * 0.5)
+	# Centred on the lamp stack beside it, dials and their wind line together.
+	dials.position = Vector2(PAD, LOWER_TOP
+		+ (Lamps.PITCH * Lamps.LAMPS.size() - 30.0 * 2 - Dials.WIND_LINE) * 0.5)
 	add_child(dials)
 
 	lamps = Control.new()

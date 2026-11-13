@@ -3,17 +3,27 @@ extends Control
 ##
 ## - Heading: a compass card that turns under a fixed lubber mark, with
 ##   N / E / S / W and the heading in degrees. North is -Z (the way you face
-##   in a fresh world), east is +X.
+##   in a fresh world), east is +X. When there is wind (wind.gd) a pale blue
+##   arrow lies across the dial, pointing the way the air is going, so it
+##   reads against your own heading at a glance: pointing down the dial is in
+##   your face, pointing up is at your back. It breathes with the gusts.
 ## - Horizon: an attitude indicator. The sky/ground split moves with how far
 ##   you look up or down, with a pitch ladder every 10 degrees. Where you look
 ##   is your launch angle, so the readout is the angle a disc would leave at.
 ##
-## Both are drawn with _draw (no textures).
+## Under the pair, one line of small print: the wind you feel, in the unit the
+## speed bar is in, and how it sits against your throw ("11 mph head L→R").
+##
+## All drawn with _draw (no textures).
 
 const GAP := 10.0
 const PITCH_PX_PER_R := 0.045        ## Horizon dial: pixels per degree, per px of radius.
+const WIND_INK := Color(0.66, 0.88, 1.0)   ## Cool, so it is not the heading.
+const WIND_LINE := 22.0              ## Room under the dials for the wind readout (px).
 
 var camera: Camera3D
+var wind: RefCounted                 ## wind.gd, or null (no arrow, no line).
+var setup: Node                      ## throw_setup.gd: its speed unit is the wind's too.
 var radius := 32.0                   ## Dial radius (px).
 var font: Font
 
@@ -22,7 +32,7 @@ func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	if font == null:
 		font = ThemeDB.fallback_font
-	custom_minimum_size = Vector2(radius * 4 + GAP, radius * 2 + 14)
+	custom_minimum_size = Vector2(radius * 4 + GAP, radius * 2 + WIND_LINE)
 
 
 func _process(_d: float) -> void:
@@ -47,6 +57,64 @@ func _draw() -> void:
 	var r := radius
 	_draw_heading(Vector2(r, r), r)
 	_draw_horizon(Vector2(r * 3.0 + GAP, r), r)
+	_draw_wind_line(Vector2(r * 2.0 + GAP * 0.5, r * 2.0 + WIND_LINE - 4.0))
+
+
+## Where the wind arrow points on the dial (rad, screen angle; 0 = right,
+## -PI/2 = up = the way you face), or NAN when it is calm. Tests read it.
+func wind_arrow_angle() -> float:
+	if wind == null or wind.is_calm():
+		return NAN
+	var w: Vector3 = wind.head()
+	var to := fposmod(rad_to_deg(atan2(w.x, -w.z)), 360.0)   # bearing it blows TOWARD
+	return deg_to_rad(to - heading()) - PI / 2.0
+
+
+## The line under the dials: "wind 11 mph head L→R", or a dim "calm".
+func wind_readout() -> String:
+	if wind == null or wind.is_calm():
+		return "calm"
+	var w: Vector3 = wind.head()
+	var f := -camera.global_transform.basis.z
+	var rel: String = wind.relative_name(w, Vector3(f.x, 0.0, f.z))
+	var speed := "%.1f m/s" % w.length()
+	if setup != null:
+		speed = "%s %s" % [setup.speed_str(w.length()), setup.unit_name()]
+	return speed if rel == "" else "%s  %s" % [speed, rel]
+
+
+func _draw_wind_line(at: Vector2) -> void:
+	if wind == null:
+		return
+	if wind.is_calm():
+		_text(at, "wind calm", 9, Color(1.0, 0.88, 0.7, 0.4))
+	else:
+		_text(at, "wind " + wind_readout(), 10, Color(WIND_INK, 0.95))
+
+
+## The wind on the heading dial: an arrow lying across it, pointing the way
+## the air is going. Its ends stand outside the bezel, head downwind and
+## feathers upwind, with only a faint shaft across the card between them, so
+## the letters and the heading stay readable through it. Brighter and bolder
+## the harder it blows, so a gust is something you see arrive.
+func _draw_wind_arrow(c: Vector2, r: float) -> void:
+	var a := wind_arrow_angle()
+	if is_nan(a):
+		return
+	var dir := Vector2(cos(a), sin(a))
+	var side := Vector2(-dir.y, dir.x)
+	var k := clampf(wind.head().length() / 9.0, 0.0, 1.0)      # 20 mph = full strength
+	var col := Color(WIND_INK, lerpf(0.7, 1.0, k))
+	var grow := lerpf(0.8, 1.2, k)
+	draw_line(c - dir * r, c + dir * r, Color(WIND_INK, lerpf(0.16, 0.34, k)), 1.0, true)
+	var base := c + dir * (r + 2.5)
+	draw_colored_polygon(PackedVector2Array([base + dir * 6.5 * grow,
+		base + side * 3.6 * grow, base - side * 3.6 * grow]), col)
+	var tail := c - dir * (r + 2.5)
+	for i in 2:
+		var at := tail - dir * (1.0 + i * 3.0)
+		draw_line(at, at - dir * 3.0 + side * 3.2 * grow, col, 1.3, true)
+		draw_line(at, at - dir * 3.0 - side * 3.2 * grow, col, 1.3, true)
 
 
 func _text(at: Vector2, s: String, fs: int, c: Color) -> void:
@@ -78,6 +146,7 @@ func _draw_heading(c: Vector2, r: float) -> void:
 	var t := c + Vector2(0, -r + 2)
 	draw_colored_polygon(PackedVector2Array([t + Vector2(0, 6), t + Vector2(-4, 0), t + Vector2(4, 0)]),
 		Color(1, 0.7, 0.3))
+	_draw_wind_arrow(c, r)
 	_text(c, "%03d" % (int(round(h)) % 360), 9, ink)
 	_bezel(c, r)
 

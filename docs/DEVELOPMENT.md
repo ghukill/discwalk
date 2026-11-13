@@ -46,7 +46,20 @@ $G --headless --path . --script res://tools/flight_test.gd [-- --block-size=0.5]
 DISPLAY=:0 $G --path . --resolution 1280x720 --script res://tools/flight_shots.gd -- /tmp/flight_shots   # HUD, follow cam in flight/on the ground, handed back
 ```
 
-Aiming has one too. The disc leaves your hand 0.3 m below your eye, so it is aimed at the point under the crosshair rather than parallel to your line of sight; the test looks at a mark on the ground and checks the aim line passes through it. It also checks the aim arc (T) is the real flight model run forward, by throwing the disc it predicted and comparing where it lands.
+Wind has one: the model (calm is nothing, the set speed is true at head height, lighter below and stronger above, gusts inside their band, "from the west" blows east), then real discs over a flat floor in a steady 10 mph wind from each side (a headwind lifts and flips a disc and costs distance, a tailwind pushes it down and makes it more stable, a crosswind carries it downwind, and the aim arc's simulation lands where the body does), then the world (F and Z, the dial's arrow and readout, discs thrown into it, the arc bending, streaks and clouds, and calm putting it all back). `wind_shots.gd` shoots the HUD in five winds and the streaks:
+
+```sh
+$G --headless --path . --script res://tools/wind_test.gd -- --block-size=1
+DISPLAY=:0 $G --path . --resolution 1600x900 --script res://tools/wind_shots.gd -- /tmp/wind_shots --block-size=1
+```
+
+The flight numbers in the docs (the "Flights to try" table, the speed bands, soft tosses, full power, wind, how much the damping matters) are printed by a tool, from the same simulation the aim arc runs. Rerun it after changing the maths or the tables and paste what moved into [DISCS.md](DISCS.md) and [PHYSICS.md](PHYSICS.md):
+
+```sh
+$G --headless --path . --script res://tools/flight_table.gd
+```
+
+Aiming has one too. The disc leaves your hand 0.3 m below your eye, so it is aimed at the point under the crosshair rather than parallel to your line of sight; the test looks at a mark on the ground and checks the aim line passes through it. It also checks the aim arc (T) is the real flight model run forward, by throwing the disc it predicted and comparing where it lands (down a line it first checks is clear of trees, which the arc knows nothing about).
 
 ```sh
 $G --headless --path . --script res://tools/aim_test.gd -- --block-size=1

@@ -7,19 +7,21 @@ the steady precession each tick and skips the wobble. This script is the check
 on that shortcut: a FULL rigid-body attitude integration from Hummel's Euler
 equations (thesis Appendix B, discfltEOM.m, rewritten in vector form), wobble
 and all, with fine substeps. Same disc tables, same damping coefficients, same
-60 Hz translation step as the game.
+60 Hz translation step as the game, and the same non-dimensional damping (each
+rate times d / 2V, coefficients from the disc JSON).
 
 State: velocity v, disc normal n, cross-axis angular velocity w (perpendicular
 to n), signed spin r about n. With H = I_xy w + I_z r n and dH/dt = M:
     I_z dr/dt = N                                  (spin down)
     I_xy dw/dt = M_perp - I_z r (w x n)            (precession + wobble)
     dn/dt = w x n
-Moments (Hummel eq. 3.6-3.8), x = airflow in the disc plane, y = x cross n:
-    R = C_Rp p qAd,  M = (C_M(alpha) + C_Mq q) qAd,  N = C_Nr r qAd.
+Moments (Hummel eq. 2.8), x = airflow in the disc plane, y = x cross n, with
+k = d / 2V making each rate non-dimensional:
+    R = C_lp p k qAd,  M = (C_M(alpha) + C_mq q k) qAd,  N = C_nr r k qAd.
 
 Prints carry (m, along the throw) and drift (m, + = left) per case, released
 1.3 m up, ending when the disc gets back to ground level. Paste into
-HUMMEL_REFERENCE in flight_test.gd if you change cases or coefficients.
+REFERENCE in flight_test.gd if you change cases or coefficients.
 """
 import json
 import math
@@ -28,7 +30,6 @@ import pathlib
 import numpy as np
 
 RHO, G, MASS = 1.225, 9.8, 0.175
-CMQ, CRP, CNR = -1.44e-2, -1.25e-2, -3.41e-5      # Hummel long flight f2302
 SUB = 256                                         # attitude substeps per 60 Hz tick
 DISCS = pathlib.Path(__file__).resolve().parents[2] / "data" / "discs" / "discwalk"
 
@@ -106,7 +107,8 @@ def fly(name, speed, spin, pitch, nose, roll, hand=1.0):
             y = np.cross(x, n)
             cm = coeffs(d, math.degrees(math.atan2(-vn, np.linalg.norm(vp))))[2]
             qad = 0.5 * RHO * sp * sp * ad
-            moment = x * (CRP * w.dot(x)) * qad + y * (cm + CMQ * w.dot(y)) * qad
+            k = d["diameter"] / (2 * sp)
+            moment = (x * (d["Clp"] * k * w.dot(x)) + y * (cm + d["Cmq"] * k * w.dot(y))) * qad
             # dw/dt = (I_z r / I_xy)(n x w) + M_perp / I_xy: rotate exactly, then push
             w = rot(w, n, iz * r / ixy * h) + (moment - n * moment.dot(n)) / ixy * h
             wl = np.linalg.norm(w)
@@ -114,7 +116,7 @@ def fly(name, speed, spin, pitch, nose, roll, hand=1.0):
                 n = rot(n, w, wl * h)
                 n /= np.linalg.norm(n)
             w -= n * w.dot(n)
-            r += CNR * r * qad / iz * h
+            r += d["Cnr"] * k * r * qad / iz * h
         v = v + (force / MASS + np.array([0, -G, 0])) * dt
         pos = pos + v * dt
         t += dt

@@ -27,7 +27,10 @@ scripts/flying_disc.gd   A real disc (extends disc.gd): flat collider, pixel-cir
 scripts/disc_model.gd    Disc aerodynamics: coefficient tables, lift/drag, gyroscopic roll
 scripts/follow_cam.gd    Follow cam (V): chase camera for the last disc
 scripts/clouds.gd        Fluffy voxel clouds drifting high overhead (K toggles)
-scripts/dials.gd         Heading + horizon dials (in the throw HUD)
+scripts/dials.gd         Heading + horizon dials (in the throw HUD), with the wind's arrow and readout
+scripts/wind.gd          The wind: mean speed + bearing, log profile with height, gusts (F / Z)
+scripts/wind_fx.gd       What the wind looks like: streaks in the air, cloud drift, flower sway
+scripts/flight_sim.gd    The flight model run forward without physics bodies (aim arc, putt assist)
 scripts/basket.gd        One basket: 5 cm voxel mesh, pole/tray colliders, swept chains + band, confetti on a chain hit
 scripts/baskets.gd       Sites the world's nine baskets from the seed (spread out, clear of spawn/lakes/trees)
 scripts/confetti.gd      One-shot MultiMesh shower of rainbow voxels: burst, flutter, bounce, stay on the ground (newest 100), whoosh up and soar home on collect, 80% opaque
@@ -36,7 +39,10 @@ scripts/basket_finder.gd Finding the basket: a beam over it and an arrow at the 
 scripts/paths.gd         Flight paths: voxel trail per disc throw; P toggles (off = fall + poof)
 data/discs/              Disc coefficient tables (JSON); see data/discs/README.md
 shaders/voxel.gdshader   Terrain + tree shading: base colour + per-block jitter
-shaders/sway.gdshader    Wind sway for flowers (and grass, later)
+shaders/sway.gdshader    Wind sway for flowers (and grass, later); wind_fx.gd drives it
+tools/wind_test.gd       Headless wind: the model, head/tail/cross winds on real discs, keys + HUD + streaks: PASS/FAIL
+tools/wind_shots.gd      Screenshots: the HUD in five winds, streaks in a crosswind
+tools/flight_table.gd    Prints the flight numbers the docs quote, from the flight model
 tools/smoke_test.gd      Headless PASS/FAIL check
 tools/basket_test.gd     Headless baskets: nine sited and spread, chain model, band/pole/tray don't count, a chain hit collects that disc + confetti that stays: PASS/FAIL
 tools/basket_shots.gd    Screenshots: a basket close and at putting distance, confetti in the air and landed
@@ -242,10 +248,10 @@ Step 2 of throwing. `flying_disc.gd` extends `disc.gd`, so trees, lakes, beams, 
 - **Setting up a throw** (`throw_setup.gd`, spec in [THROW-HUD.md](THROW-HUD.md)): disc (E / Q), speed, nose (disc tilt relative to the flight path), hyzer (+) / anhyzer (−), spin (locked = auto, 5.2 rad/s per m/s, about 1200 rpm at 24 m/s), hand (H: `+1` backhand, `-1` forehand, which mirrors the flight). The arrows are polled in `_process` so a hold repeats: one step on press, then after 0.3 s at 10 steps/s ramping to 45. Nothing resets after a throw. Left click or Enter calls `thrower.throw_disc(setup.params())`. Aim is where you look: left/right sets the direction, up/down the launch angle (`thrower.launch_angle()` = view pitch, clamped to −45..85°; the horizon dial in the HUD shows it). There is no launch offset any more. Tests can pass `pitch` to override; release is 1.3 m up, 0.6 m ahead.
 - **Body**: a 21 cm × 3 cm cylinder collider, drawn as a 7×7 pixel circle with a darker rim and a white stamp so you can see it spin. Its colour comes from the path palette (disc, beam and path share it).
 - **Flight** (`DiscModel.step()`), every physics tick while `flying`:
-  - Angle of attack from the velocity (minus wind) and the disc's normal.
+  - Angle of attack from the velocity through the air and the disc's normal. Wind (`wind.gd`, owned by `thrower.gd`, off until F) is subtracted from the velocity before the model sees it, at the disc's height above the ground (it grows with height: log law); that is the only place it enters. `flight_sim.gd` does the same for the aim arc and the putt assist, with the gust frozen as it is now. [PHYSICS.md](PHYSICS.md#wind).
   - Lift ⟂ airflow, drag against it: `C × ½ρv² × area`, coefficients interpolated from the disc's table.
   - Moments are not applied as torques. A spinning disc precesses instead, and that slow roll is turn and fade. Early in the flight (low α) the pitching moment is negative → it turns right (RH backhand); as it slows and α grows, it goes positive → it fades left.
-  - **The model is Hummel's (2003)**; the full rationale and every number's source: [PHYSICS.md](PHYSICS.md). Moments, each with its damping term: pitch `(C_m(α) + C_Mq q)`, roll `C_Rp p`, spin down `C_Nr r`, all × `½ρv² × area × diameter`. `_attitude()` solves his Euler equations for the steady precession rates p, q (a 2×2 linear solve; wobble skipped) and turns the normal by them; roll without damping is `M / (I_z r)`, a real gyroscope. Spin decays exponentially, faster when fast (~7 %/s at 24 m/s, ~1 %/s at 10 m/s; ~15 % over a long drive).
+  - **The model is Hummel's (2003)**; the full rationale and every number's source: [PHYSICS.md](PHYSICS.md). Moments, each with its damping term: pitch `(C_m(α) + C_mq q̂)`, roll `C_lp p̂`, spin down `C_nr r̂`, all × `½ρv² × area × diameter`, the rates non-dimensional (`p̂ = p·d / 2v`; [why](PHYSICS.md#damping)). `_attitude()` solves his Euler equations for the steady precession rates p, q (a 2×2 linear solve; wobble skipped) and turns the normal by them; roll without damping is `M / (I_z r)`, a real gyroscope. Spin decays exponentially, a little faster when fast (~3 %/s at 24 m/s, ~1 %/s at 10 m/s; ~10 % over a long drive).
   - The body's orientation is set from `normal` each tick; real angular velocity stays zero. Spin (`omega`) is a number fed to the maths; the mesh spins at a capped, watchable rate.
   - Godot's default linear damping is replaced with 0 while flying (the model does drag).
 - **Landing**: first touch of anything (ground/trunk contact, bark, leaves, water) switches the aerodynamics off for good. Ordinary physics takes over with up to 25 rad/s of real spin, so it can skid, roll and flop, with a slicker material than the block (friction 0.3 vs 0.7) so it skips on instead of digging in. `flight_dist` is the carry at first contact; the HUD shows carry, rest distance, peak and airtime.

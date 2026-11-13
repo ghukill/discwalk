@@ -16,6 +16,7 @@ const CourseRound := preload("res://scripts/course_round.gd")
 const Menu := preload("res://scripts/menu.gd")
 const AIM_ARC_SCRIPT := preload("res://scripts/aim_arc.gd")
 const BASKET_FINDER_SCRIPT := preload("res://scripts/basket_finder.gd")
+const WIND_FX_SCRIPT := preload("res://scripts/wind_fx.gd")
 
 @onready var terrain: Node3D = $Terrain
 @onready var player: CharacterBody3D = $Player
@@ -23,6 +24,8 @@ const BASKET_FINDER_SCRIPT := preload("res://scripts/basket_finder.gd")
 
 var thrower: Node
 var clouds: Node3D
+var wind: RefCounted                   ## The wind (wind.gd); the thrower owns it.
+var wind_fx: Node3D                    ## Streaks, cloud drift, flower sway (wind_fx.gd).
 var controls: PanelContainer           ## ?: the controls overlay.
 var course_round: Node                 ## Course Play (course_round.gd).
 var menu: CanvasLayer                  ## Esc / Menu: the game menu (menu.gd).
@@ -52,6 +55,7 @@ func _ready() -> void:
 	for a in OS.get_cmdline_user_args():
 		if a == "--goto=warp":
 			thrower.goto_walk = false
+	_setup_wind()
 	_setup_controls()
 	_setup_round()
 	var want := ""
@@ -133,6 +137,7 @@ func _setup_throwing() -> void:
 	thrower.camera = $Player/Head/Camera3D
 	thrower.label = status
 	thrower.hud = $HUD
+	thrower.crosshair = cross
 	add_child(thrower)
 
 	# Warp flag, small, top centre; and a soft flash on arrival.
@@ -183,6 +188,30 @@ func _setup_throwing() -> void:
 	thrower.basket_finder = finder
 
 	thrower._update_lamps()
+
+
+## The wind belongs to the thrower (its discs fly in it); here it gets its
+## looks, and its command-line settings: `--wind=10` (mph at head height) or
+## `--wind=10@270` (... from the west), `--gusts=0` (0 = steady .. 0.6), and
+## `--no-streaks`.
+func _setup_wind() -> void:
+	wind = thrower.wind
+	wind_fx = Node3D.new()
+	wind_fx.set_script(WIND_FX_SCRIPT)
+	wind_fx.name = "WindFx"
+	wind_fx.wind = wind
+	wind_fx.terrain = terrain
+	wind_fx.clouds = clouds
+	wind_fx.camera = $Player/Head/Camera3D
+	add_child(wind_fx)
+	for a in OS.get_cmdline_user_args():
+		if a.begins_with("--gusts="):
+			wind.set_gustiness(a.get_slice("=", 1).to_float())
+		elif a == "--no-streaks":
+			wind_fx.streaks_on = false
+	for a in OS.get_cmdline_user_args():
+		if a.begins_with("--wind=") and not wind.parse(a.get_slice("=", 1)):
+			push_warning("--wind= wants mph, or mph@bearing: %s" % a)
 
 
 func _input(event: InputEvent) -> void:

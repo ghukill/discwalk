@@ -46,8 +46,9 @@ const RANGES := {
 }
 ## What the speed you have dialled in is FOR. The edges are where a putter,
 ## a midrange and a driver all carry about the same: at 12 m/s (27 mph) they
-## carry 14-16 m, at 21.5 m/s (48 mph) 55-75 m. Measured over flat ground at
-## nose +6, 8 deg hyzer -- not guessed from the numbers on the disc.
+## all carry 18 m, at 21.5 m/s (48 mph) 51-55 m. Measured over flat ground at
+## nose +6, 8 deg hyzer, 10 deg up (tools/flight_table.gd) -- not guessed from
+## the numbers on the disc.
 const SPEED_BANDS := [
 	{"to": 12.0, "name": "putt", "tag": "P"},
 	{"to": 21.5, "name": "midrange", "tag": "M"},

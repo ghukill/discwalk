@@ -14,7 +14,7 @@ How the numbers are made, and why: [PHYSICS.md](PHYSICS.md). The data files:
 | 2 | **Drumlin** | midrange | stable | Innova Roc | Steady; a little hyzer and it finishes left. |
 | 3 | **Esker** | midrange | straight | Discraft Buzz | Straight-to-understable at speed; give it some hyzer. |
 | 4 | **Till** | distance driver | very understable | Discwing Quarter K | Turns over if you throw it flat. Throw it on a big hyzer and it flips up and runs. |
-| 5 | **Outwash** | distance driver | understable | "Storm" (maker not given) | Turns a bit at speed; long and easy with 15–20° of hyzer. |
+| 5 | **Outwash** | distance driver | understable | "Storm" (maker not given) | Turns a bit at speed; long and easy with 10–15° of hyzer. |
 | 6 | **Moraine** | distance driver | stable | Innova Wraith | The distance driver (and the one you start with). A little hyzer and it flips flat and goes far. |
 | 7 | **Erratic** | distance driver | very overstable | Discraft Flick | Always hooks left (RH backhand), even thrown anhyzer. For forcing a fade and for wind. |
 
@@ -26,16 +26,74 @@ more. "R"/"L" is where it ends up relative to the line you threw on.
 
 | Disc | Speed | Flat | 10° hyzer | 20° hyzer | Note |
 |---|---|---|---|---|---|
-| Kettle | 16 m/s | 37 m, 3 R | 36 m, 4 L | 32 m, 7 L | putts and approaches |
-| Drumlin | 19 m/s | 51 m, 2 R | 48 m, 8 L | 41 m, 9 L | |
-| Esker | 19 m/s | 42 m, 9 R | 53 m, 6 R | 54 m, 5 L | |
-| Till | 23 m/s | 48 m, 9 R | 56 m, 10 R | 66 m, 8 R | 25–30° hyzer: ~70 m, straight |
-| Outwash | 23 m/s | 61 m, 15 R | 78 m, 15 R | 87 m, 6 L | |
-| Moraine | 24 m/s | 73 m, 21 R | 93 m, 3 R | 88 m, 18 L | |
-| Erratic | 24 m/s | 61 m, 12 L | 57 m, 16 L | 52 m, 15 L | 10° anhyzer: 65 m, 4 L |
+| Kettle | 16 m/s (36 mph) | 37 m, 3 R | 36 m, 5 L | 32 m, 7 L | putts and approaches |
+| Drumlin | 19 m/s (43 mph) | 51 m, 2 R | 48 m, 8 L | 42 m, 10 L | |
+| Esker | 19 m/s (43 mph) | 44 m, 11 R | 55 m, 5 R | 54 m, 8 L | |
+| Till | 23 m/s (51 mph) | 52 m, 14 R | 62 m, 16 R | 78 m, 11 R | 25–30° hyzer: ~80 m, straight |
+| Outwash | 23 m/s (51 mph) | 64 m, 19 R | 85 m, 14 R | 81 m, 14 L | |
+| Moraine | 24 m/s (54 mph) | 83 m, 29 R | 87 m, 5 L | 81 m, 23 L | 20° hyzer, nose −4: 94 m |
+| Erratic | 24 m/s (54 mph) | 62 m, 12 L | 57 m, 15 L | 52 m, 15 L | 10° anhyzer: 66 m, 3 L |
 
 Forehand (H) is the mirror image: swap L and R. A faster throw means more
 turn (understable) early; a slower one means more fade (overstable) late.
+These tables are printed by `tools/flight_table.gd`, from the flight model.
+
+### A soft toss
+
+A disc floats when it is slow and its nose is up: it climbs a little on its
+own lift, runs out of speed, and settles. With the Kettle, a little hyzer:
+
+| Speed | Look up | Nose | Carry | Peak | In the air | Lands |
+|---|---|---|---|---|---|---|
+| 22 mph | 10° | +5 | 12 m (41 ft) | 1.6 m | 1.6 s | at 15 mph, dropping 24° |
+| 25 mph | 10° | +5 | 16 m (54 ft) | 1.9 m | 2.0 s | at 15 mph, dropping 25° |
+| 25 mph | 15° | +5 | 16 m (52 ft) | 2.5 m | 2.2 s | at 15 mph, dropping 39° |
+| 28 mph | 10° | +5 | 21 m (68 ft) | 2.3 m | 2.5 s | at 15 mph, dropping 27° |
+| 28 mph | 20° | +5 | 18 m (58 ft) | 3.8 m | 2.6 s | at 16 mph, dropping 56° |
+
+(With no air, 25 mph at 10° would go 8 m in 0.7 s: twice the distance and
+three times the hang is all float.) The recipe: nose up 5, speed in the
+mid-20s, look a little above the target rather than at it. Thrown flat
+(nose 0) the same speed arrives lower, hotter and shorter.
+
+At a basket inside 20 m (66 ft) you do not have to find that angle yourself:
+the crosshair turns amber on it, and the throw is lofted to arrive at the
+chains. So the speed bar becomes a softness dial. From 17 m (56 ft) with the
+Kettle: 42 mph is a flat line arriving at 35 mph; 31 mph leaves 5° up and
+arrives at 23; 28 mph leaves 9° up and floats in at 19. Slower than that will
+not reach, and the game says so. A floated disc fades more, so give it a few
+degrees of anhyzer to hold the line.
+
+### Full power
+
+At 80 mph every disc flies nose-down to the air (lift goes as speed squared,
+so it carries its weight at about −3°), and that is where a disc turns
+hardest. Flat releases flip over inside a second:
+
+| Disc | 10° up, flat | 10° up, 20° hyzer | 20° up, 30° hyzer |
+|---|---|---|---|
+| Outwash | 86 m, 19 R, down in 4 s | 106 m, 23 R | 137 m, 20 R, 12 s aloft |
+| Moraine | 83 m, 16 R, down in 3 s | 104 m, 22 R | 146 m, 40 R, 12 s aloft |
+| Erratic | 110 m, 3 L | 98 m, 32 L | 80 m, 44 L |
+
+So: a lot of hyzer (30–40°) and some height for the understable drivers (the
+Moraine's best is ~160 m on 40°), or the Erratic, which is the only disc that
+takes 80 mph flat.
+
+### In the wind
+
+F turns the wind up, Z turns it round; the arrow on the heading dial shows
+where the air is going. Moraine, 54 mph, 10° up, 10° hyzer, in a steady
+10 mph:
+
+| Calm | Headwind | Tailwind | Left to right | Right to left |
+|---|---|---|---|---|
+| 87 m, 5 L | 58 m, 21 R | 78 m, 13 L | 97 m, 22 R | 87 m, 18 L |
+
+A headwind lifts a disc and flips it over, so throw something more stable
+(the Erratic into 15 mph: 37 m and still 16 L) and keep it low, where the wind
+is lighter. A tailwind pushes it down and makes it fade early: throw higher,
+and something less stable. More in [PHYSICS.md](PHYSICS.md#wind).
 
 ## Reading the kinds
 

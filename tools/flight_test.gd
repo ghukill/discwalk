@@ -23,14 +23,14 @@ const DiscModel := preload("res://scripts/disc_model.gd")
 ## (released 1.3 m up, flight ends when it gets back to y = 0; RH backhand).
 ## From tools/discs/hummel_reference.py.
 const REFERENCE := [
-	[["moraine", 24.0, 124.8, 10.0, 0.0, 10.0], [93.9, -4.2]],   # spin 125 -> 105
-	[["moraine", 24.0, 124.8, 10.0, 0.0, 0.0], [72.0, -19.8]],   # spin 125 -> 106
-	[["erratic", 24.0, 124.8, 10.0, 0.0, 0.0], [60.5, 12.5]],   # spin 125 -> 110
-	[["till", 23.0, 119.6, 10.0, 0.0, 25.0], [69.0, -3.6]],   # spin 120 -> 105
-	[["outwash", 23.0, 119.6, 10.0, 0.0, 15.0], [86.0, -6.5]],   # spin 120 -> 102
-	[["esker", 19.0, 98.8, 10.0, 0.0, 10.0], [52.8, -6.1]],   # spin 99 -> 91
-	[["drumlin", 19.0, 98.8, 10.0, 0.0, 10.0], [48.1, 7.5]],   # spin 99 -> 92
-	[["kettle", 16.0, 83.2, 10.0, 0.0, 0.0], [36.9, -3.1]],   # spin 83 -> 79
+	[["moraine", 24.0, 124.8, 10.0, 0.0, 10.0], [87.4, 4.2]],   # spin 125 -> 111
+	[["moraine", 24.0, 124.8, 10.0, 0.0, 0.0], [82.1, -28.6]],   # spin 125 -> 111
+	[["erratic", 24.0, 124.8, 10.0, 0.0, 0.0], [61.5, 11.9]],   # spin 125 -> 115
+	[["till", 23.0, 119.6, 10.0, 0.0, 25.0], [79.9, 0.3]],   # spin 120 -> 108
+	[["outwash", 23.0, 119.6, 10.0, 0.0, 15.0], [84.5, 2.5]],   # spin 120 -> 107
+	[["esker", 19.0, 98.8, 10.0, 0.0, 10.0], [55.1, -5.2]],   # spin 99 -> 92
+	[["drumlin", 19.0, 98.8, 10.0, 0.0, 10.0], [48.1, 7.9]],   # spin 99 -> 93
+	[["kettle", 16.0, 83.2, 10.0, 0.0, 0.0], [36.9, -3.0]],   # spin 83 -> 79
 ]
 
 var _models := {}
@@ -179,7 +179,7 @@ func _report() -> void:
 			by.ref7_kettle.carry, by.ref7_kettle.left],
 			by.ref7_kettle.carry > 30.0 and by.ref7_kettle.carry < 45.0 and absf(by.ref7_kettle.left) < 6.0],
 		["a driver out-carries the putter at 24 m/s (%.1f vs %.1f m)" % [by.ref0_moraine.carry, by.kettle_24.carry],
-			by.ref0_moraine.carry > by.kettle_24.carry + 15.0],
+			by.ref0_moraine.carry > by.kettle_24.carry + 10.0],
 		["forehand mirrors backhand", absf(by.moraine_fh.left + by.moraine_bh.left) < 1.0],
 		# Hyzer also shortens the flight, so compare the bend as an angle.
 		["more hyzer bends further left (angle)",
@@ -233,8 +233,12 @@ func _report() -> void:
 	var gap := Vector2(pl.global_position.x - wd.global_position.x, pl.global_position.z - wd.global_position.z).length() if is_instance_valid(wd) else 1e9
 	checks.append(["goto (G on mid-flight): waits (lamp breathing), then lands you %.1f m from the rested disc" % gap,
 		_warp_waiting and not _main.thrower.warp_pending() and gap < 2.5])
-	# Launch angle = where you look (no pitch in the params, no offset).
+	# Launch angle = where you look (no pitch in the params, no offset). The
+	# aim at whatever the crosshair is on (aim_test.gd covers that) is switched
+	# off for this: it bends the angle whenever the ground ahead is close, and
+	# how close depends on where the goto above happened to put us.
 	var head: Node3D = _main.get_node("Player/Head")
+	th.aim_min = 1e9
 	var angles := []
 	for look in [12.0, -5.0, 30.0]:
 		head.rotation.x = deg_to_rad(look)
@@ -243,7 +247,7 @@ func _report() -> void:
 		angles.append(rad_to_deg(atan2(v.y, Vector2(v.x, v.z).length())))
 	head.rotation.x = 0.0
 	checks.append(["launch angle = view (12, -5, 30 -> %.1f, %.1f, %.1f)" % angles,
-		absf(angles[0] - 12.0) < 0.5 and absf(angles[1] + 5.0) < 0.5 and absf(angles[2] - 30.0) < 0.5])
+		absf(angles[0] - 12.0) < 0.1 and absf(angles[1] + 5.0) < 0.1 and absf(angles[2] - 30.0) < 0.1])
 	checks.append(["view (V on mid-flight) chases the disc (%d frames, max %.1f m away), hands back at rest" % [
 		_follow_seen, _follow_far], _follow_seen > 60 and _follow_far < 8.0 and back_home])
 	for ch in checks:

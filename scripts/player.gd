@@ -361,6 +361,8 @@ static func _ensure_input_actions() -> void:
 		"overview": [KEY_M],             # hole overview (Course Play)
 		"hole_prev": [KEY_BRACKETLEFT],  # Course Play: straight to another tee
 		"hole_next": [KEY_BRACKETRIGHT],
+		"wind": [KEY_F],                 # wind strength (Shift: lighter). F for force, as in Beaufort
+		"wind_turn": [KEY_Z],            # turn the wind 45 deg (Shift: the other way). Z for zephyr
 		# Throw setup (throw_setup.gd). Shift + up/down = speed, + left/right = spin.
 		"tilt_up": [KEY_UP],
 		"tilt_down": [KEY_DOWN],
