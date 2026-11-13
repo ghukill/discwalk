@@ -11,7 +11,10 @@ extends Node3D
 ## It is the REAL flight model run forward, not a parabola: the same
 ## DiscModel.step() the disc itself uses each physics tick, with the same
 ## gravity, so the arc turns and fades exactly as the throw will. Change the
-## disc, the speed, the nose or the hyzer and the arc changes with it.
+## disc, the speed, the nose or the hyzer and the arc changes with it. It
+## bends with the wind too: the wind as it is blowing this instant, held
+## still (flight_sim.gd), so in a gusty wind the arc breathes and the throw
+## may not land quite where it said.
 ##
 ## Why it exists: the crosshair tells you a direction, and a thrown disc is a
 ## projectile, so it always lands below the thing you sighted on. That is
@@ -156,7 +159,7 @@ func simulate() -> PackedVector3Array:
 	var aim: Array = thrower.aim_from(origin, view_fwd)
 	var fwd: Vector3 = aim[0]
 	origin = thrower.release(fwd)
-	return FlightSim.fly_throw(setup.params(), origin, fwd, aim[1], terrain)
+	return FlightSim.fly_throw(thrower.throw_params(), origin, fwd, aim[1], terrain)
 
 
 func _on_ground(p: Vector3) -> bool:

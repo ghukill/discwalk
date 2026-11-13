@@ -8,7 +8,8 @@ extends "res://scripts/disc.gd"
 ##   drag and the gyroscopic roll (turn/fade) from the disc's tilt, and this
 ##   script keeps the body's orientation glued to that tilt. Spin is just a
 ##   number (rad/s) fed to the roll maths (it bleeds off in flight under the
-##   Hummel model); the mesh spins for show only.
+##   Hummel model); the mesh spins for show only. Wind (wind.gd) comes in
+##   here and nowhere else: the model is handed the velocity through the air.
 ## - On first contact with anything (ground, trunk, bark, leaves, water) the
 ##   aerodynamics switch off for good and ordinary physics takes over: skips,
 ##   rolls, flips. The disc keeps a little real spin so it can roll on edge.
@@ -31,7 +32,7 @@ var model: RefCounted                ## DiscModel
 var normal := Vector3.UP             ## Top face direction while flying.
 var omega := 0.0                     ## Spin (rad/s).
 var hand := 1.0                      ## +1 RH backhand, -1 RH forehand.
-var wind := Vector3.ZERO             ## m/s (static for now).
+var wind: RefCounted                 ## The air it flies through (wind.gd); null = still.
 var flying := false                  ## Aerodynamics on.
 var speed0 := 0.0
 var flight_time := 0.0
@@ -171,7 +172,13 @@ func apply_aero(state: PhysicsDirectBodyState3D, v: Vector3) -> Vector3:
 	if splashed:
 		_land("water", state)
 		return v
-	var r: Array = model.step(v - wind, normal, omega, hand, dt)
+	# The model works on the velocity THROUGH THE AIR, so wind is not a force:
+	# it is subtracted here, at the disc's height (wind grows with height).
+	var air := v
+	if wind != null and not wind.is_calm():
+		var p := state.transform.origin
+		air -= wind.at_height(p.y - terrain.height_at(p.x, p.z))
+	var r: Array = model.step(air, normal, omega, hand, dt)
 	v += r[0] * dt
 	normal = r[1]
 	omega = r[3]

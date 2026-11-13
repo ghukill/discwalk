@@ -87,6 +87,8 @@ A tap moves one fine step (0.5° nose, 1° hyzer, 1 mph or 0.5 m/s, 2 rad/s spin
 | - / = | HUD smaller / bigger (also `-- --ui-scale=1.5` at launch) |
 | N | roll a brand-new world (course); a round starts over on hole 1 |
 | K | clouds on/off (launch with `-- --no-clouds` to start without them) |
+| F / Shift + F | **wind** stronger / lighter: calm (the start), light 5 mph, breezy 10, windy 15, strong 20, gale 30. It is lighter near the ground and stronger up high, and it gusts. A pale arrow on the heading dial shows where the air is going, with the speed and "head / tail / L→R" under it; streaks drift past at the wind's speed (launch with `-- --wind=10@270` to start in one) |
+| Z / Shift + Z | turn the wind 45° clockwise / back (it starts out of the west) |
 | Esc | the **menu** (pauses, frees the mouse): Resume, Free Play, Course Play, Controls, Quit |
 
 The HUD grows with the window (1× up to 900 px tall, then in proportion), so fullscreen on a big or Retina screen stays readable. If it's still small or too big, - / = adjust it.
@@ -222,9 +224,11 @@ Done:
 Next (pick any):
 - [ ] Menu, more: New world, **Display** sub-menu (fullscreen toggle to start)
 - [ ] Course Play, more: scorecard + par, OB / water penalties, mandos, tee signs, smarter hole order (2-opt) and fairways
-- [ ] **Wind**: static vector to start (the flight model already subtracts it), maybe gusts; a wind arrow on the dials; drives cloud drift
+- [x] **Wind** ([PHYSICS.md](docs/PHYSICS.md#wind)): F turns it up (calm to gale), Z turns it round. Lighter near the ground and stronger aloft (log profile), gusting; discs, the aim arc and the putt assist all fly in it. An arrow on the heading dial, streaks in the air, and the clouds and flowers go with it. Headwinds flip a disc, tailwinds drop it, with nothing added to the flight model: it just flies through moving air
+- [x] **Physics, second pass** ([PHYSICS.md](docs/PHYSICS.md#damping)): the damping terms made non-dimensional (they were ~10× too strong at golf-disc speeds, holding discs in a turn and diving them at full power), spin down fixed, `tools/flight_table.gd` prints every flight number in the docs
+- [ ] Wind, more: shelter behind trees and hills, a windsock by the tee, wind per course / per round, wind on the controller
 - [ ] Throw HUD follow-ups: a better nose display (try it, iterate), a mouse-drag option
-- [ ] Golf-disc damping coefficients (Turner 2025, requested) in place of Hummel's Frisbee values; per-disc mass
+- [ ] Measured golf-disc damping and spin-roll coefficients (Turner 2025, requested) in place of theory; a stable driver between the Moraine and the Erratic; per-disc mass
 - [ ] Picture-in-picture follow cam
 - [ ] Discs resting in trees
 - [x] **Baskets, step 1**: nine voxel baskets per world; a chain hit collects the disc and throws confetti

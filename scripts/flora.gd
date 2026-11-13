@@ -105,6 +105,11 @@ func build(t: Node3D) -> void:
 		scatter_flowers()
 
 
+## The one material every flower shares; wind_fx.gd sets its sway from the wind.
+func sway_material() -> ShaderMaterial:
+	return _sway_material
+
+
 ## The wildflowers. build() does this itself unless defer_flowers is set;
 ## then terrain.gd calls it once the tee pads are painted (no flowers on them).
 func scatter_flowers() -> void:

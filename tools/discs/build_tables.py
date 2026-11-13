@@ -21,6 +21,11 @@ Every number's provenance is in docs/PHYSICS.md. In short, for each disc:
 
 Inertia comes from the measured rim geometry (Table 4.1) with a two-part mass
 model (flight plate + rim), see inertia(). Mass 175 g for all.
+
+Rate damping (non-dimensional, per rate x d / 2V; see docs/PHYSICS.md,
+"Damping"): roll and pitch damping from strip theory on the disc's own measured
+lift slope, C_lp = C_mq = -C_La / 8; spin down C_nr from Hummel's long-flight
+fit, made non-dimensional at his flight speed.
 """
 import json
 import math
@@ -37,6 +42,11 @@ POS_BLEND = (25.0, 45.0)
 NEG_BLEND = (-12.0, -30.0)
 CM_EASE_POS = 10.0     # deg: how quickly the C_M slope eases off past 15 deg
 CM_EASE_NEG = 5.0      # deg: ... and past -5 deg
+STRIP_DAMPING = 1 / 8  # C_lp = C_mq = -C_La x this: strip theory for a round planform
+# Spin down. Hummel (2003) fitted C_Nr = -3.41e-5 per rad/s to a 0.269 m
+# Frisbee flying at 13.5 m/s (flight f2302); as a non-dimensional derivative,
+# per (r d / 2V), that is -3.41e-5 x 2 x 13.5 / 0.269.
+C_NR = round(-3.41e-5 * 2 * 13.5 / 0.269, 5)
 
 # alpha grid for the output table: fine where flights live, coarse in the stall
 GRID = ([-90, -80, -70, -60, -50, -40, -35, -30, -25, -20, -16, -14, -12, -10, -8, -6]
@@ -171,6 +181,7 @@ def main():
         g = K.GEOMETRY.get(src, K.GEOMETRY["Wraith"])
         jxy, jz = inertia(g)
         rows = table(src, d.get("cm_shift", 0.0))
+        damping = round(-math.degrees(K.FITS[src][1]) * STRIP_DAMPING, 4)
         synthetic = d.get("synthetic", False)
         out = {
             "id": d["id"],
@@ -187,13 +198,17 @@ def main():
             "diameter": g["d"],
             "J_xy": round(jxy, 6),
             "J_z": round(jz, 6),
+            "Clp": damping,
+            "Cmq": damping,
+            "Cnr": C_NR,
             "alpha": [r[0] for r in rows],
             "Cl": [r[1] for r in rows],
             "Cd": [r[2] for r in rows],
             "Cm": [r[3] for r in rows],
         }
         (OUT / f"{d['id']}.json").write_text(json.dumps(out, indent=1) + "\n")
-        print(f"{d['id']:8s} <- {out['inspired_by']:32s} J_xy={jxy:.5f} J_z={jz:.5f}")
+        print(f"{d['id']:8s} <- {out['inspired_by']:32s} J_xy={jxy:.5f} J_z={jz:.5f} "
+              f"Clp=Cmq={damping:.3f}")
 
 
 if __name__ == "__main__":

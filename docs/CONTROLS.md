@@ -4,7 +4,7 @@ How every input works today, keyboard + mouse and controller side by side.
 
 > In game: press **?** (or open the menu, Esc / Menu on a controller, → Controls) for the same tables as an overlay (`scripts/controls_panel.gd`; keep it in step with this file).
 >
-> Code: bindings live in `scripts/player.gd` (`_ensure_input_actions`). Handlers: `scripts/player.gd` (walk, look, jump, crouch, run), `scripts/throw_setup.gd` (throw setup), `scripts/thrower.gd` (throws, toggles), `scripts/course_round.gd` (Course Play: overview, skipping the walk, jumping between holes), `scripts/menu.gd` (the menu), `scripts/main.gd` (world, clouds, HUD size). The throw HUD itself is specced in [THROW-HUD.md](THROW-HUD.md).
+> Code: bindings live in `scripts/player.gd` (`_ensure_input_actions`). Handlers: `scripts/player.gd` (walk, look, jump, crouch, run), `scripts/throw_setup.gd` (throw setup), `scripts/thrower.gd` (throws, toggles), `scripts/course_round.gd` (Course Play: overview, skipping the walk, jumping between holes), `scripts/menu.gd` (the menu), `scripts/main.gd` (world, clouds, HUD size). The wind keys are in `scripts/thrower.gd` too (`tools/wind_test.gd`). The throw HUD itself is specced in [THROW-HUD.md](THROW-HUD.md).
 > Controller: Xbox-style (tested with an Xbox Series X|S pad). Any connected controller works. Mapping notes: `scratch/controller.md` (not committed). Tests: `tools/controls_test.gd` (controller pages, crouch), `tools/hud_test.gd` (throw setup keys).
 
 ## Controller at a glance
@@ -93,6 +93,8 @@ A tap moves one fine step (0.5° nose, 1° hyzer, 1 mph speed — or 0.5 m/s if 
 | Hide / show the throw HUD and the "Press ? for controls" hint | U | — |
 | HUD smaller / bigger | - / = (also keypad; `--ui-scale=` at launch) | — |
 | Clouds on / off | K | — |
+| **Wind** stronger / lighter: calm → light (5 mph) → breezy (10) → windy (15) → strong (20) → gale (30) → calm. Speeds are what you would feel at head height; see [PHYSICS.md](PHYSICS.md#wind) | F / Shift + F | — |
+| Turn the wind 45° clockwise / anticlockwise (it starts out of the west) | Z / Shift + Z | — |
 | New world (course) | N | — |
 
 ## Crouching
@@ -114,7 +116,7 @@ One height, toggled (Tab / X), no need to hold. Crouched: eyes drop 0.65 m, the 
 
 ## Not on the controller yet
 
-Hide HUD (U), HUD size, clouds (K), new world (N), jump between holes ([ / ]).
+Hide HUD (U), HUD size, clouds (K), wind (F, Z), new world (N), jump between holes ([ / ]).
 
 ## Notes
 

@@ -207,13 +207,32 @@ func _test_agree() -> void:
 	th.setup.roll = 8.0
 	await process_frame
 	th.set_aim_arc(true)
-	await process_frame
-	await process_frame
-	var pts: PackedVector3Array = arc.points()
+	# The arc does not know about trees, so the comparison needs a line with
+	# none on it: turn until the predicted flight is clear of every branch
+	# and leaf, and if the woods are too thick for that, throw softer and
+	# look again. (Which way is clear depends on the world and on how the disc
+	# flies, so it is searched for rather than written down.)
+	var pts := PackedVector3Array()
+	var clear := false
+	for speed in [20.0, 16.0, 13.0]:
+		th.setup.set_value("speed", speed)
+		for step in 24:
+			# 0, +15, -15, +30, ...: stay near north if north will do.
+			var turn: float = 15.0 * ceilf(step / 2.0) * (1.0 if step % 2 == 1 else -1.0)
+			player.rotation.y = deg_to_rad(turn)
+			await process_frame
+			await process_frame
+			pts = arc.points()
+			if pts.size() >= 2 and _clear_of_trees(t, pts):
+				clear = true
+				break
+		if clear:
+			break
 	if pts.size() < 2:
 		_check("arc produced a path", false)
 		_done("agree")
 		return
+	_check("found a line with no trees on it", clear)
 	var predicted: Vector3 = pts[pts.size() - 1]
 	var d = th.throw_disc(th.setup.params())
 	var landed := Vector3.ZERO
@@ -235,11 +254,27 @@ func _test_agree() -> void:
 		# about trees or the ground collider's smoothing, so it will never be
 		# exact. It must not be misleading, which is a different bar.
 		_check("arc predicts the landing spot", miss < maxf(2.0, flown * 0.06),
-			"predicted %.1f m out, landed %.1f m out, %.2f m apart" % [
-				Vector2(predicted.x - tee.x, predicted.z - tee.z).length(), flown, miss])
+			"predicted %.1f m out, landed %.1f m out (on %s), %.2f m apart" % [
+				Vector2(predicted.x - tee.x, predicted.z - tee.z).length(), flown,
+				d.landed_by, miss])
 	if is_instance_valid(d):
 		d.queue_free()
 	_done("agree")
+
+
+## True if no point of `pts` is in a tree voxel, or within MARGIN of one (the
+## real flight strays a little from the arc, and it only takes one leaf).
+func _clear_of_trees(t: Node3D, pts: PackedVector3Array) -> bool:
+	const MARGIN := 0.75
+	var bs: float = t.block_size
+	var offsets := [Vector3.ZERO, Vector3(MARGIN, 0, 0), Vector3(-MARGIN, 0, 0),
+		Vector3(0, MARGIN, 0), Vector3(0, -MARGIN, 0), Vector3(0, 0, MARGIN), Vector3(0, 0, -MARGIN)]
+	for p in pts:
+		for off: Vector3 in offsets:
+			var q: Vector3 = p + off
+			if t.flora.voxel_at(Vector3i(floori(q.x / bs), floori(q.y / bs), floori(q.z / bs))) != 0:
+				return false
+	return true
 
 
 ## The point of the putt assist: aim at the chains from putting range and the
@@ -269,7 +304,9 @@ func _test_putt() -> void:
 	# a metre above the ground around it, and 9 m/s (20 mph) cannot throw a
 	# disc 10 m uphill at all -- no launch angle reaches, which is physics,
 	# not a bug. The unreachable case is checked on purpose further down.
-	for case in [[4.0, 9.0], [7.0, 10.0], [10.0, 12.0]]:
+	# The last one is the soft approach from 56 ft: out past where the assist
+	# used to stop, at a speed that only gets there with loft.
+	for case in [[4.0, 9.0], [7.0, 10.0], [10.0, 12.0], [17.0, 14.0]]:
 		var dist: float = case[0]
 		th.clear()
 		var at: Vector3 = b.global_position + Vector3(0.0, 0.0, float(dist))
@@ -304,11 +341,18 @@ func _test_putt() -> void:
 		var view_fwd: Vector3 = Vector3(0, 0, -1).rotated(Vector3.UP, player.rotation.y)
 		var origin: Vector3 = th.release(view_fwd)
 		var aim: Array = th.aim_from(origin, view_fwd)
+		# The basket may sit well above or below this spot (it depends on the
+		# world), so if this much arm cannot get there, use a little more:
+		# the promise is that a throw that CAN arrive does.
+		while th._assist_short and th.setup.speed < 24.0:
+			th.setup.set_value("speed", th.setup.speed + 2.0)
+			await process_frame
+			aim = th.aim_from(origin, view_fwd)
 		var path: PackedVector3Array = FlightSim.fly_throw(
 			th.setup.params(), origin, aim[0], aim[1], t)
 		var err: float = FlightSim.height_error(path, origin, tgt.at)
-		_check("putt from %.0f m at %.0f m/s arrives where it is aimed" % [dist, case[1]],
-			is_finite(err) and absf(err) < 0.2,
+		_check("putt from %.0f m at %.0f m/s arrives where it is aimed" % [dist, th.setup.speed],
+			is_finite(err) and absf(err) < 0.2 and th.assist_armed() and not th._assist_short,
 			"%+.2f m off the aim point (launch %+.1f deg)" % [err, aim[1]]
 			if is_finite(err) else "fell short (launch %+.1f deg)" % aim[1])
 
@@ -320,32 +364,45 @@ func _test_putt() -> void:
 			var weak: Array = th.aim_from(origin, view_fwd)
 			var line: float = rad_to_deg(atan2(tgt.at.y - origin.y,
 				Vector2(tgt.at.x - origin.x, tgt.at.z - origin.z).length()))
-			_check("out of range falls back to the straight line",
-				absf(weak[1] - clampf(line, th.launch_min, th.launch_max)) < 0.5,
+			_check("too soft to arrive: the straight line, and it says so",
+				absf(weak[1] - clampf(line, th.launch_min, th.launch_max)) < 0.5
+				and th._assist_short,
 				"5 m/s at %.0f m: aim %+.2f deg, line %+.2f deg" % [dist, weak[1], line])
-	# Beyond the fade the assist must be gone: a long throw keeps its arc.
+	# Beyond the range the assist must be gone: a long throw keeps its arc.
+	# Needs something to aim at that really is far off, so turn (and tip the
+	# view) until the crosshair lands on ground well past the range; standing
+	# 40 m from the basket is no use if a rise 4 m ahead is what you are
+	# looking at. And at a speed that could loft it there, or "no assist"
+	# proves nothing.
 	th.clear()
-	var at2: Vector3 = b.global_position + Vector3(0.0, 0.0, 40.0)
-	at2.y = t.height_at(at2.x, at2.z)
-	player.global_position = at2
+	th.setup.set_value("speed", 20.0)
+	player.global_position = t.spawn_point()
 	for i in 8:
 		await process_frame
-	var band2: Vector3 = b.global_position + Vector3(0, Basket.CHAIN_TOP, 0)
-	var to2: Vector3 = band2 - cam.global_position
-	player.rotation.y = atan2(-to2.x, -to2.z)
-	await process_frame
-	to2 = band2 - cam.global_position
-	cam.rotation.x = atan2(to2.y, Vector2(to2.x, to2.z).length())
-	await process_frame
-	var vf2: Vector3 = Vector3(0, 0, -1).rotated(Vector3.UP, player.rotation.y)
-	var o2: Vector3 = th.release(vf2)
-	var a2: Array = th.aim_from(o2, vf2)
-	var tgt2: Dictionary = th.aim_target()
-	var straight: float = rad_to_deg(atan2(tgt2.at.y - o2.y,
-		Vector2(tgt2.at.x - o2.x, tgt2.at.z - o2.z).length())) if tgt2.hit else a2[1]
-	_check("no assist out at 40 m", absf(a2[1] - straight) < 0.5,
-		"aim %+.2f deg vs straight line %+.2f deg" % [a2[1], straight])
-	_check("assist blend: 1 near, 0 far", th._assist_blend(5.0) == 1.0
+	var tgt2 := {"hit": false, "dist": 0.0}
+	for look in [-4.0, -8.0, -2.0, -12.0]:
+		for step in 12:
+			player.rotation.y = deg_to_rad(30.0 * step)
+			cam.rotation.x = deg_to_rad(look)
+			await process_frame
+			await process_frame
+			tgt2 = th.aim_target()
+			if tgt2.hit and tgt2.dist > th.putt_assist_fade + 8.0 and tgt2.dist < 120.0:
+				break
+		if tgt2.hit and tgt2.dist > th.putt_assist_fade + 8.0 and tgt2.dist < 120.0:
+			break
+	var far: bool = tgt2.hit and tgt2.dist > th.putt_assist_fade + 8.0
+	_check("something far off to aim at", far, "%.1f m away" % tgt2.dist)
+	if far:
+		var vf2: Vector3 = Vector3(0, 0, -1).rotated(Vector3.UP, player.rotation.y)
+		var o2: Vector3 = th.release(vf2)
+		var a2: Array = th.aim_from(o2, vf2)
+		var straight: float = rad_to_deg(atan2(tgt2.at.y - o2.y,
+			Vector2(tgt2.at.x - o2.x, tgt2.at.z - o2.z).length()))
+		_check("no assist past the range", absf(a2[1] - straight) < 0.05 and not th.assist_armed(),
+			"aim %+.2f deg vs straight line %+.2f deg, target %.1f m away" % [a2[1], straight, tgt2.dist])
+	_check("assist: all of it inside circle 2, none beyond", th._assist_blend(5.0) == 1.0
+		and th._assist_blend(19.0) == 1.0 and th._assist_blend(21.0) == 0.0
 		and th._assist_blend(40.0) == 0.0,
 		"5 m -> %.2f, 15 m -> %.2f, 40 m -> %.2f" % [
 			th._assist_blend(5.0), th._assist_blend(15.0), th._assist_blend(40.0)])

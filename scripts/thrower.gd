@@ -35,6 +35,11 @@ extends Node
 ##            paths drift down and go poof, beams go out, new throws leave
 ##            none.
 ##   U        hide / show the throw HUD
+##   F        WIND: step the strength up (Shift + F: down) through calm,
+##            light, breezy, windy, strong, gale (wind.gd). Starts calm.
+##   Z        turn the wind 45 degrees clockwise (Shift + Z: the other way).
+##            The heading dial carries an arrow for it; every disc throw, the
+##            aim arc and the putt assist fly in it. Cubes do not.
 ##   C        collect: every disc rolls home to you, building up speed,
 ##            and basket confetti flies in (ignores chase and goto)
 ##
@@ -61,6 +66,7 @@ const FollowCam := preload("res://scripts/follow_cam.gd")
 const Paths := preload("res://scripts/paths.gd")
 const ShotCircle := preload("res://scripts/shot_circle.gd")
 const Course := preload("res://scripts/course.gd")
+const Wind := preload("res://scripts/wind.gd")
 
 signal thrown(disc)                      ## A real disc left your hand (not a cube).
 signal warped(disc, lie)                 ## Goto got you to a throw; lie = where it lies (m).
@@ -68,6 +74,8 @@ signal reached(disc, lie)                ## You're at your lie (by goto, or walk
 signal basket_scored(disc, basket)       ## A throw counted in a basket.
 
 const CIRCLE_RADIUS := 1.0               ## Shot-circle (m).
+const CROSS_PLAIN := Color(1, 1, 1, 0.75)        ## The crosshair...
+const CROSS_ASSIST := Color(1.0, 0.72, 0.3, 0.95)  ## ... and when the putt assist has your target.
 const GOTO_SPEED := 7.0                  ## Goto's walk to your disc (m/s).
 
 @export var speed_per_level := 4.0      ## Old block power levels (tests): m/s per level.
@@ -83,6 +91,8 @@ var throw_hud: Control                   ## Lower-right instrument block (throw_
 var follow_cam: Camera3D
 var paths: Node3D
 var disc_models: Array = []
+var wind: RefCounted                     ## The air (wind.gd). Ours unless main hands one in.
+var _throw_wind := ""                    ## The wind as the last disc left your hand (for the result line).
 
 var paths_on := true                     ## Paths + rest beams (P).
 var view_on := false                     ## VIEW toggle (V).
@@ -132,9 +142,22 @@ var dials: Control                       ## Heading + horizon, in the HUD (dials
 ## Deliberately limited to putting range. Solving the angle at any distance
 ## would land every drive on the pin and delete distance control, which is
 ## most of the game. Set the range to 0 to turn the assist off entirely.
-@export var putt_assist_range := 12.0
-## ... and it eases off to nothing by this far out, so there is no cliff
-## between an assisted putt and an unassisted approach.
+##
+## The range is circle 2's edge (20 m, 66 ft): the furthest anyone calls a
+## putt. It used to be 12 m, easing off to nothing by 20, and the easing was
+## the trouble. It blended the solved angle toward the straight line, and the
+## straight line never gets a disc there, so anywhere in that band a throw
+## aimed at the chains came in under them at EVERY speed: 0.2-0.7 m low from
+## 15 m, on the ground short of the basket from 17 m. That band is 40-66 ft,
+## which is exactly a soft, floated approach, and it could not be thrown at
+## what you were looking at. Inside the range now, the softer you throw the
+## more loft the solve gives you: 28 mph at 17 m leaves 9 degrees up and
+## arrives at 19 mph, which is a float.
+@export var putt_assist_range := 20.0
+## Past the range the assist can ease off over a band (out to here) instead
+## of stopping dead. Off by default, i.e. equal to the range, for the reason
+## above: a half-assisted throw misses. The crosshair shows which side of the
+## line you are on (it warms up when the assist has your target).
 @export var putt_assist_fade := 20.0
 ## How much wider than the basket's own mouth the crosshair may pass and still
 ## count as aiming at it. The test is against the CATCH VOLUME -- the cylinder
@@ -144,6 +167,9 @@ var dials: Control                       ## Heading + horizon, in the HUD (dials
 ## the chain centre before you have moved at all.
 @export var aim_basket_margin := 0.12
 var discs: Array = []
+var crosshair: Label                     ## The + in the middle; warms up when the assist has your target.
+var _assist_short := false               ## The last aim wanted the assist but the throw is too soft to arrive.
+var _cross_armed := false                ## The crosshair is showing its amber.
 var assume_captured := false             ## Tests: treat the mouse as captured (headless can't).
 var _last: Node = null
 var _flying_text := ""
@@ -153,6 +179,8 @@ var basket_hits := 0                 ## Baskets hit this session (just for fun).
 
 
 func _ready() -> void:
+	if wind == null:
+		wind = Wind.new()
 	disc_models = DiscModel.load_all()
 	setup = ThrowSetup.new()
 	setup.name = "ThrowSetup"
@@ -163,6 +191,7 @@ func _ready() -> void:
 	throw_hud.name = "ThrowHud"
 	throw_hud.setup = setup
 	throw_hud.camera = camera
+	throw_hud.wind = wind
 	if hud != null:
 		hud.add_child(throw_hud)
 		throw_hud.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
@@ -220,6 +249,10 @@ func _unhandled_input(event: InputEvent) -> void:
 		set_view(not view_on)
 	elif event.is_action_pressed("hud"):
 		set_hud(not hud_shown())
+	elif event.is_action_pressed("wind"):
+		step_wind(-1 if Input.is_key_pressed(KEY_SHIFT) else 1)
+	elif event.is_action_pressed("wind_turn"):
+		turn_wind(-45.0 if Input.is_key_pressed(KEY_SHIFT) else 45.0)
 	elif event.is_action_pressed("collect") and _pad_page(event, "setup_disc"):
 		collect()
 	elif _going and _skips_walk(event, captured):
@@ -279,6 +312,45 @@ func set_hud(on: bool) -> void:
 		throw_hud.visible = on
 	if hud != null and hud.has_node("Help"):
 		hud.get_node("Help").visible = on
+
+
+## F: the wind a step stronger (or, with -1, lighter), round through calm.
+func step_wind(step := 1) -> void:
+	wind.cycle(step)
+	_note_wind()
+
+
+## Z: turn the wind `deg` clockwise on the compass.
+func turn_wind(deg: float) -> void:
+	wind.turn(deg)
+	_note_wind()
+
+
+func _note_wind() -> void:
+	if wind.is_calm():
+		_note("wind: calm  ·  F for a breeze (it would come from the %s)" % wind.from_name(), 1.8)
+	else:
+		_note("wind: %s  ·  %s %s from the %s" % [wind.strength_name(),
+			setup.speed_str(wind.speed), setup.unit_name(), wind.from_name()], 1.8)
+
+
+## The wind you feel right now, in words, against a throw heading `fwd`
+## (default: the way you face): "calm", or "11 mph head L→R".
+func wind_text(fwd := Vector3.ZERO) -> String:
+	if wind == null or wind.is_calm():
+		return "calm"
+	var w: Vector3 = wind.head()
+	var rel: String = Wind.relative_name(w, fwd if fwd.length() > 0.01 else _flat_forward())
+	return "%s %s%s" % [setup.speed_str(w.length()), setup.unit_name(),
+		(" " + rel) if rel != "" else ""]
+
+
+## The throw you have set up, plus the air it will fly through: what the aim
+## arc and the putt assist simulate (flight_sim.gd reads `wind`).
+func throw_params() -> Dictionary:
+	var p: Dictionary = setup.params()
+	p["wind"] = wind
+	return p
 
 
 ## Fires an orange cube from just in front of the camera at `speed` m/s
@@ -436,11 +508,29 @@ func aim_from(origin: Vector3, view_fwd: Vector3) -> Array:
 	var straight := clampf(rad_to_deg(atan2(to.y, flat.length())), launch_min, launch_max)
 	var fwd := flat.normalized()
 	var k := _assist_blend(flat.length())
+	_assist_short = false
 	if k <= 0.0 or setup == null or setup.disc() == null:
 		return [fwd, straight]
-	var solved: float = FlightSim.solve_pitch(setup.params(), origin, fwd, t.at,
-		terrain, straight)
+	# NAN back means nothing reaches it at this speed: say so (throw_disc
+	# does), and throw the straight line rather than something made up.
+	var solved: float = FlightSim.solve_pitch(throw_params(), origin, fwd, t.at,
+		terrain, NAN)
+	if is_nan(solved):
+		_assist_short = true
+		return [fwd, straight]
 	return [fwd, clampf(lerpf(straight, solved, k), launch_min, launch_max)]
+
+
+## True when what the crosshair is on is close enough for the putt assist: a
+## throw at it will be lofted to arrive there (if it has the speed to).
+func assist_armed() -> bool:
+	if putt_assist_range <= 0.0 or camera == null or player == null:
+		return false
+	var t := aim_target()
+	if not t.hit or t.dist < aim_min:
+		return false
+	var o := release(_flat_forward())
+	return _assist_blend(Vector2(t.at.x - o.x, t.at.z - o.z).length()) > 0.0
 
 
 ## How much of the putt assist applies at this range: all of it inside
@@ -476,12 +566,16 @@ func throw_disc(p: Dictionary) -> Node:
 		fwd = aim[0]
 		pitch = aim[1]
 		origin = release(fwd)
+		if _assist_short:
+			_note("too soft to get there: thrown straight at it", 1.6)
 	var ls := DiscModel.launch_state(fwd, p.speed, pitch, p.nose, p.roll, hand)
 	var disc: RigidBody3D = RigidBody3D.new()
 	disc.set_script(FLYING_DISC_SCRIPT)
 	disc.name = "FlyingDisc"
 	disc.terrain = terrain
 	disc.model = p.disc
+	disc.wind = wind
+	_throw_wind = wind_text(fwd)
 	disc.color = paths.next_color()      # disc, beam and path share a colour
 	disc.beam_on = paths_on
 	get_parent().add_child(disc)
@@ -984,8 +1078,18 @@ func _update_lamps() -> void:
 		lamps.set_lamps(view_on, warp_on, paths_on, circle_on, arc_glow)
 
 
+## The gusts move on with the physics, so a disc and the HUD read one wind.
+func _physics_process(delta: float) -> void:
+	wind.advance(delta)
+
+
 func _process(_delta: float) -> void:
 	_update_warp(_delta)
+	if crosshair != null:
+		var armed := assist_armed()
+		if armed != _cross_armed:
+			_cross_armed = armed
+			crosshair.add_theme_color_override("font_color", CROSS_ASSIST if armed else CROSS_PLAIN)
 	var following: bool = follow_cam != null and follow_cam.active()
 	var rolling := 0
 	for d in discs:
@@ -1021,6 +1125,8 @@ func _on_rest(disc: Node) -> void:
 	if disc.splashed:
 		notes.append("splash!")
 	if "model" in disc:
+		if _throw_wind != "" and _throw_wind != "calm":
+			notes.append("wind " + _throw_wind)
 		_result_text = "last disc (%s): carry %.1f m, rest %.1f m, peak %.1f m, %.1f s in the air%s" % [
 			disc.model.label, disc.flight_dist, disc.distance(), disc.max_height, disc.flight_time,
 			("  ·  " + ", ".join(notes)) if notes.size() > 0 else ""]

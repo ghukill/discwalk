@@ -17,19 +17,30 @@ extends RefCounted
 const AIR_DENSITY := 1.225           ## kg/m^3
 const DATA_DIR := "res://data/discs"
 
-## Hummel's damping coefficients, from his long-flight fit (flight f2302:
-## thesis Table 3-2 and simulate_flight.m). They are DIMENSIONAL: each
-## multiplies a rate in rad/s, then q A d like the other moments:
-##   roll   R = C_Rp p           q A d   (wobble damping)
-##   pitch  M = (C_M(a) + C_Mq q) q A d  (C_M(a) comes from the disc table)
-##   spin   N = C_Nr r           q A d   (spin down)
-## They were measured on a 175 g Frisbee, not a golf disc, so a disc JSON may
-## override them ("CMq", "CRp", "CNr"). Hummel's 4th rate term, C_Rr (roll
-## moment from spin), is left out: his value and its scaling disagree with
-## Potts & Crowther's, and Kamaruddin measured ~0 rolling moment on golf discs.
-const HUMMEL_CMQ := -1.44e-2
-const HUMMEL_CRP := -1.25e-2
-const HUMMEL_CNR := -3.41e-5
+## Rate damping and spin down. The FORM is Hummel's (2003, eq. 2.8): three
+## moments that grow with the disc's own turning rates,
+##   roll   R = C_lp p^      q A d     (resists the roll rate p)
+##   pitch  M = (C_M(a) + C_mq q^) q A d   (C_M(a) comes from the disc table)
+##   spin   N = C_nr r^      q A d     (spin down)
+## but with the rates NON-DIMENSIONAL, as in any flight-dynamics text:
+## p^ = p d / 2V and likewise for q and r. That matters. A rate derivative
+## measures how much the turning changes the local airflow angle (p y / V), so
+## its moment grows with V, not with V^2. Hummel's published numbers are
+## per rad/s, fitted to a 27 cm Frisbee at 13.5 m/s; used as they stand at
+## 24-36 m/s on a 21 cm golf disc they come out about ten times too strong
+## (docs/PHYSICS.md, "Damping").
+##
+## The values: strip theory gives C_lp = C_mq = -C_La / 8 for a round wing
+## (C_La = lift slope per radian, measured for each disc: about -0.3), and
+## build_tables.py writes that into each disc JSON ("Clp", "Cmq"). Spin down
+## is Hummel's long-flight fit made non-dimensional at his flight speed
+## ("Cnr"); a skin-friction estimate lands on the same number.
+##
+## Hummel's 4th rate term, C_Rr (roll moment from spin), is left out: his
+## flight-fitted value and Potts & Crowther's wind-tunnel table disagree even
+## in sign (thesis Table 3-2), and both are for a Frisbee.
+const SPIN_DOWN := -3.4e-3           ## C_nr, per (r d / 2V).
+const STRIP_DAMPING := 1.0 / 8.0     ## C_lp = C_mq = -C_La x this.
 
 var id := ""
 var label := ""
@@ -44,9 +55,9 @@ var order := 0                       ## Sort key (putter -> drivers).
 var kind := ""                       ## putter / midrange / distance driver ...
 var stability := ""                  ## straight / stable / overstable / understable ...
 var inspired_by := ""                ## The real disc whose data this is.
-var c_mq := HUMMEL_CMQ               ## Pitch damping (per rad/s).
-var c_rp := HUMMEL_CRP               ## Roll damping (per rad/s).
-var c_nr := HUMMEL_CNR               ## Spin down (per rad/s).
+var c_mq := -0.3                     ## Pitch damping, per (q d / 2V).
+var c_lp := -0.3                     ## Roll damping, per (p d / 2V).
+var c_nr := SPIN_DOWN                ## Spin down, per (r d / 2V).
 
 var _alpha := PackedFloat32Array()   ## deg, ascending, covers -90..90
 var _cl := PackedFloat32Array()
@@ -55,7 +66,8 @@ var _cm := PackedFloat32Array()
 
 
 ## Loads one disc from JSON: {id, label, source, license, diameter, J_xy, J_z,
-## alpha[], Cl[], Cd[], Cm[]} plus optional Hummel overrides {CMq, CRp, CNr}.
+## alpha[], Cl[], Cd[], Cm[]} plus optional rate derivatives {Clp, Cmq, Cnr}
+## (non-dimensional; without them the damping comes from the lift slope).
 ## J_* are inertia per unit mass (m^2). Optional: order, kind, stability,
 ## inspired_by.
 static func load_json(path: String, disc_mass := 0.175) -> RefCounted:
@@ -74,16 +86,23 @@ static func load_json(path: String, disc_mass := 0.175) -> RefCounted:
 	m.kind = d.get("kind", "")
 	m.stability = d.get("stability", "")
 	m.inspired_by = d.get("inspired_by", "")
-	m.c_mq = float(d.get("CMq", HUMMEL_CMQ))
-	m.c_rp = float(d.get("CRp", HUMMEL_CRP))
-	m.c_nr = float(d.get("CNr", HUMMEL_CNR))
 	m._alpha = PackedFloat32Array(d.alpha)
 	m._cl = PackedFloat32Array(d.Cl)
 	m._cd = PackedFloat32Array(d.Cd)
 	m._cm = PackedFloat32Array(d.Cm)
 	assert(m._alpha.size() == m._cl.size() and m._cl.size() == m._cd.size()
 		and m._cd.size() == m._cm.size(), "disc %s: table lengths differ" % path)
+	var strip: float = -m.lift_slope() * STRIP_DAMPING
+	m.c_lp = float(d.get("Clp", strip))
+	m.c_mq = float(d.get("Cmq", strip))
+	m.c_nr = float(d.get("Cnr", SPIN_DOWN))
 	return m
+
+
+## Lift slope C_La (per radian) over 0..5 deg, where every disc's lift is a
+## straight line.
+func lift_slope() -> float:
+	return (coeffs(5.0).x - coeffs(0.0).x) / deg_to_rad(5.0)
 
 
 ## Every disc under res://data/discs/*/*.json, sorted by order, then id.
@@ -172,12 +191,13 @@ func step(v: Vector3, n: Vector3, omega: float, hand: float, dt: float) -> Array
 	lift_dir = lift_dir.normalized() if lift_dir.length() > 1e-6 else Vector3.ZERO
 	var force := (lift_dir * c.x - vh * c.y) * q * area
 	var new_n := n
+	var qad := q * area * diameter
+	var rate := diameter / (2.0 * speed)        # makes a rate non-dimensional: p d / 2V
 	if vpl > 1e-4 and omega > 0.1:
-		var qad := q * area * diameter
-		new_n = _attitude(n, vp / vpl, c.z, qad, -hand * omega, dt)
-	# Spin down: I_z dr/dt = C_Nr r qAd, so spin decays exponentially,
-	# faster at high speed (qAd goes as v^2): ~7 %/s at 24 m/s.
-	var new_omega := omega * exp(c_nr * q * area * diameter * dt / i_z)
+		new_n = _attitude(n, vp / vpl, c.z, qad, -hand * omega, rate, dt)
+	# Spin down: I_z dr/dt = C_nr (r d / 2V) qAd, so spin decays exponentially,
+	# a little faster at speed (it goes as V): ~3 %/s at 24 m/s.
+	var new_omega := omega * exp(c_nr * rate * qad * dt / i_z)
 	return [force / mass, new_n, alpha, new_omega]
 
 
@@ -186,25 +206,28 @@ func step(v: Vector3, n: Vector3, omega: float, hand: float, dt: float) -> Array
 ## component p, ŷ = pitch component q) are
 ##   I_xy dw/dt + I_z r (w x n) = M_perp.
 ## The I_xy dw/dt part is wobble (nutation): it spins around at ~2r, about
-## 200 rad/s, and Hummel's damping kills it in ~0.25 s. Dropping it leaves the
-## steady precession, M_perp = I_z r (w x n), with w x n = p ŷ - q x̂:
-##   x̂ (roll):   C_Rp p qAd           = -I_z r q
-##   ŷ (pitch):  (C_M + C_Mq q) qAd   =  I_z r p
+## 200 rad/s, and the damping kills it in a fraction of a second. Dropping it
+## leaves the steady precession, M_perp = I_z r (w x n), with w x n = p ŷ - q x̂:
+##   x̂ (roll):   C_lp p k qAd           = -I_z r q
+##   ŷ (pitch):  (C_M + C_mq q k) qAd   =  I_z r p        (k = d / 2V)
 ## Two linear equations for p and q, solved exactly below. Without damping
 ## this is p = M / (I_z r): a gyroscope's precession. Roll damping adds a small
-## pitch rate q (the nose drifts as the disc turns/fades); pitch damping slows
-## the roll a little. Matches a full 6-DOF integration (wobble and all) to ~1%;
-## see tools/discs/hummel_reference.py.
-##   x   unit airflow direction in the disc plane (Hummel's roll axis)
-##   cm  pitching-moment coefficient at this angle of attack
-##   r   signed spin about n (rad/s): -omega for a RH backhand (clockwise)
+## pitch rate q (the nose drifts a little as the disc turns/fades); pitch
+## damping slows the roll a little. Both are a few percent of the roll rate.
+## Matches a full 6-DOF integration (wobble and all) to a few percent; see
+## tools/discs/hummel_reference.py.
+##   x     unit airflow direction in the disc plane (Hummel's roll axis)
+##   cm    pitching-moment coefficient at this angle of attack
+##   r     signed spin about n (rad/s): -omega for a RH backhand (clockwise)
+##   rate  d / 2V: turns a rate in rad/s into its non-dimensional form
 func _attitude(n: Vector3, x: Vector3, cm: float, qad: float, r: float,
-		dt: float) -> Vector3:
+		rate: float, dt: float) -> Vector3:
 	var y := x.cross(n)                         # Hummel's pitch axis (to the right)
 	var h := i_z * r
-	var qad2 := qad * qad
-	var q_rate := -(c_rp * cm * qad2) / (h * h + c_rp * c_mq * qad2)
-	var p_rate := (cm + c_mq * q_rate) * qad / h
+	var roll_damp := c_lp * rate * qad          # N m per rad/s of roll rate
+	var pitch_damp := c_mq * rate * qad
+	var q_rate := -(roll_damp * cm * qad) / (h * h + roll_damp * pitch_damp)
+	var p_rate := (cm * qad + pitch_damp * q_rate) / h
 	var w := x * p_rate + y * q_rate
 	var wl := w.length()
 	if wl < 1e-9:

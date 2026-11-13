@@ -44,6 +44,10 @@ const RIGHT := [
 		["aim arc: off / flight only / whole throw", "T", ""],
 		["basket beam: next / previous", "B / Shift+B", ""],
 	]],
+	["Wind", [
+		["stronger / lighter", "F / Shift+F", ""],
+		["turn it 45° / back", "Z / Shift+Z", ""],
+	]],
 	["Course Play", [
 		["hole overview", "M", "LB + B"],
 		["course map (WASD pans)", "Shift + M", "LB + B twice"],

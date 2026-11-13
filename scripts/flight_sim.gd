@@ -10,6 +10,12 @@ extends RefCounted
 ## It mirrors flying_disc.apply_aero exactly: aero acceleration from
 ## DiscModel.step plus gravity, no damping (a disc turns its damping off while
 ## flying), stepping at the physics tick.
+##
+## Wind (wind.gd) is taken as it is blowing RIGHT NOW and held for the whole
+## run: the same height profile the disc will meet, but the gust frozen. So
+## the arc and the putt assist answer "where would it go if the wind stayed
+## like this?", which is all anyone standing on a tee can know. A gust that
+## arrives mid-flight is the throw's to deal with.
 
 const STEP_DT := 1.0 / 60.0          ## The tick the disc really flies at.
 const MAX_STEPS := 900               ## ~15 s, longer than any throw.
@@ -21,9 +27,11 @@ static func gravity() -> float:
 
 
 ## Fly it. Returns every point from the release to the first ground contact.
-## `terrain` may be null, in which case it only stops at MAX_STEPS or FLOOR_Y.
+## `terrain` may be null, in which case it only stops at MAX_STEPS or FLOOR_Y
+## (and heights for the wind are taken above y = 0). `wind` (wind.gd) may be
+## null: still air.
 static func fly(model, origin: Vector3, vel: Vector3, normal: Vector3, omega: float,
-		hand: float, terrain, max_steps := MAX_STEPS) -> PackedVector3Array:
+		hand: float, terrain, max_steps := MAX_STEPS, wind = null) -> PackedVector3Array:
 	var out := PackedVector3Array()
 	if model == null:
 		return out
@@ -32,9 +40,14 @@ static func fly(model, origin: Vector3, vel: Vector3, normal: Vector3, omega: fl
 	var n := normal
 	var w := omega
 	var p := origin
+	var windy: bool = wind != null and not wind.is_calm()
+	var ground: float = terrain.height_at(p.x, p.z) if terrain != null else 0.0
 	out.append(p)
 	for i in max_steps:
-		var r: Array = model.step(v, n, w, hand, STEP_DT)
+		var air := v
+		if windy:
+			air -= wind.at_height(p.y - ground)
+		var r: Array = model.step(air, n, w, hand, STEP_DT)
 		v += r[0] * STEP_DT
 		n = r[1]
 		w = r[3]
@@ -43,21 +56,23 @@ static func fly(model, origin: Vector3, vel: Vector3, normal: Vector3, omega: fl
 		out.append(p)
 		if p.y < FLOOR_Y:
 			break
-		if terrain != null and p.y <= terrain.height_at(p.x, p.z):
-			break
+		if terrain != null:
+			ground = terrain.height_at(p.x, p.z)
+			if p.y <= ground:
+				break
 	return out
 
 
 ## Fly the throw described by `s` (a throw_setup-shaped dictionary:
-## {disc, speed, nose, roll, spin, hand}) at launch angle `pitch`, heading
-## `fwd`, from `origin`.
+## {disc, speed, nose, roll, spin, hand}, plus an optional `wind`) at launch
+## angle `pitch`, heading `fwd`, from `origin`.
 static func fly_throw(s: Dictionary, origin: Vector3, fwd: Vector3, pitch: float,
 		terrain, max_steps := MAX_STEPS) -> PackedVector3Array:
 	var model = s.disc
 	if model == null:
 		return PackedVector3Array()
 	var ls: Array = model.launch_state(fwd, s.speed, pitch, s.nose, s.roll, s.hand)
-	return fly(model, origin, ls[0], ls[1], s.spin, s.hand, terrain, max_steps)
+	return fly(model, origin, ls[0], ls[1], s.spin, s.hand, terrain, max_steps, s.get("wind"))
 
 
 ## How high the flight passes the target, in metres: + means it goes OVER.
@@ -98,7 +113,7 @@ static func height_error(path: PackedVector3Array, origin: Vector3, target: Vect
 ## table -- so it has to be searched.
 ##
 ## Returns `fallback` if nothing reaches the target: running out of arm never
-## silently becomes a flat throw.
+## silently becomes a flat throw. (Pass NAN to be told, as thrower.gd does.)
 static func solve_pitch(s: Dictionary, origin: Vector3, fwd: Vector3, target: Vector3,
 		terrain, fallback: float, lo := -45.0, hi := 60.0, scan := 2.0) -> float:
 	var want := Vector2(target.x - origin.x, target.z - origin.z).length()
